@@ -1,4 +1,4 @@
-import { Check, X, ExternalLink, Save } from 'lucide-react';
+import { Check, X, ExternalLink, Save, Key, Copy } from 'lucide-react';
 
 interface NotificationWindowProps {
   notifications: any[];
@@ -96,22 +96,67 @@ export function NotificationWindow({
           </div>
         )}
 
-        <div className="flex space-x-2">
-          <button 
-            className="flex-1 bg-primary text-white py-1.5 px-3 rounded text-xs font-medium hover:bg-primary/90 transition-colors"
-            onClick={() => onOpenFile(recentNotification)}
-          >
-            <ExternalLink className="w-3 h-3 mr-1 inline" />
-            Open
-          </button>
-          <button 
-            className="flex-1 bg-gray-100 text-gray-700 py-1.5 px-3 rounded text-xs font-medium hover:bg-gray-200 transition-colors"
-            onClick={() => onSaveFile(recentNotification)}
-          >
-            <Save className="w-3 h-3 mr-1 inline" />
-            Save
-          </button>
-        </div>
+        {recentNotification.type === 'connection-request-sent' && recentNotification.connectionKey && (
+          <div className="bg-blue-50 rounded p-3 mb-3 border border-blue-200">
+            <div className="flex items-center gap-2 mb-2">
+              <Key className="h-4 w-4 text-blue-600" />
+              <span className="text-sm font-medium text-blue-800">Share this key:</span>
+            </div>
+            <div className="flex items-center justify-between bg-white p-2 rounded border">
+              <span className="text-2xl font-bold text-blue-900 tracking-wider">
+                {recentNotification.connectionKey}
+              </span>
+              <button
+                onClick={() => navigator.clipboard?.writeText(recentNotification.connectionKey)}
+                className="p-1 hover:bg-blue-100 rounded"
+                title="Copy to clipboard"
+              >
+                <Copy className="h-4 w-4 text-blue-600" />
+              </button>
+            </div>
+            <p className="text-xs text-blue-600 mt-1">
+              The other user needs this key to approve your connection
+            </p>
+          </div>
+        )}
+
+        {/* Show different actions based on notification type */}
+        {recentNotification.file ? (
+          <div className="flex space-x-2">
+            <button 
+              className="flex-1 bg-primary text-white py-1.5 px-3 rounded text-xs font-medium hover:bg-primary/90 transition-colors"
+              onClick={() => onOpenFile(recentNotification)}
+            >
+              <ExternalLink className="w-3 h-3 mr-1 inline" />
+              Open
+            </button>
+            <button 
+              className="flex-1 bg-gray-100 text-gray-700 py-1.5 px-3 rounded text-xs font-medium hover:bg-gray-200 transition-colors"
+              onClick={() => onSaveFile(recentNotification)}
+            >
+              <Save className="w-3 h-3 mr-1 inline" />
+              Save
+            </button>
+          </div>
+        ) : recentNotification.type === 'connection-request-sent' ? (
+          <div className="text-center">
+            <button 
+              className="w-full bg-blue-600 text-white py-1.5 px-3 rounded text-xs font-medium hover:bg-blue-700 transition-colors"
+              onClick={() => onDismiss(recentNotification.id)}
+            >
+              Got it
+            </button>
+          </div>
+        ) : (
+          <div className="text-center">
+            <button 
+              className="w-full bg-gray-100 text-gray-700 py-1.5 px-3 rounded text-xs font-medium hover:bg-gray-200 transition-colors"
+              onClick={() => onDismiss(recentNotification.id)}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-4">

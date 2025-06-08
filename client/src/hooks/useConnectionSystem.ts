@@ -5,7 +5,7 @@ export interface ConnectionSystemState {
   isSetup: boolean;
   isConnecting: boolean;
   currentDevice: Device | null;
-  connections: Connection[];
+  connections: any[];
   files: File[];
   notifications: any[];
   searchResults: Device[];
@@ -88,17 +88,30 @@ export function useConnectionSystem() {
               notifications: [...prev.notifications, {
                 id: Date.now(),
                 type: 'connection-request-sent',
-                title: 'Connection request sent',
-                message: `Connection key: ${message.data.connectionKey}`,
+                title: 'Connection Request Sent',
+                message: `Your verification key is: ${message.data.connectionKey}`,
+                connectionKey: message.data.connectionKey,
                 timestamp: new Date()
               }]
             }));
             break;
 
           case 'connection-approved':
+            // Create a proper connection object or fetch from API
+            const newConnection = {
+              id: message.data.connectionId,
+              requesterDeviceId: 0, // Will be updated when we fetch full connection data
+              targetDeviceId: 0,
+              connectionKey: '',
+              status: 'active',
+              createdAt: new Date(),
+              approvedAt: new Date(),
+              terminatedAt: null
+            };
+            
             setState(prev => ({ 
               ...prev, 
-              connections: [...prev.connections, { id: message.data.connectionId }],
+              connections: [...prev.connections, newConnection],
               notifications: [...prev.notifications, {
                 id: Date.now(),
                 type: 'connection-approved',
