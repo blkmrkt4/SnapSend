@@ -190,46 +190,59 @@ export function ConnectionManager({
         <CardContent>
           <form onSubmit={handleSearch} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="search">Search for a user</Label>
+              <Label htmlFor="search">Search for a user to connect with</Label>
               <div className="flex gap-2">
                 <Input
                   id="search"
-                  placeholder="Enter user's nickname..."
+                  placeholder="Enter user's nickname (e.g., Glutathione)..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   disabled={isSearching}
                 />
-                <Button type="submit" disabled={!searchQuery.trim() || isSearching}>
+                <Button 
+                  type="submit" 
+                  disabled={!searchQuery.trim() || isSearching}
+                  className="bg-blue-600 hover:bg-blue-700 min-w-[100px]"
+                >
                   {isSearching ? 'Searching...' : 'Find User'}
                 </Button>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Type the exact nickname of the user you want to connect with, then click "Find User"
+              </p>
             </div>
           </form>
 
           {/* Search Results */}
           {searchResults.length > 0 && (
-            <div className="mt-4 space-y-2">
-              <Label className="text-sm font-medium">Available Users:</Label>
+            <div className="mt-6 p-4 border-2 border-green-200 rounded-lg bg-green-50">
+              <Label className="text-sm font-semibold text-green-800 mb-3 block">Found Users - Click to Connect:</Label>
               {searchResults.map((user) => (
-                <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg bg-muted/30">
+                <div key={user.id} className="flex items-center justify-between p-4 border border-green-300 rounded-lg bg-white shadow-sm">
                   <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${user.isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
+                    <div className={`w-4 h-4 rounded-full ${user.isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
                     <div>
-                      <p className="font-medium">{user.nickname}</p>
+                      <p className="font-semibold text-lg">{user.nickname}</p>
                       <p className="text-sm text-muted-foreground">
-                        {user.isOnline ? 'Online and available' : 'Currently offline'}
+                        {user.isOnline ? '🟢 Online and ready to connect' : '🔴 Currently offline'}
                       </p>
                     </div>
                   </div>
                   <Button
                     disabled={!user.isOnline}
                     onClick={() => handleConnectionRequest(user.nickname)}
-                    className="bg-blue-600 hover:bg-blue-700"
+                    className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-2"
+                    size="lg"
                   >
-                    {user.isOnline ? 'Send Connection Request' : 'Offline'}
+                    {user.isOnline ? '📤 Send Connection Request' : 'Offline'}
                   </Button>
                 </div>
               ))}
+              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
+                <p className="text-sm text-blue-800">
+                  <strong>Next step:</strong> Click "Send Connection Request" to initiate the connection. You'll receive a 2-digit key to share with the other user.
+                </p>
+              </div>
             </div>
           )}
 
@@ -240,6 +253,30 @@ export function ConnectionManager({
               </p>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Quick Demo Section */}
+      <Card className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200">
+        <CardHeader>
+          <CardTitle className="text-purple-900 flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Quick Demo Instructions
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm space-y-3">
+          <div className="p-3 bg-white rounded border border-purple-200">
+            <p className="font-semibold text-purple-900 mb-2">To test the connection flow:</p>
+            <div className="space-y-1 text-purple-800">
+              <p>1. Open this app in two browser tabs/windows</p>
+              <p>2. Set up each tab with different nicknames (like "Thyroxine" and "Glutathione")</p>
+              <p>3. In one tab, search for the other nickname and click "Send Connection Request"</p>
+              <p>4. Share the verification key with the other tab and approve the connection</p>
+            </div>
+          </div>
+          <div className="text-xs text-purple-600">
+            Each device needs a unique nickname to be discoverable by others.
+          </div>
         </CardContent>
       </Card>
 
