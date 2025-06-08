@@ -19,7 +19,7 @@ export const files = pgTable("files", {
   fromDeviceId: integer("from_device_id").references(() => devices.id),
   toDeviceId: integer("to_device_id").references(() => devices.id),
   transferredAt: timestamp("transferred_at").defaultNow(),
-  isClipboard: integer("is_clipboard", { mode: "boolean" }).default(false),
+  isClipboard: integer("is_clipboard").default(0),
 });
 
 export const insertDeviceSchema = createInsertSchema(devices).omit({

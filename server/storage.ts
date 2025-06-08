@@ -1,4 +1,6 @@
 import { devices, files, type Device, type File, type InsertDevice, type InsertFile } from "@shared/schema";
+import { db } from "./db";
+import { eq, like, or, desc } from "drizzle-orm";
 
 export interface IStorage {
   // Device management
@@ -18,100 +20,78 @@ export interface IStorage {
   searchFiles(query: string): Promise<File[]>;
 }
 
-export class MemStorage implements IStorage {
-  private devices: Map<number, Device>;
-  private files: Map<number, File>;
-  private currentDeviceId: number;
-  private currentFileId: number;
-
-  constructor() {
-    this.devices = new Map();
-    this.files = new Map();
-    this.currentDeviceId = 1;
-    this.currentFileId = 1;
-  }
-
-  // Device management
-  async createDevice(insertDevice: InsertDevice): Promise<Device> {
-    const id = this.currentDeviceId++;
-    const device: Device = {
-      ...insertDevice,
-      id,
-      lastSeen: new Date(),
-    };
-    this.devices.set(id, device);
-    return device;
-  }
-
+export class DatabaseStorage implements IStorage {
   async getDevice(id: number): Promise<Device | undefined> {
-    return this.devices.get(id);
+    const [device] = await db.select().from(devices).where(eq(devices.id, id));
+    return device || undefined;
   }
 
   async getDeviceBySocketId(socketId: string): Promise<Device | undefined> {
-    return Array.from(this.devices.values()).find(
-      (device) => device.socketId === socketId,
-    );
+    const [device] = await db.select().from(devices).where(eq(devices.socketId, socketId));
+    return device || undefined;
+  }
+
+  async createDevice(insertDevice: InsertDevice): Promise<Device> {
+    const [device] = await db
+      .insert(devices)
+      .values(insertDevice)
+      .returning();
+    return device;
   }
 
   async updateDeviceLastSeen(socketId: string): Promise<void> {
-    const device = await this.getDeviceBySocketId(socketId);
-    if (device) {
-      device.lastSeen = new Date();
-      this.devices.set(device.id, device);
-    }
+    await db
+      .update(devices)
+      .set({ lastSeen: new Date() })
+      .where(eq(devices.socketId, socketId));
   }
 
   async removeDevice(socketId: string): Promise<void> {
-    const device = await this.getDeviceBySocketId(socketId);
-    if (device) {
-      this.devices.delete(device.id);
-    }
+    await db.delete(devices).where(eq(devices.socketId, socketId));
   }
 
   async getAllDevices(): Promise<Device[]> {
-    return Array.from(this.devices.values());
+    return await db.select().from(devices);
   }
 
-  // File management
   async createFile(insertFile: InsertFile): Promise<File> {
-    const id = this.currentFileId++;
-    const file: File = {
-      ...insertFile,
-      id,
-      transferredAt: new Date(),
-    };
-    this.files.set(id, file);
+    const [file] = await db
+      .insert(files)
+      .values(insertFile)
+      .returning();
     return file;
   }
 
   async getFile(id: number): Promise<File | undefined> {
-    return this.files.get(id);
+    const [file] = await db.select().from(files).where(eq(files.id, id));
+    return file || undefined;
   }
 
   async getFilesByDevice(deviceId: number): Promise<File[]> {
-    return Array.from(this.files.values()).filter(
-      (file) => file.toDeviceId === deviceId,
-    );
+    return await db.select().from(files).where(eq(files.toDeviceId, deviceId));
   }
 
   async getAllFiles(): Promise<File[]> {
-    return Array.from(this.files.values()).sort(
-      (a, b) => (b.transferredAt?.getTime() || 0) - (a.transferredAt?.getTime() || 0)
-    );
+    return await db.select().from(files).orderBy(desc(files.transferredAt));
   }
 
   async deleteFile(id: number): Promise<void> {
-    this.files.delete(id);
+    await db.delete(files).where(eq(files.id, id));
   }
 
   async searchFiles(query: string): Promise<File[]> {
-    const lowerQuery = query.toLowerCase();
-    return Array.from(this.files.values()).filter(
-      (file) =>
-        file.originalName.toLowerCase().includes(lowerQuery) ||
-        (file.content && file.content.toLowerCase().includes(lowerQuery))
-    );
+    const searchPattern = `%${query}%`;
+    return await db
+      .select()
+      .from(files)
+      .where(
+        or(
+          like(files.originalName, searchPattern),
+          like(files.content, searchPattern)
+        )
+      )
+      .orderBy(desc(files.transferredAt));
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
