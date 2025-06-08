@@ -109,13 +109,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
               isClipboard: message.data.isClipboard ? 1 : 0,
             });
 
-            // Broadcast to all other clients
+            // Broadcast to all clients (including sender for confirmation)
             const transferMessage: WebSocketMessage = {
               type: 'file-received',
               data: { file, fromDevice: deviceName }
             };
             
-            broadcast(transferMessage, clientId);
+            // Send to all clients including the sender
+            connectedClients.forEach((client, id) => {
+              if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify(transferMessage));
+              }
+            });
 
             // If it's clipboard content, also send clipboard sync
             if (message.data.isClipboard) {

@@ -47,9 +47,11 @@ export function useWebSocket(deviceName: string) {
       ws.current.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
+          console.log('WebSocket message received:', message.type, message.data);
           
           switch (message.type) {
             case 'initial-data':
+              console.log('Setting initial files:', message.data.files);
               setFiles(message.data.files || []);
               setState(prev => ({
                 ...prev,
@@ -73,7 +75,12 @@ export function useWebSocket(deviceName: string) {
               break;
               
             case 'file-received':
-              setFiles(prev => [message.data.file, ...prev]);
+              console.log('File received:', message.data.file);
+              setFiles(prev => {
+                const newFiles = [message.data.file, ...prev];
+                console.log('Updated files list:', newFiles);
+                return newFiles;
+              });
               setNotifications(prev => [...prev, {
                 id: Date.now(),
                 type: 'file',
