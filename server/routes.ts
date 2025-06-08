@@ -25,16 +25,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const connectedClients = new Map<string, WebSocket>();
 
   wss.on('connection', async (ws: WebSocket, req) => {
-    const deviceName = req.headers['x-device-name'] as string || 'Unknown Device';
+    let deviceName = req.headers['x-device-name'] as string || 'Unknown Device';
+    let device: any = null;
+    let clientId: string = '';
     
     try {
+      // Generate a unique socket ID
+      const socketId = `ws_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
       // Create device record
-      const device = await storage.createDevice({
+      device = await storage.createDevice({
         name: deviceName,
-        socketId: ws.toString(), // Use a unique identifier
+        socketId: socketId,
       });
 
-      const clientId = device.id.toString();
+      clientId = device.id.toString();
       connectedClients.set(clientId, ws);
 
       console.log(`Device connected: ${deviceName} (${clientId})`);
@@ -50,19 +55,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Handle WebSocket messages
       ws.on('message', async (data) => {
         try {
-          const message = JSON.parse(data.toString()) as FileTransferMessage;
+          const message = JSON.parse(data.toString());
+          
+          // Handle device identification
+          if (message.type === 'device-identification') {
+            deviceName = message.data.name;
+            // Update device name in storage
+            if (device) {
+              await storage.updateDeviceLastSeen(device.socketId);
+            }
+            return;
+          }
           
           if (message.type === 'file-transfer') {
+            let filename = message.data.filename;
+            
+            // For non-clipboard files, save to disk
+            if (!message.data.isClipboard && message.data.content && !message.data.mimeType.startsWith('text/')) {
+              // Handle base64 encoded files
+              const uploadsDir = path.join(process.cwd(), 'uploads');
+              if (!fs.existsSync(uploadsDir)) {
+                fs.mkdirSync(uploadsDir, { recursive: true });
+              }
+              
+              const filePath = path.join(uploadsDir, filename);
+              
+              try {
+                // If content is base64, decode it
+                if (message.data.content.startsWith('data:')) {
+                  const base64Data = message.data.content.split(',')[1];
+                  const buffer = Buffer.from(base64Data, 'base64');
+                  fs.writeFileSync(filePath, buffer);
+                } else {
+                  fs.writeFileSync(filePath, message.data.content);
+                }
+              } catch (error) {
+                console.error('Error saving file to disk:', error);
+              }
+            }
+            
             // Save file to storage
             const file = await storage.createFile({
-              filename: message.data.filename,
+              filename: filename,
               originalName: message.data.originalName,
               mimeType: message.data.mimeType,
               size: message.data.size,
               content: message.data.content,
               fromDeviceId: device.id,
               toDeviceId: null, // Broadcast to all
-              isClipboard: message.data.isClipboard || false,
+              isClipboard: message.data.isClipboard ? 1 : 0,
             });
 
             // Broadcast to all other clients
@@ -180,7 +221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         content: req.file.mimetype.startsWith('text/') ? req.file.buffer.toString('utf-8') : undefined,
         fromDeviceId: deviceId ? parseInt(deviceId) : null,
         toDeviceId: null,
-        isClipboard: false,
+        isClipboard: 0,
       });
 
       // Broadcast to WebSocket clients
@@ -213,7 +254,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         content,
         fromDeviceId: deviceId ? parseInt(deviceId) : null,
         toDeviceId: null,
-        isClipboard: true,
+        isClipboard: 1,
       });
 
       // Broadcast to WebSocket clients

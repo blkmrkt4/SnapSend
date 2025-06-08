@@ -40,8 +40,8 @@ export function ConnectionStatus({ isConnected, devices, currentDevice }: Connec
                 <span className="text-sm text-blue-900">{currentDevice.name} (You)</span>
               </div>
             )}
-            {devices.map((device) => (
-              <div key={device.id} className="flex items-center space-x-2 p-2 rounded hover:bg-gray-50">
+            {devices.filter(d => d.id !== currentDevice?.id).map((device) => (
+              <div key={`device-${device.id}`} className="flex items-center space-x-2 p-2 rounded hover:bg-gray-50">
                 <Wifi className="w-4 h-4 text-green-600" />
                 <span className="text-sm text-gray-700">{device.name}</span>
               </div>
