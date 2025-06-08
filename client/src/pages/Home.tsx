@@ -24,6 +24,7 @@ export default function Home() {
     notifications,
     searchResults,
     pendingRequests,
+    outgoingRequests,
     isSearching,
     setupDevice,
     searchUsers,
@@ -31,6 +32,7 @@ export default function Home() {
     respondToConnection,
     terminateConnection,
     sendFile,
+    submitVerificationKey,
     dismissNotification,
   } = useConnectionSystem();
 
@@ -141,8 +143,10 @@ export default function Home() {
               onRequestConnection={requestConnection}
               onRespondToConnection={respondToConnection}
               onTerminateConnection={terminateConnection}
+              onSubmitVerificationKey={submitVerificationKey}
               searchResults={searchResults}
               pendingRequests={pendingRequests}
+              outgoingRequests={outgoingRequests}
               isSearching={isSearching}
             />
           </TabsContent>
