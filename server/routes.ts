@@ -141,7 +141,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return;
           }
 
-          // Handle connection response (approve/reject)
+          // Handle verification key submission from requester
+          if (message.type === 'submit-verification-key') {
+            const connection = await storage.getConnection(message.data.connectionId);
+            if (!connection || connection.requesterDeviceId !== device.id) {
+              ws.send(JSON.stringify({
+                type: 'error',
+                data: { message: 'Invalid connection request' }
+              }));
+              return;
+            }
+
+            // Validate connection key
+            if (message.data.verificationKey !== connection.connectionKey) {
+              ws.send(JSON.stringify({
+                type: 'error',
+                data: { message: 'Invalid verification key' }
+              }));
+              return;
+            }
+
+            // Key is valid, approve the connection
+            await storage.updateConnectionStatus(connection.id, 'active', new Date());
+            
+            // Get target device info
+            const targetDevice = await storage.getDevice(connection.targetDeviceId);
+            
+            // Notify both parties
+            const targetClient = Array.from(connectedClients.entries())
+              .find(([id, client]) => parseInt(id) === connection.targetDeviceId)?.[1];
+            
+            if (targetClient && targetClient.readyState === WebSocket.OPEN) {
+              targetClient.send(JSON.stringify({
+                type: 'connection-approved',
+                data: { connectionId: connection.id, partnerNickname: device.nickname }
+              }));
+            }
+
+            ws.send(JSON.stringify({
+              type: 'connection-approved',
+              data: { connectionId: connection.id, partnerNickname: targetDevice?.nickname || 'Unknown' }
+            }));
+            return;
+          }
+
+          // Handle connection response (approve/reject) - simplified for receiver
           if (message.type === 'connection-response') {
             const connection = await storage.getConnection(message.data.connectionId);
             if (!connection || connection.targetDeviceId !== device.id) {
@@ -152,29 +196,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               return;
             }
 
-            if (message.data.approved && message.data.enteredKey === connection.connectionKey) {
-              // Approve connection
-              await storage.updateConnectionStatus(connection.id, 'active', new Date());
-              
-              // Notify both parties
-              const requesterClient = Array.from(connectedClients.entries())
-                .find(([id, client]) => parseInt(id) === connection.requesterDeviceId)?.[1];
-              
-              if (requesterClient && requesterClient.readyState === WebSocket.OPEN) {
-                requesterClient.send(JSON.stringify({
-                  type: 'connection-approved',
-                  data: { connectionId: connection.id, partnerNickname: device.nickname }
-                }));
-              }
-
-              ws.send(JSON.stringify({
-                type: 'connection-approved',
-                data: { connectionId: connection.id, partnerNickname: (await storage.getDevice(connection.requesterDeviceId))?.nickname }
-              }));
-            } else {
-              // Reject connection
+            if (!message.data.approved) {
               await storage.updateConnectionStatus(connection.id, 'rejected');
               
+              // Notify requester of rejection
               const requesterClient = Array.from(connectedClients.entries())
                 .find(([id, client]) => parseInt(id) === connection.requesterDeviceId)?.[1];
               
@@ -185,6 +210,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 }));
               }
             }
+            // If approved, we wait for the requester to submit the verification key
             return;
           }
           

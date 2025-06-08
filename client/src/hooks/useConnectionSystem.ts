@@ -302,6 +302,21 @@ export function useConnectionSystem() {
     }
   }, []);
 
+  const submitVerificationKey = useCallback((connectionId: number, verificationKey: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: 'submit-verification-key',
+        data: { connectionId, verificationKey }
+      }));
+    }
+    
+    // Remove from outgoing requests
+    setState(prev => ({ 
+      ...prev, 
+      outgoingRequests: prev.outgoingRequests.filter(r => r.connectionId !== connectionId)
+    }));
+  }, []);
+
   const dismissNotification = useCallback((id: number) => {
     setState(prev => ({ 
       ...prev, 
@@ -317,6 +332,7 @@ export function useConnectionSystem() {
     respondToConnection,
     terminateConnection,
     sendFile,
+    submitVerificationKey,
     dismissNotification,
   };
 }
