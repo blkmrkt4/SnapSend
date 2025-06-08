@@ -149,16 +149,16 @@ export function ConnectionManager({
                       </span>
                     </div>
                     <p className="text-xs text-orange-600 mt-1">
-                      Ask {request.requesterNickname} to confirm this key matches what they see
+                      Share this key with {request.requesterNickname} - they need to enter it to verify their identity
                     </p>
                   </div>
                   <div className="flex flex-col gap-2 ml-4">
                     <Button
-                      onClick={() => openConnectionDialog(request)}
+                      onClick={() => handleRespondToRequest(true)}
                       className="bg-green-600 hover:bg-green-700"
                     >
                       <Check className="h-4 w-4 mr-2" />
-                      Approve
+                      Approve Connection
                     </Button>
                     <Button
                       variant="outline"

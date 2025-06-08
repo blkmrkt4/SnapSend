@@ -10,6 +10,7 @@ export interface ConnectionSystemState {
   notifications: any[];
   searchResults: Device[];
   pendingRequests: any[];
+  outgoingRequests: any[];
   isSearching: boolean;
 }
 
@@ -23,6 +24,7 @@ export function useConnectionSystem() {
     notifications: [],
     searchResults: [],
     pendingRequests: [],
+    outgoingRequests: [],
     isSearching: false
   });
 
@@ -85,12 +87,17 @@ export function useConnectionSystem() {
           case 'connection-request-sent':
             setState(prev => ({ 
               ...prev, 
+              outgoingRequests: [...prev.outgoingRequests, {
+                connectionId: message.data.connectionId,
+                status: 'waiting-for-key',
+                timestamp: new Date()
+              }],
               notifications: [...prev.notifications, {
                 id: Date.now(),
                 type: 'connection-request-sent',
                 title: 'Connection Request Sent',
-                message: `Your verification key is: ${message.data.connectionKey}`,
-                connectionKey: message.data.connectionKey,
+                message: `Waiting for the other user to share their verification key with you`,
+                connectionId: message.data.connectionId,
                 timestamp: new Date()
               }]
             }));
