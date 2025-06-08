@@ -1,44 +1,50 @@
 import { useState } from 'react';
-import { ConnectionStatus } from '@/components/ConnectionStatus';
+import { DeviceSetup } from '@/components/DeviceSetup';
+import { ConnectionManager } from '@/components/ConnectionManager';
 import { MinimalDropWindow } from '@/components/MinimalDropWindow';
 import { ExpandedFileManager } from '@/components/ExpandedFileManager';
 import { NotificationWindow } from '@/components/NotificationWindow';
 import { FilePreviewModal } from '@/components/FilePreviewModal';
-import { useWebSocket } from '@/hooks/useWebSocket';
+import { useConnectionSystem } from '@/hooks/useConnectionSystem';
 import { useFileTransfer } from '@/hooks/useFileTransfer';
 import { type File } from '@shared/schema';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function Home() {
-  const [deviceName] = useState(() => {
-    const saved = localStorage.getItem('deviceName');
-    if (saved) return saved;
-    
-    // Create a more user-friendly device name
-    const adjectives = ['Swift', 'Bright', 'Quick', 'Smart', 'Fast', 'Cool', 'Pro', 'Elite'];
-    const nouns = ['Desktop', 'Laptop', 'Workstation', 'Computer', 'Device', 'System'];
-    const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
-    const noun = nouns[Math.floor(Math.random() * nouns.length)];
-    const newName = `${adj} ${noun}`;
-    localStorage.setItem('deviceName', newName);
-    return newName;
-  });
-
   const [isMinimized, setIsMinimized] = useState(false);
   const [showExpanded, setShowExpanded] = useState(true);
   const [previewFile, setPreviewFile] = useState<File | null>(null);
 
   const { 
-    isConnected, 
-    devices, 
-    currentDevice, 
-    files, 
-    notifications, 
+    isSetup,
+    isConnecting,
+    currentDevice,
+    connections,
+    files,
+    notifications,
+    searchResults,
+    pendingRequests,
+    isSearching,
+    setupDevice,
+    searchUsers,
+    requestConnection,
+    respondToConnection,
+    terminateConnection,
     sendFile,
     dismissNotification,
-    reconnect 
-  } = useWebSocket(deviceName);
+  } = useConnectionSystem();
 
   const { downloadFile } = useFileTransfer();
+
+  // Show device setup if not configured
+  if (!isSetup) {
+    return (
+      <DeviceSetup 
+        onSetupComplete={setupDevice}
+        isConnecting={isConnecting}
+      />
+    );
+  }
 
   const handleSendFile = async (fileData: any) => {
     try {
@@ -65,11 +71,11 @@ export default function Home() {
   };
 
   const handleRefresh = () => {
-    reconnect();
+    // Refresh connections and files
+    console.log('Refresh connections');
   };
 
   const handleClearAll = () => {
-    // In a real app, this would make an API call to clear files
     console.log('Clear all files');
   };
 
@@ -92,17 +98,18 @@ export default function Home() {
   if (isMinimized) {
     return (
       <div className="min-h-screen p-4">
-        <ConnectionStatus
-          isConnected={isConnected}
-          devices={devices}
-          currentDevice={currentDevice}
-        />
+        <div className="text-center mb-4">
+          <h1 className="text-2xl font-bold">{currentDevice?.nickname}</h1>
+          <p className="text-muted-foreground">
+            {connections.length} active connection{connections.length !== 1 ? 's' : ''}
+          </p>
+        </div>
         <div className="fixed bottom-4 right-4">
           <button
             className="bg-primary text-white p-3 rounded-full shadow-lg hover:bg-primary/90 transition-colors"
             onClick={() => setIsMinimized(false)}
           >
-            Open QuickDrop
+            Open File Share
           </button>
         </div>
       </div>
@@ -111,42 +118,71 @@ export default function Home() {
 
   return (
     <div className="min-h-screen p-4">
-      <ConnectionStatus
-        isConnected={isConnected}
-        devices={devices}
-        currentDevice={currentDevice}
-      />
+      <div className="max-w-6xl mx-auto">
+        <div className="text-center mb-6">
+          <h1 className="text-3xl font-bold mb-2">Secure File Sharing</h1>
+          <p className="text-muted-foreground">
+            Connected as {currentDevice?.nickname} • {connections.length} active connection{connections.length !== 1 ? 's' : ''}
+          </p>
+        </div>
 
-      <div className="flex space-x-6 max-w-7xl mx-auto mt-16">
-        <MinimalDropWindow
-          onSendFile={handleSendFile}
-          recentFiles={files.slice(0, 3)}
-          onToggleExpanded={handleToggleExpanded}
-          onMinimize={handleMinimize}
-        />
+        <Tabs defaultValue="connections" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="connections">Connections</TabsTrigger>
+            <TabsTrigger value="files">File Transfer</TabsTrigger>
+            <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          </TabsList>
 
-        {showExpanded && (
-          <ExpandedFileManager
-            files={files}
-            onPreviewFile={handlePreviewFile}
-            onRefresh={handleRefresh}
-            onClearAll={handleClearAll}
-          />
-        )}
+          <TabsContent value="connections" className="mt-6">
+            <ConnectionManager
+              currentDevice={currentDevice}
+              connections={connections}
+              onSearchUsers={searchUsers}
+              onRequestConnection={requestConnection}
+              onRespondToConnection={respondToConnection}
+              onTerminateConnection={terminateConnection}
+              searchResults={searchResults}
+              pendingRequests={pendingRequests}
+              isSearching={isSearching}
+            />
+          </TabsContent>
 
-        <NotificationWindow
-          notifications={notifications}
-          onDismiss={dismissNotification}
-          onOpenFile={handleOpenFile}
-          onSaveFile={handleSaveFile}
+          <TabsContent value="files" className="mt-6">
+            <div className="flex space-x-6">
+              <MinimalDropWindow
+                onSendFile={handleSendFile}
+                recentFiles={files.slice(0, 3)}
+                onToggleExpanded={handleToggleExpanded}
+                onMinimize={handleMinimize}
+              />
+
+              {showExpanded && (
+                <ExpandedFileManager
+                  files={files}
+                  onPreviewFile={handlePreviewFile}
+                  onRefresh={handleRefresh}
+                  onClearAll={handleClearAll}
+                />
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="notifications" className="mt-6">
+            <NotificationWindow
+              notifications={notifications}
+              onDismiss={dismissNotification}
+              onOpenFile={handleOpenFile}
+              onSaveFile={handleSaveFile}
+            />
+          </TabsContent>
+        </Tabs>
+
+        <FilePreviewModal
+          file={previewFile}
+          isOpen={!!previewFile}
+          onClose={handleClosePreview}
         />
       </div>
-
-      <FilePreviewModal
-        file={previewFile}
-        isOpen={!!previewFile}
-        onClose={handleClosePreview}
-      />
     </div>
   );
 }
