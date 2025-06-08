@@ -13,7 +13,12 @@ export default function Home() {
     const saved = localStorage.getItem('deviceName');
     if (saved) return saved;
     
-    const newName = `Device-${Math.random().toString(36).substr(2, 9)}`;
+    // Create a more user-friendly device name
+    const adjectives = ['Swift', 'Bright', 'Quick', 'Smart', 'Fast', 'Cool', 'Pro', 'Elite'];
+    const nouns = ['Desktop', 'Laptop', 'Workstation', 'Computer', 'Device', 'System'];
+    const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+    const noun = nouns[Math.floor(Math.random() * nouns.length)];
+    const newName = `${adj} ${noun}`;
     localStorage.setItem('deviceName', newName);
     return newName;
   });

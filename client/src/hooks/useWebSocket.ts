@@ -33,13 +33,15 @@ export function useWebSocket(deviceName: string) {
       ws.current.onopen = () => {
         setState(prev => ({ ...prev, isConnected: true, error: null }));
         
-        // Send device identification
-        if (ws.current) {
-          ws.current.send(JSON.stringify({
-            type: 'device-identification',
-            data: { name: deviceName }
-          }));
-        }
+        // Send device identification after connection is established
+        setTimeout(() => {
+          if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+            ws.current.send(JSON.stringify({
+              type: 'device-identification',
+              data: { name: deviceName }
+            }));
+          }
+        }, 100);
       };
 
       ws.current.onmessage = (event) => {

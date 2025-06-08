@@ -70,9 +70,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (message.type === 'file-transfer') {
             let filename = message.data.filename;
             
-            // For non-clipboard files, save to disk
-            if (!message.data.isClipboard && message.data.content && !message.data.mimeType.startsWith('text/')) {
-              // Handle base64 encoded files
+            // Always save files to disk if they have content
+            if (message.data.content && !message.data.isClipboard) {
               const uploadsDir = path.join(process.cwd(), 'uploads');
               if (!fs.existsSync(uploadsDir)) {
                 fs.mkdirSync(uploadsDir, { recursive: true });
@@ -81,12 +80,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const filePath = path.join(uploadsDir, filename);
               
               try {
-                // If content is base64, decode it
                 if (message.data.content.startsWith('data:')) {
+                  // Handle base64 encoded files (images, binary files)
                   const base64Data = message.data.content.split(',')[1];
                   const buffer = Buffer.from(base64Data, 'base64');
                   fs.writeFileSync(filePath, buffer);
+                } else if (message.data.mimeType.startsWith('text/')) {
+                  // Handle text files
+                  fs.writeFileSync(filePath, message.data.content, 'utf8');
                 } else {
+                  // Handle other content as binary
                   fs.writeFileSync(filePath, message.data.content);
                 }
               } catch (error) {
@@ -100,7 +103,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               originalName: message.data.originalName,
               mimeType: message.data.mimeType,
               size: message.data.size,
-              content: message.data.content,
+              content: message.data.isClipboard ? message.data.content : undefined, // Only store content for clipboard items
               fromDeviceId: device.id,
               toDeviceId: null, // Broadcast to all
               isClipboard: message.data.isClipboard ? 1 : 0,
@@ -130,7 +133,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       ws.on('close', async () => {
         connectedClients.delete(clientId);
-        await storage.removeDevice(device.socketId);
+        if (device) {
+          await storage.removeDevice(device.socketId);
+        }
         
         const disconnectMessage: WebSocketMessage = {
           type: 'device-disconnected',
