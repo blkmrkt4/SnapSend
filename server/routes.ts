@@ -25,49 +25,181 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const connectedClients = new Map<string, WebSocket>();
 
   wss.on('connection', async (ws: WebSocket, req) => {
-    let deviceName = req.headers['x-device-name'] as string || 'Unknown Device';
     let device: any = null;
     let clientId: string = '';
+    let socketId = `ws_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
     try {
-      // Generate a unique socket ID
-      const socketId = `ws_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
-      // Create device record
-      device = await storage.createDevice({
-        name: deviceName,
-        socketId: socketId,
-      });
-
-      clientId = device.id.toString();
-      connectedClients.set(clientId, ws);
-
-      console.log(`Device connected: ${deviceName} (${clientId})`);
-
-      // Notify all clients about new connection
-      const connectMessage: WebSocketMessage = {
-        type: 'device-connected',
-        data: { device, totalDevices: connectedClients.size }
-      };
-      
-      broadcast(connectMessage, clientId);
+      // Send setup required message immediately
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'setup-required',
+          data: { socketId }
+        }));
+      }
 
       // Handle WebSocket messages
       ws.on('message', async (data) => {
         try {
           const message = JSON.parse(data.toString());
           
-          // Handle device identification
-          if (message.type === 'device-identification') {
-            deviceName = message.data.name;
-            // Update device name in storage
-            if (device) {
-              await storage.updateDeviceLastSeen(device.socketId);
+          // Handle device setup
+          if (message.type === 'device-setup') {
+            if (!device) {
+              device = await storage.createDevice({
+                nickname: message.data.nickname,
+                socketId: socketId,
+              });
+
+              clientId = device.id.toString();
+              connectedClients.set(clientId, ws);
+
+              console.log(`Device setup completed: ${message.data.nickname} (${clientId})`);
+
+              // Send setup confirmation
+              if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                  type: 'setup-complete',
+                  data: { device }
+                }));
+              }
+
+              // Notify all clients about new connection
+              const connectMessage: WebSocketMessage = {
+                type: 'device-connected',
+                data: { device, totalDevices: connectedClients.size }
+              };
+              
+              broadcast(connectMessage, clientId);
+            }
+            return;
+          }
+
+          // Require device setup before handling other messages
+          if (!device) {
+            ws.send(JSON.stringify({
+              type: 'error',
+              data: { message: 'Device setup required' }
+            }));
+            return;
+          }
+
+          // Handle user search
+          if (message.type === 'scan-users') {
+            const searchResults = await storage.searchDevicesByNickname(message.data.query);
+            // Don't include current device in results
+            const filteredResults = searchResults.filter(d => d.id !== device.id);
+            
+            ws.send(JSON.stringify({
+              type: 'scan-results',
+              data: { users: filteredResults }
+            }));
+            return;
+          }
+
+          // Handle connection request
+          if (message.type === 'connection-request') {
+            const targetDevice = await storage.getDeviceByNickname(message.data.targetNickname);
+            if (!targetDevice) {
+              ws.send(JSON.stringify({
+                type: 'error',
+                data: { message: 'User not found' }
+              }));
+              return;
+            }
+
+            // Generate 2-digit connection key
+            const connectionKey = Math.floor(10 + Math.random() * 90).toString();
+            
+            const connection = await storage.createConnection({
+              requesterDeviceId: device.id,
+              targetDeviceId: targetDevice.id,
+              connectionKey: connectionKey,
+              status: 'pending'
+            });
+
+            // Send connection request to target device
+            const targetClient = Array.from(connectedClients.entries())
+              .find(([id, client]) => parseInt(id) === targetDevice.id)?.[1];
+            
+            if (targetClient && targetClient.readyState === WebSocket.OPEN) {
+              targetClient.send(JSON.stringify({
+                type: 'connection-request',
+                data: {
+                  requesterNickname: device.nickname,
+                  connectionKey: connectionKey,
+                  connectionId: connection.id
+                }
+              }));
+            }
+
+            // Confirm request sent to requester
+            ws.send(JSON.stringify({
+              type: 'connection-request-sent',
+              data: { connectionId: connection.id, connectionKey }
+            }));
+            return;
+          }
+
+          // Handle connection response (approve/reject)
+          if (message.type === 'connection-response') {
+            const connection = await storage.getConnection(message.data.connectionId);
+            if (!connection || connection.targetDeviceId !== device.id) {
+              ws.send(JSON.stringify({
+                type: 'error',
+                data: { message: 'Invalid connection request' }
+              }));
+              return;
+            }
+
+            if (message.data.approved && message.data.enteredKey === connection.connectionKey) {
+              // Approve connection
+              await storage.updateConnectionStatus(connection.id, 'active', new Date());
+              
+              // Notify both parties
+              const requesterClient = Array.from(connectedClients.entries())
+                .find(([id, client]) => parseInt(id) === connection.requesterDeviceId)?.[1];
+              
+              if (requesterClient && requesterClient.readyState === WebSocket.OPEN) {
+                requesterClient.send(JSON.stringify({
+                  type: 'connection-approved',
+                  data: { connectionId: connection.id, partnerNickname: device.nickname }
+                }));
+              }
+
+              ws.send(JSON.stringify({
+                type: 'connection-approved',
+                data: { connectionId: connection.id, partnerNickname: (await storage.getDevice(connection.requesterDeviceId))?.nickname }
+              }));
+            } else {
+              // Reject connection
+              await storage.updateConnectionStatus(connection.id, 'rejected');
+              
+              const requesterClient = Array.from(connectedClients.entries())
+                .find(([id, client]) => parseInt(id) === connection.requesterDeviceId)?.[1];
+              
+              if (requesterClient && requesterClient.readyState === WebSocket.OPEN) {
+                requesterClient.send(JSON.stringify({
+                  type: 'connection-rejected',
+                  data: { connectionId: connection.id }
+                }));
+              }
             }
             return;
           }
           
+          // Handle file transfer - only within active connections
           if (message.type === 'file-transfer') {
+            // Check if this is sent to a specific connection
+            const activeConnections = await storage.getActiveConnectionsForDevice(device.id);
+            if (activeConnections.length === 0) {
+              ws.send(JSON.stringify({
+                type: 'error',
+                data: { message: 'No active connections for file transfer' }
+              }));
+              return;
+            }
+
             let filename = message.data.filename;
             
             // Always save files to disk if they have content
@@ -97,39 +229,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             }
             
-            // Save file to storage
-            const file = await storage.createFile({
-              filename: filename,
-              originalName: message.data.originalName,
-              mimeType: message.data.mimeType,
-              size: message.data.size,
-              content: message.data.isClipboard ? message.data.content : undefined, // Only store content for clipboard items
-              fromDeviceId: device.id,
-              toDeviceId: null, // Broadcast to all
-              isClipboard: message.data.isClipboard ? 1 : 0,
-            });
+            // Send file to all active connections
+            for (const connection of activeConnections) {
+              const file = await storage.createFile({
+                filename: filename,
+                originalName: message.data.originalName,
+                mimeType: message.data.mimeType,
+                size: message.data.size,
+                content: message.data.isClipboard ? message.data.content : undefined,
+                fromDeviceId: device.id,
+                toDeviceId: connection.requesterDeviceId === device.id ? connection.targetDeviceId : connection.requesterDeviceId,
+                connectionId: connection.id,
+                isClipboard: message.data.isClipboard ? 1 : 0,
+              });
 
-            // Broadcast to all clients (including sender for confirmation)
-            const transferMessage: WebSocketMessage = {
-              type: 'file-received',
-              data: { file, fromDevice: deviceName }
-            };
-            
-            // Send to all clients including the sender
-            connectedClients.forEach((client, id) => {
-              if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify(transferMessage));
+              // Send to the connected partner
+              const partnerId = connection.requesterDeviceId === device.id ? connection.targetDeviceId : connection.requesterDeviceId;
+              const partnerClient = Array.from(connectedClients.entries())
+                .find(([id, client]) => parseInt(id) === partnerId)?.[1];
+              
+              if (partnerClient && partnerClient.readyState === WebSocket.OPEN) {
+                partnerClient.send(JSON.stringify({
+                  type: 'file-received',
+                  data: { file, fromDevice: device.nickname }
+                }));
               }
-            });
 
-            // If it's clipboard content, also send clipboard sync
-            if (message.data.isClipboard) {
-              const clipboardMessage: WebSocketMessage = {
-                type: 'clipboard-sync',
-                data: { content: message.data.content, fromDevice: deviceName }
-              };
-              broadcast(clipboardMessage, clientId);
+              // If it's clipboard content, also send clipboard sync
+              if (message.data.isClipboard) {
+                if (partnerClient && partnerClient.readyState === WebSocket.OPEN) {
+                  partnerClient.send(JSON.stringify({
+                    type: 'clipboard-sync',
+                    data: { content: message.data.content, fromDevice: device.nickname, file }
+                  }));
+                }
+              }
             }
+            return;
+          }
+
+          // Handle connection termination
+          if (message.type === 'terminate-connection') {
+            const connectionId = message.data.connectionId;
+            const connection = await storage.getConnection(connectionId);
+            
+            if (connection && (connection.requesterDeviceId === device.id || connection.targetDeviceId === device.id)) {
+              await storage.terminateConnection(connectionId);
+              
+              // Notify the other party
+              const partnerId = connection.requesterDeviceId === device.id ? connection.targetDeviceId : connection.requesterDeviceId;
+              const partnerClient = Array.from(connectedClients.entries())
+                .find(([id, client]) => parseInt(id) === partnerId)?.[1];
+              
+              if (partnerClient && partnerClient.readyState === WebSocket.OPEN) {
+                partnerClient.send(JSON.stringify({
+                  type: 'connection-terminated',
+                  data: { connectionId, terminatedBy: device.nickname }
+                }));
+              }
+              
+              ws.send(JSON.stringify({
+                type: 'connection-terminated',
+                data: { connectionId, terminatedBy: device.nickname }
+              }));
+            }
+            return;
           }
         } catch (error) {
           console.error('Error processing WebSocket message:', error);
@@ -137,30 +301,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       ws.on('close', async () => {
-        connectedClients.delete(clientId);
-        if (device) {
-          await storage.removeDevice(device.socketId);
+        if (device && clientId) {
+          connectedClients.delete(clientId);
+          await storage.updateDeviceOnlineStatus(device.socketId, false);
+          
+          const disconnectMessage: WebSocketMessage = {
+            type: 'device-disconnected',
+            data: { deviceNickname: device.nickname, totalDevices: connectedClients.size }
+          };
+          
+          broadcast(disconnectMessage);
+          console.log(`Device disconnected: ${device.nickname} (${clientId})`);
         }
-        
-        const disconnectMessage: WebSocketMessage = {
-          type: 'device-disconnected',
-          data: { deviceName, totalDevices: connectedClients.size }
-        };
-        
-        broadcast(disconnectMessage);
-        console.log(`Device disconnected: ${deviceName}`);
       });
 
-      // Send initial data
-      const allFiles = await storage.getAllFiles();
-      const allDevices = await storage.getAllDevices();
-      
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-          type: 'initial-data',
-          data: { files: allFiles, devices: allDevices, currentDevice: device }
-        }));
-      }
+      // Don't send initial data until device is set up
 
     } catch (error) {
       console.error('Error handling WebSocket connection:', error);
@@ -179,10 +334,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // API Routes
   app.get('/api/devices', async (req, res) => {
     try {
-      const devices = await storage.getAllDevices();
+      const devices = await storage.getOnlineDevices();
       res.json(devices);
     } catch (error) {
       res.status(500).json({ error: 'Failed to fetch devices' });
+    }
+  });
+
+  app.get('/api/connections/:deviceId', async (req, res) => {
+    try {
+      const deviceId = parseInt(req.params.deviceId);
+      const connections = await storage.getActiveConnectionsForDevice(deviceId);
+      res.json(connections);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch connections' });
+    }
+  });
+
+  app.post('/api/search-users', async (req, res) => {
+    try {
+      const { query } = req.body;
+      const users = await storage.searchDevicesByNickname(query);
+      res.json(users);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to search users' });
     }
   });
 
