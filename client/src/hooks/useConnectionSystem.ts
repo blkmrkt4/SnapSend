@@ -254,15 +254,11 @@ export function useConnectionSystem() {
   }, []);
 
   const requestConnection = useCallback((targetNickname: string) => {
-    console.log(`Requesting connection to: ${targetNickname}`);
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      console.log(`WebSocket is open, sending connection request`);
       wsRef.current.send(JSON.stringify({
         type: 'connection-request',
         data: { targetNickname }
       }));
-    } else {
-      console.log(`WebSocket not ready, state: ${wsRef.current?.readyState}`);
     }
   }, []);
 

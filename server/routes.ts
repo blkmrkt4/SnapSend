@@ -99,19 +99,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           // Handle connection request
           if (message.type === 'connection-request') {
-            console.log(`Connection request from ${device.nickname} to ${message.data.targetNickname}`);
-            
             const targetDevice = await storage.getDeviceByNickname(message.data.targetNickname);
             if (!targetDevice) {
-              console.log(`Target device not found: ${message.data.targetNickname}`);
               ws.send(JSON.stringify({
                 type: 'error',
                 data: { message: 'User not found' }
               }));
               return;
             }
-
-            console.log(`Target device found: ${targetDevice.nickname} (ID: ${targetDevice.id})`);
 
             // Generate 2-digit connection key
             const connectionKey = Math.floor(10 + Math.random() * 90).toString();
@@ -123,17 +118,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               status: 'pending'
             });
 
-            console.log(`Created connection with ID: ${connection.id}, key: ${connectionKey}`);
-
             // Send connection request to target device
             const targetClient = Array.from(connectedClients.entries())
               .find(([id, client]) => parseInt(id) === targetDevice.id)?.[1];
             
-            console.log(`Looking for target client with ID: ${targetDevice.id}`);
-            console.log(`Connected clients: ${Array.from(connectedClients.keys()).join(', ')}`);
-            
             if (targetClient && targetClient.readyState === WebSocket.OPEN) {
-              console.log(`Sending connection request to target device`);
               targetClient.send(JSON.stringify({
                 type: 'connection-request',
                 data: {
@@ -142,12 +131,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   connectionId: connection.id
                 }
               }));
-            } else {
-              console.log(`Target client not found or not connected`);
             }
 
             // Confirm request sent to requester
-            console.log(`Sending confirmation to requester`);
             ws.send(JSON.stringify({
               type: 'connection-request-sent',
               data: { connectionId: connection.id, connectionKey }
