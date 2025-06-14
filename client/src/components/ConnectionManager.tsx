@@ -43,6 +43,10 @@ export function ConnectionManager({
   const [enteredKey, setEnteredKey] = useState('');
   const [verificationKey, setVerificationKey] = useState('');
 
+  useEffect(() => {
+    console.log('Outgoing requests updated:', outgoingRequests);
+  }, [outgoingRequests]);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
