@@ -143,15 +143,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const targetClient = Array.from(connectedClients.entries())
               .find(([id, client]) => parseInt(id) === targetDevice.id)?.[1];
             
+            console.log(`Looking for target client for device ID ${targetDevice.id}`);
+            console.log('Connected clients:', Array.from(connectedClients.keys()));
+            console.log('Target client found:', !!targetClient);
+            
             if (targetClient && targetClient.readyState === WebSocket.OPEN) {
-              targetClient.send(JSON.stringify({
+              const requestMessage = {
                 type: 'connection-request',
                 data: {
                   requesterNickname: device.nickname,
                   connectionKey: connectionKey,
                   connectionId: connection.id
                 }
-              }));
+              };
+              console.log('Sending connection request to target:', requestMessage);
+              targetClient.send(JSON.stringify(requestMessage));
+            } else {
+              console.log('Target client not found or not ready');
             }
 
             // Confirm request sent to requester
