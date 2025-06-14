@@ -74,6 +74,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 } else {
                   console.error('WebSocket not open when trying to send setup-complete');
                 }
+
+                // Notify all clients about new connection
+                const connectMessage: WebSocketMessage = {
+                  type: 'device-connected',
+                  data: { device, totalDevices: connectedClients.size }
+                };
+                
+                broadcast(connectMessage, clientId);
               } catch (error) {
                 console.error('Error during device setup:', error);
                 if (ws.readyState === WebSocket.OPEN) {
@@ -84,14 +92,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 }
                 return;
               }
-
-              // Notify all clients about new connection
-              const connectMessage: WebSocketMessage = {
-                type: 'device-connected',
-                data: { device, totalDevices: connectedClients.size }
-              };
-              
-              broadcast(connectMessage, clientId);
             }
             return;
           }
@@ -362,37 +362,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({
               type: 'error',
-              data: { message: 'Server error processing request' }
+              data: { message: 'Internal server error' }
             }));
           }
         }
       });
 
+      // Handle disconnect
       ws.on('close', async () => {
-        if (device && clientId) {
-          connectedClients.delete(clientId);
+        console.log(`Device disconnected: ${device?.nickname || 'Unknown'} (${clientId})`);
+        
+        if (device) {
+          await storage.updateDeviceOnlineStatus(device.socketId, false);
+        }
+        
+        connectedClients.delete(clientId);
+        
+        if (device) {
+          const disconnectMessage: WebSocketMessage = {
+            type: 'device-disconnected',
+            data: { device, totalDevices: connectedClients.size }
+          };
           
-          try {
-            await storage.updateDeviceOnlineStatus(device.socketId, false);
-            
-            const disconnectMessage: WebSocketMessage = {
-              type: 'device-disconnected',
-              data: { deviceNickname: device.nickname, totalDevices: connectedClients.size }
-            };
-            
-            broadcast(disconnectMessage);
-            console.log(`Device disconnected: ${device.nickname} (${clientId})`);
-          } catch (error) {
-            console.error('Error updating device offline status:', error);
-          }
+          broadcast(disconnectMessage, clientId);
         }
       });
 
-      // Don't send initial data until device is set up
-
     } catch (error) {
-      console.error('Error handling WebSocket connection:', error);
-      ws.close();
+      console.error('WebSocket connection error:', error);
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
     }
   });
 
@@ -410,158 +410,132 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const devices = await storage.getOnlineDevices();
       res.json(devices);
     } catch (error) {
-      res.status(500).json({ error: 'Failed to fetch devices' });
+      console.error('Error fetching devices:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  app.get('/api/files', async (req, res) => {
+    try {
+      const files = await storage.getAllFiles();
+      res.json(files);
+    } catch (error) {
+      console.error('Error fetching files:', error);
+      res.status(500).json({ error: 'Internal server error' });
     }
   });
 
   app.get('/api/connections/:deviceId', async (req, res) => {
     try {
       const deviceId = parseInt(req.params.deviceId);
-      const connections = await storage.getActiveConnectionsForDevice(deviceId);
+      const connections = await storage.getConnectionsByDevice(deviceId);
       res.json(connections);
     } catch (error) {
-      res.status(500).json({ error: 'Failed to fetch connections' });
+      console.error('Error fetching connections:', error);
+      res.status(500).json({ error: 'Internal server error' });
     }
   });
 
-  app.post('/api/search-users', async (req, res) => {
+  app.get('/api/files/:deviceId', async (req, res) => {
     try {
-      const { query } = req.body;
-      const users = await storage.searchDevicesByNickname(query);
-      res.json(users);
-    } catch (error) {
-      res.status(500).json({ error: 'Failed to search users' });
-    }
-  });
-
-  app.get('/api/files', async (req, res) => {
-    try {
-      const { search } = req.query;
-      
-      let files;
-      if (search && typeof search === 'string') {
-        files = await storage.searchFiles(search);
-      } else {
-        files = await storage.getAllFiles();
-      }
-      
+      const deviceId = parseInt(req.params.deviceId);
+      const files = await storage.getFilesByDevice(deviceId);
       res.json(files);
     } catch (error) {
-      res.status(500).json({ error: 'Failed to fetch files' });
+      console.error('Error fetching device files:', error);
+      res.status(500).json({ error: 'Internal server error' });
     }
   });
 
-  app.post('/api/files/upload', upload.single('file'), async (req, res) => {
+  // File upload endpoint
+  app.post('/api/upload', upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
-        return res.status(400).json({ error: 'No file provided' });
+        return res.status(400).json({ error: 'No file uploaded' });
       }
 
+      const file = req.file;
       const { deviceId } = req.body;
-      
-      // Save file to disk (in a real app, you'd use cloud storage)
-      const filename = `${Date.now()}-${req.file.originalname}`;
-      const filePath = path.join(process.cwd(), 'uploads', filename);
-      
-      // Ensure uploads directory exists
-      const uploadsDir = path.dirname(filePath);
+
+      if (!deviceId) {
+        return res.status(400).json({ error: 'Device ID is required' });
+      }
+
+      // Save file to uploads directory
+      const uploadsDir = path.join(process.cwd(), 'uploads');
       if (!fs.existsSync(uploadsDir)) {
         fs.mkdirSync(uploadsDir, { recursive: true });
       }
-      
-      fs.writeFileSync(filePath, req.file.buffer);
 
-      const file = await storage.createFile({
-        filename,
-        originalName: req.file.originalname,
-        mimeType: req.file.mimetype,
-        size: req.file.size,
-        content: req.file.mimetype.startsWith('text/') ? req.file.buffer.toString('utf-8') : undefined,
-        fromDeviceId: deviceId ? parseInt(deviceId) : null,
+      const filename = `${Date.now()}_${file.originalname}`;
+      const filePath = path.join(uploadsDir, filename);
+      fs.writeFileSync(filePath, file.buffer);
+
+      // Save file record to database
+      const savedFile = await storage.createFile({
+        filename: filename,
+        originalName: file.originalname,
+        mimeType: file.mimetype,
+        size: file.size,
+        fromDeviceId: parseInt(deviceId),
         toDeviceId: null,
+        connectionId: null,
         isClipboard: 0,
       });
 
-      // Broadcast to WebSocket clients
-      const message: WebSocketMessage = {
-        type: 'file-received',
-        data: { file, fromDevice: 'Upload' }
-      };
-      broadcast(message);
-
-      res.json(file);
+      res.json(savedFile);
     } catch (error) {
-      console.error('Upload error:', error);
-      res.status(500).json({ error: 'Failed to upload file' });
+      console.error('Error uploading file:', error);
+      res.status(500).json({ error: 'Internal server error' });
     }
   });
 
-  app.post('/api/clipboard', async (req, res) => {
-    try {
-      const { content, deviceId } = req.body;
-
-      if (!content) {
-        return res.status(400).json({ error: 'No content provided' });
-      }
-
-      const file = await storage.createFile({
-        filename: 'clipboard-content',
-        originalName: 'Clipboard Content',
-        mimeType: 'text/plain',
-        size: content.length,
-        content,
-        fromDeviceId: deviceId ? parseInt(deviceId) : null,
-        toDeviceId: null,
-        isClipboard: 1,
-      });
-
-      // Broadcast to WebSocket clients
-      const message: WebSocketMessage = {
-        type: 'clipboard-sync',
-        data: { content, fromDevice: 'Manual', file }
-      };
-      broadcast(message);
-
-      res.json(file);
-    } catch (error) {
-      res.status(500).json({ error: 'Failed to sync clipboard' });
-    }
-  });
-
+  // File download endpoint
   app.get('/api/files/:id/download', async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
-      const file = await storage.getFile(id);
-      
+      const fileId = parseInt(req.params.id);
+      const file = await storage.getFile(fileId);
+
       if (!file) {
         return res.status(404).json({ error: 'File not found' });
       }
 
-      if (file.isClipboard && file.content) {
-        res.setHeader('Content-Type', 'text/plain');
-        res.setHeader('Content-Disposition', `attachment; filename="${file.originalName}.txt"`);
-        res.send(file.content);
+      const filePath = path.join(process.cwd(), 'uploads', file.filename);
+      
+      if (fs.existsSync(filePath)) {
+        res.download(filePath, file.originalName);
       } else {
-        const filePath = path.join(process.cwd(), 'uploads', file.filename);
-        
-        if (fs.existsSync(filePath)) {
-          res.download(filePath, file.originalName);
-        } else {
-          res.status(404).json({ error: 'File not found on disk' });
-        }
+        res.status(404).json({ error: 'File not found on disk' });
       }
     } catch (error) {
-      res.status(500).json({ error: 'Failed to download file' });
+      console.error('Error downloading file:', error);
+      res.status(500).json({ error: 'Internal server error' });
     }
   });
 
+  // File delete endpoint
   app.delete('/api/files/:id', async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
-      await storage.deleteFile(id);
+      const fileId = parseInt(req.params.id);
+      const file = await storage.getFile(fileId);
+
+      if (!file) {
+        return res.status(404).json({ error: 'File not found' });
+      }
+
+      // Delete file from disk
+      const filePath = path.join(process.cwd(), 'uploads', file.filename);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+
+      // Delete file record from database
+      await storage.deleteFile(fileId);
+
       res.json({ success: true });
     } catch (error) {
-      res.status(500).json({ error: 'Failed to delete file' });
+      console.error('Error deleting file:', error);
+      res.status(500).json({ error: 'Internal server error' });
     }
   });
 
