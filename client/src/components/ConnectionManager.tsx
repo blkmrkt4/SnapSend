@@ -45,9 +45,7 @@ export function ConnectionManager({
 }: ConnectionManagerProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showConnectionDialog, setShowConnectionDialog] = useState(false);
-  const [showVerificationDialog, setShowVerificationDialog] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
-  const [selectedOutgoingRequest, setSelectedOutgoingRequest] = useState<any>(null);
   const [enteredKey, setEnteredKey] = useState('');
   const [verificationKey, setVerificationKey] = useState('');
 
@@ -249,20 +247,39 @@ export function ConnectionManager({
                   <div className="flex-1">
                     <p className="font-semibold text-lg">Connection Request Sent</p>
                     <p className="text-sm text-muted-foreground mb-2">
-                      Waiting for the other user to share their verification key with you
+                      Ask the other user for their 2-digit verification key
                     </p>
-                    <p className="text-xs text-blue-600">
-                      Ask the other user to give you the 2-digit verification key they see on their screen
-                    </p>
-                  </div>
-                  <div className="flex flex-col gap-2 ml-4">
-                    <Button
-                      onClick={() => openVerificationDialog(request)}
-                      className="bg-blue-600 hover:bg-blue-700"
-                    >
-                      <Key className="h-4 w-4 mr-2" />
-                      Enter Key
-                    </Button>
+                    <div className="flex items-center gap-2 mt-3">
+                      <Label htmlFor={`key-${request.connectionId}`} className="text-sm font-medium">
+                        Verification Key:
+                      </Label>
+                      <Input
+                        id={`key-${request.connectionId}`}
+                        type="text"
+                        placeholder="Enter 2-digit key"
+                        value={verificationKey}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, '').slice(0, 2);
+                          setVerificationKey(value);
+                        }}
+                        maxLength={2}
+                        className="w-20 text-center font-mono text-lg"
+                      />
+                      <Button
+                        onClick={() => {
+                          if (verificationKey && verificationKey.length === 2) {
+                            onSubmitVerificationKey(request.connectionId, verificationKey);
+                            setVerificationKey(''); // Clear after submitting
+                          }
+                        }}
+                        disabled={!verificationKey || verificationKey.length !== 2}
+                        size="sm"
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        <Check className="h-4 w-4 mr-1" />
+                        Connect
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -447,51 +464,7 @@ export function ConnectionManager({
         </DialogContent>
       </Dialog>
 
-      {/* Verification Key Dialog for Outgoing Requests */}
-      <Dialog open={showVerificationDialog} onOpenChange={setShowVerificationDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Enter Verification Key</DialogTitle>
-            <DialogDescription>
-              Enter the 2-digit verification key that the other user shared with you
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="verificationKey">Verification Key</Label>
-              <Input
-                id="verificationKey"
-                type="text"
-                placeholder="Enter 2-digit key (e.g., 42)"
-                value={verificationKey}
-                onChange={(e) => setVerificationKey(e.target.value)}
-                maxLength={2}
-                pattern="[0-9]{2}"
-              />
-              <p className="text-sm text-muted-foreground mt-1">
-                Ask the other user for the verification key displayed on their screen
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setShowVerificationDialog(false)}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSubmitVerificationKey}
-                disabled={verificationKey.length !== 2}
-                className="flex-1"
-              >
-                <Check className="h-4 w-4 mr-2" />
-                Verify
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+
 
       {/* Notifications Section */}
       {notifications && notifications.length > 0 && (
