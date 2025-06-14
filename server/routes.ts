@@ -50,23 +50,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Handle device setup
           if (message.type === 'device-setup') {
+            console.log(`Received device setup request for: ${message.data.nickname}`);
             if (!device) {
-              device = await storage.createDevice({
-                nickname: message.data.nickname,
-                socketId: socketId,
-              });
+              try {
+                device = await storage.createDevice({
+                  nickname: message.data.nickname,
+                  socketId: socketId,
+                });
 
-              clientId = device.id.toString();
-              connectedClients.set(clientId, ws);
+                clientId = device.id.toString();
+                connectedClients.set(clientId, ws);
 
-              console.log(`Device setup completed: ${message.data.nickname} (${clientId})`);
+                console.log(`Device setup completed: ${message.data.nickname} (${clientId})`);
 
-              // Send setup confirmation
-              if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                  type: 'setup-complete',
-                  data: { device }
-                }));
+                // Send setup confirmation
+                if (ws.readyState === WebSocket.OPEN) {
+                  const setupResponse = {
+                    type: 'setup-complete',
+                    data: { device }
+                  };
+                  console.log('Sending setup-complete message:', setupResponse);
+                  ws.send(JSON.stringify(setupResponse));
+                } else {
+                  console.error('WebSocket not open when trying to send setup-complete');
+                }
+              } catch (error) {
+                console.error('Error during device setup:', error);
+                if (ws.readyState === WebSocket.OPEN) {
+                  ws.send(JSON.stringify({
+                    type: 'error',
+                    data: { message: 'Failed to setup device: ' + (error as Error).message }
+                  }));
+                }
+                return;
               }
 
               // Notify all clients about new connection
