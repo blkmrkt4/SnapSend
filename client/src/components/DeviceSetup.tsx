@@ -20,18 +20,18 @@ export function DeviceSetup({ onSetupComplete, isConnecting }: DeviceSetupProps)
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Setup Your Device</CardTitle>
-          <CardDescription>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-primary/20">
+      <Card className="w-full max-w-md border-primary/30 shadow-2xl">
+        <CardHeader className="text-center bg-gradient-to-r from-primary/10 to-secondary/10 rounded-t-lg">
+          <CardTitle className="text-3xl font-bold text-foreground">Setup Your Device</CardTitle>
+          <CardDescription className="text-muted-foreground text-lg">
             Choose a nickname to identify your device on the network
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="nickname">Device Nickname</Label>
+        <CardContent className="p-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-3">
+              <Label htmlFor="nickname" className="text-foreground font-semibold">Device Nickname</Label>
               <Input
                 id="nickname"
                 type="text"
@@ -41,6 +41,7 @@ export function DeviceSetup({ onSetupComplete, isConnecting }: DeviceSetupProps)
                 disabled={isConnecting}
                 maxLength={50}
                 required
+                className="border-primary/30 focus:border-primary text-lg p-3"
               />
               <p className="text-sm text-muted-foreground">
                 This name will be visible to other users when you connect
@@ -48,7 +49,7 @@ export function DeviceSetup({ onSetupComplete, isConnecting }: DeviceSetupProps)
             </div>
             <Button 
               type="submit" 
-              className="w-full" 
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-3 shadow-lg" 
               disabled={!nickname.trim() || isConnecting}
             >
               {isConnecting ? 'Setting up...' : 'Start Sharing'}

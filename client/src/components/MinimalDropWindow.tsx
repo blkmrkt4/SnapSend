@@ -167,24 +167,24 @@ export function MinimalDropWindow({
   }, [onSendFile]);
 
   return (
-    <div className="w-80 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden">
-      <div className="bg-gradient-to-r from-primary to-blue-600 px-4 py-3 flex items-center justify-between">
+    <div className="w-80 bg-white rounded-xl shadow-2xl border border-primary/30 overflow-hidden">
+      <div className="bg-gradient-to-r from-primary to-secondary px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-2">
-          <CloudUpload className="text-white w-4 h-4" />
-          <h2 className="text-white font-semibold text-sm">QuickDrop - Send</h2>
+          <CloudUpload className="text-primary-foreground w-5 h-5" />
+          <h2 className="text-primary-foreground font-bold">QuickDrop - Send</h2>
         </div>
         <div className="flex items-center space-x-2">
           <button 
-            className="text-white/80 hover:text-white p-1 rounded"
+            className="text-primary-foreground/80 hover:text-primary-foreground p-1 rounded hover:bg-white/20 transition-colors"
             onClick={onMinimize}
           >
-            <Minus className="w-3 h-3" />
+            <Minus className="w-4 h-4" />
           </button>
           <button 
-            className="text-white/80 hover:text-white p-1 rounded"
+            className="text-primary-foreground/80 hover:text-primary-foreground p-1 rounded hover:bg-white/20 transition-colors"
             onClick={onToggleExpanded}
           >
-            <Expand className="w-3 h-3" />
+            <Expand className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -193,8 +193,8 @@ export function MinimalDropWindow({
         <div 
           className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 cursor-pointer group ${
             isDragOver 
-              ? 'border-primary bg-blue-50' 
-              : 'border-gray-300 hover:border-primary hover:bg-blue-50'
+              ? 'border-primary bg-primary/10' 
+              : 'border-primary/30 hover:border-primary hover:bg-primary/5'
           }`}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -214,13 +214,13 @@ export function MinimalDropWindow({
               )}
             </div>
             <div>
-              <p className="text-gray-700 font-medium">
+              <p className="text-foreground font-semibold">
                 {isUploading ? 'Uploading...' : 'Drop files here'}
               </p>
-              <p className="text-gray-500 text-sm mt-1">or paste from clipboard</p>
+              <p className="text-muted-foreground text-sm mt-1">or paste from clipboard</p>
             </div>
             {!isUploading && (
-              <button className="text-primary text-sm font-medium hover:text-blue-700 transition-colors">
+              <button className="text-primary text-sm font-semibold hover:text-primary/80 transition-colors">
                 Browse files
               </button>
             )}
@@ -239,13 +239,13 @@ export function MinimalDropWindow({
       <div className="px-6 pb-6">
         <div className="flex space-x-2">
           <button 
-            className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-3 rounded-lg text-sm font-medium transition-colors"
+            className="flex-1 bg-accent hover:bg-accent/80 text-foreground py-2 px-3 rounded-lg text-sm font-semibold transition-colors shadow-sm border border-primary/20"
             onClick={handlePasteFromClipboard}
           >
             <Clipboard className="w-4 h-4 mr-2 inline" />Clipboard
           </button>
           <button 
-            className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-3 rounded-lg text-sm font-medium transition-colors"
+            className="flex-1 bg-secondary hover:bg-secondary/90 text-secondary-foreground py-2 px-3 rounded-lg text-sm font-semibold transition-colors shadow-sm"
             onClick={handleScreenshot}
           >
             <Camera className="w-4 h-4 mr-2 inline" />Screenshot
