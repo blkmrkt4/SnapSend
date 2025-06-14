@@ -81,20 +81,7 @@ export function ConnectionManager({
     setEnteredKey('');
   };
 
-  const openVerificationDialog = (request: any) => {
-    setSelectedOutgoingRequest(request);
-    setShowVerificationDialog(true);
-    setVerificationKey('');
-  };
 
-  const handleSubmitVerificationKey = () => {
-    if (selectedOutgoingRequest && verificationKey.length === 2) {
-      onSubmitVerificationKey(selectedOutgoingRequest.connectionId, verificationKey);
-      setShowVerificationDialog(false);
-      setSelectedOutgoingRequest(null);
-      setVerificationKey('');
-    }
-  };
 
   return (
     <div className="space-y-6">

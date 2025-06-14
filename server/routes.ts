@@ -122,28 +122,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (message.type === 'connection-request') {
             console.log(`Connection request from ${device.nickname} to ${message.data.targetNickname}`);
             
-            // Get only online devices and find the target by nickname
-            const onlineDevices = await storage.getOnlineDevices();
-            const targetDevice = onlineDevices.find(d => d.nickname === message.data.targetNickname);
-            console.log('Target device found:', targetDevice);
-            console.log('All online devices:', onlineDevices.map(d => ({ id: d.id, nickname: d.nickname })));
+            // Find target device from currently connected clients only
+            const connectedDeviceIds = Array.from(connectedClients.keys()).map(id => parseInt(id));
+            console.log('Connected device IDs:', connectedDeviceIds);
+            
+            let targetDevice = null;
+            for (const deviceId of connectedDeviceIds) {
+              const device = await storage.getDevice(deviceId);
+              if (device && device.nickname === message.data.targetNickname) {
+                targetDevice = device;
+                break;
+              }
+            }
+            
+            console.log('Target device found in connected clients:', targetDevice);
             
             if (!targetDevice) {
-              console.log('Target device not found or not online');
+              console.log('Target device not found among connected clients');
               ws.send(JSON.stringify({
                 type: 'error',
-                data: { message: 'User not found or offline' }
-              }));
-              return;
-            }
-
-            // Verify target device is in connected clients
-            const targetClientId = targetDevice.id.toString();
-            if (!connectedClients.has(targetClientId)) {
-              console.log('Target device not in connected clients map');
-              ws.send(JSON.stringify({
-                type: 'error',
-                data: { message: 'User is not currently connected' }
+                data: { message: 'User not found or not currently connected' }
               }));
               return;
             }
