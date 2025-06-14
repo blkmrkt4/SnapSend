@@ -164,8 +164,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           // Handle verification key submission from requester
           if (message.type === 'submit-verification-key') {
+            console.log(`Verification key submitted by ${device.nickname}:`, message.data);
             const connection = await storage.getConnection(message.data.connectionId);
+            console.log('Found connection:', connection);
+            
             if (!connection || connection.requesterDeviceId !== device.id) {
+              console.log('Invalid connection or requester mismatch');
               ws.send(JSON.stringify({
                 type: 'error',
                 data: { message: 'Invalid connection request' }
@@ -174,7 +178,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
 
             // Validate connection key
+            console.log(`Comparing keys: submitted="${message.data.verificationKey}", expected="${connection.connectionKey}"`);
             if (message.data.verificationKey !== connection.connectionKey) {
+              console.log('Verification key mismatch');
               ws.send(JSON.stringify({
                 type: 'error',
                 data: { message: 'Invalid verification key' }
@@ -182,16 +188,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
               return;
             }
 
+            console.log('Verification key valid, approving connection');
             // Key is valid, approve the connection
             await storage.updateConnectionStatus(connection.id, 'active', new Date());
             
             // Get target device info
             const targetDevice = await storage.getDevice(connection.targetDeviceId);
+            console.log('Target device:', targetDevice?.nickname);
             
             // Notify both parties
             const targetClient = Array.from(connectedClients.entries())
               .find(([id, client]) => parseInt(id) === connection.targetDeviceId)?.[1];
             
+            console.log('Sending approval to target device:', !!targetClient);
             if (targetClient && targetClient.readyState === WebSocket.OPEN) {
               targetClient.send(JSON.stringify({
                 type: 'connection-approved',
@@ -199,6 +208,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }));
             }
 
+            console.log('Sending approval to requester');
             ws.send(JSON.stringify({
               type: 'connection-approved',
               data: { connectionId: connection.id, partnerNickname: targetDevice?.nickname || 'Unknown' }

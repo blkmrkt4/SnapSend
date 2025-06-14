@@ -105,6 +105,7 @@ export function useConnectionSystem() {
             break;
 
           case 'connection-approved':
+            console.log('Connection approved received:', message.data);
             // Create a proper connection object or fetch from API
             const newConnection = {
               id: message.data.connectionId,
@@ -120,6 +121,9 @@ export function useConnectionSystem() {
             setState(prev => ({ 
               ...prev, 
               connections: [...prev.connections, newConnection],
+              // Clear both pending and outgoing requests for this connection
+              pendingRequests: prev.pendingRequests.filter(r => r.connectionId !== message.data.connectionId),
+              outgoingRequests: prev.outgoingRequests.filter(r => r.connectionId !== message.data.connectionId),
               notifications: [...prev.notifications, {
                 id: Date.now(),
                 type: 'connection-approved',
@@ -317,11 +321,15 @@ export function useConnectionSystem() {
   }, []);
 
   const submitVerificationKey = useCallback((connectionId: number, verificationKey: string) => {
+    console.log(`Submitting verification key: connectionId=${connectionId}, key="${verificationKey}"`);
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({
         type: 'submit-verification-key',
         data: { connectionId, verificationKey }
       }));
+      console.log('Verification key sent to server');
+    } else {
+      console.log('WebSocket not open, cannot send verification key');
     }
     
     // Remove from outgoing requests
