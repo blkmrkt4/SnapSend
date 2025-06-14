@@ -99,16 +99,16 @@ export default function Home() {
 
   if (isMinimized) {
     return (
-      <div className="min-h-screen p-4">
+      <div className="min-h-screen p-4 bg-gradient-to-br from-background to-primary/20">
         <div className="text-center mb-4">
-          <h1 className="text-2xl font-bold">{currentDevice?.nickname}</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-3xl font-bold text-foreground">{currentDevice?.nickname}</h1>
+          <p className="text-muted-foreground text-lg">
             {connections.length} active connection{connections.length !== 1 ? 's' : ''}
           </p>
         </div>
         <div className="fixed bottom-4 right-4">
           <button
-            className="bg-primary text-white p-3 rounded-full shadow-lg hover:bg-primary/90 transition-colors"
+            className="bg-primary text-primary-foreground p-4 rounded-full shadow-xl hover:bg-primary/90 transition-all duration-200 hover:scale-105"
             onClick={() => setIsMinimized(false)}
           >
             Open File Share
