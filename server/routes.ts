@@ -261,6 +261,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
             
             // Send file to all active connections
+            let successfulTransfers = 0;
             for (const connection of activeConnections) {
               const file = await storage.createFile({
                 filename: filename,
@@ -284,6 +285,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   type: 'file-received',
                   data: { file, fromDevice: device.nickname }
                 }));
+                successfulTransfers++;
               }
 
               // If it's clipboard content, also send clipboard sync
@@ -295,6 +297,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   }));
                 }
               }
+            }
+
+            // Send confirmation back to sender
+            if (successfulTransfers > 0) {
+              ws.send(JSON.stringify({
+                type: 'file-sent-confirmation',
+                data: { 
+                  filename: message.data.originalName,
+                  recipientCount: successfulTransfers,
+                  isClipboard: message.data.isClipboard
+                }
+              }));
             }
             return;
           }

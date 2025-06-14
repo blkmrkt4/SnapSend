@@ -178,7 +178,11 @@ export function ExpandedFileManager({
                     </div>
                   )}
 
-                  <h3 className="font-medium text-gray-800 text-sm mb-1 truncate">
+                  <h3 
+                    className="font-medium text-gray-800 text-sm mb-1 truncate cursor-pointer hover:text-blue-600 transition-colors"
+                    onDoubleClick={() => onPreviewFile(file)}
+                    title="Double-click to preview file"
+                  >
                     {file.originalName}
                   </h3>
                   <div className="flex items-center justify-between text-xs text-gray-500">
