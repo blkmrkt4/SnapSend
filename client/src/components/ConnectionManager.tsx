@@ -104,11 +104,25 @@ export function ConnectionManager({
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium">{currentDevice?.nickname}</p>
-              <p className="text-sm text-muted-foreground">Online and ready to connect</p>
+              {connections.length > 0 ? (
+                <p className="text-sm text-green-600 font-medium">
+                  Connected to {connections.length} device{connections.length > 1 ? 's' : ''}: {' '}
+                  {connections.map((conn: any) => conn.partnerNickname || 'Unknown').join(', ')}
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">Online and ready to connect</p>
+              )}
             </div>
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-              Online
-            </Badge>
+            <div className="flex flex-col items-end gap-1">
+              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                Online
+              </Badge>
+              {connections.length > 0 && (
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
+                  {connections.length} Connected
+                </Badge>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -124,17 +138,23 @@ export function ConnectionManager({
           </CardHeader>
           <CardContent className="space-y-3">
             {connections.map((connection) => (
-              <div key={connection.id} className="flex items-center justify-between p-3 border rounded-lg">
-                <div>
-                  <p className="font-medium">Connection Active</p>
-                  <p className="text-sm text-muted-foreground">
-                    Files can be shared between devices
-                  </p>
+              <div key={connection.id} className="flex items-center justify-between p-3 border rounded-lg bg-green-50 border-green-200">
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                  <div>
+                    <p className="font-medium text-green-800">
+                      Connected to {(connection as any).partnerNickname || 'Partner'}
+                    </p>
+                    <p className="text-sm text-green-600">
+                      Files can be shared instantly
+                    </p>
+                  </div>
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => onTerminateConnection(connection.id)}
+                  className="border-red-300 text-red-700 hover:bg-red-50"
                 >
                   <WifiOff className="h-4 w-4 mr-2" />
                   Disconnect

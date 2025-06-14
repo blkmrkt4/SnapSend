@@ -115,7 +115,8 @@ export function useConnectionSystem() {
               status: 'active',
               createdAt: new Date(),
               approvedAt: new Date(),
-              terminatedAt: null
+              terminatedAt: null,
+              partnerNickname: message.data.partnerNickname
             };
             
             setState(prev => ({ 
