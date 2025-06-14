@@ -325,14 +325,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             }
 
-            // Send confirmation back to sender
+            // Send confirmation back to sender with file data
             if (successfulTransfers > 0) {
+              // Create a file object for the sender's records
+              const senderFile = {
+                id: Date.now(), // Temporary ID for frontend
+                filename: message.data.filename,
+                originalName: message.data.originalName,
+                mimeType: message.data.mimeType,
+                size: message.data.size,
+                content: message.data.isClipboard ? message.data.content : undefined,
+                fromDeviceId: device.id,
+                toDeviceId: null, // Multiple recipients
+                connectionId: null,
+                transferredAt: new Date(),
+                isClipboard: message.data.isClipboard ? 1 : 0,
+              };
+
               ws.send(JSON.stringify({
                 type: 'file-sent-confirmation',
                 data: { 
                   filename: message.data.originalName,
                   recipientCount: successfulTransfers,
-                  isClipboard: message.data.isClipboard
+                  isClipboard: message.data.isClipboard,
+                  file: senderFile
                 }
               }));
             }

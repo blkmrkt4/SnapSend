@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { DeviceSetup } from '@/components/DeviceSetup';
 import { ConnectionManager } from '@/components/ConnectionManager';
 import { MinimalDropWindow } from '@/components/MinimalDropWindow';
-import { ExpandedFileManager } from '@/components/ExpandedFileManager';
+import { FileExplorer } from '@/components/FileExplorer';
 import { NotificationWindow } from '@/components/NotificationWindow';
 import { FilePreviewModal } from '@/components/FilePreviewModal';
 import { useConnectionSystem } from '@/hooks/useConnectionSystem';

@@ -164,7 +164,7 @@ export function useConnectionSystem() {
           case 'file-received':
             setState(prev => ({ 
               ...prev, 
-              files: [message.data.file, ...prev.files],
+              files: [{ ...message.data.file, transferType: 'received', fromDevice: message.data.fromDevice }, ...prev.files],
               notifications: [...prev.notifications, {
                 id: Date.now(),
                 type: 'file',
@@ -196,16 +196,21 @@ export function useConnectionSystem() {
             break;
 
           case 'file-sent-confirmation':
-            setState(prev => ({ 
-              ...prev, 
-              notifications: [...prev.notifications, {
-                id: Date.now(),
-                type: 'file-sent',
-                title: message.data.isClipboard ? 'Clipboard shared' : 'File sent',
-                message: `${message.data.filename} sent to ${message.data.recipientCount} device${message.data.recipientCount > 1 ? 's' : ''}`,
-                timestamp: new Date()
-              }]
-            }));
+            // Add the sent file to our files list with sent metadata
+            const sentFile = message.data.file;
+            if (sentFile) {
+              setState(prev => ({ 
+                ...prev, 
+                files: [{ ...sentFile, transferType: 'sent' }, ...prev.files],
+                notifications: [...prev.notifications, {
+                  id: Date.now(),
+                  type: 'file-sent',
+                  title: message.data.isClipboard ? 'Clipboard shared' : 'File sent',
+                  message: `${message.data.filename} sent to ${message.data.recipientCount} device${message.data.recipientCount > 1 ? 's' : ''}`,
+                  timestamp: new Date()
+                }]
+              }));
+            }
             break;
 
           case 'error':
