@@ -101,14 +101,7 @@ export function FileExplorer({
           // Open text content in new tab
           const newWindow = window.open();
           if (newWindow) {
-            newWindow.document.write(`
-              <html>
-                <head><title>${file.originalName}</title></head>
-                <body style="margin:20px;font-family:monospace;white-space:pre-wrap;">
-                  ${file.content}
-                </body>
-              </html>
-            `);
+            newWindow.document.write(`<html><head><title>${file.originalName}</title></head><body style="margin:20px;font-family:monospace;white-space:pre-wrap;">${file.content}</body></html>`);
           }
         }
       } else {
