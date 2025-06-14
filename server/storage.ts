@@ -37,6 +37,7 @@ export interface IStorage {
   // File management
   createFile(file: InsertFile): Promise<File>;
   getFile(id: number): Promise<File | undefined>;
+  getFileByFilename(filename: string): Promise<File | undefined>;
   getFilesByDevice(deviceId: number): Promise<File[]>;
   getFilesByConnection(connectionId: number): Promise<File[]>;
   getAllFiles(): Promise<File[]>;

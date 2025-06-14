@@ -532,8 +532,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // File download endpoint
   app.get('/api/files/:id/download', async (req, res) => {
     try {
-      const fileId = parseInt(req.params.id);
-      const file = await storage.getFile(fileId);
+      const fileIdStr = req.params.id;
+      console.log('Download request for file ID:', fileIdStr);
+      
+      // Handle both numeric IDs and filename-based IDs
+      let file;
+      if (fileIdStr.match(/^\d+$/)) {
+        const fileId = parseInt(fileIdStr);
+        if (fileId > 2147483647) { // PostgreSQL integer limit
+          console.log('File ID too large for integer, treating as filename');
+          file = await storage.getFileByFilename(fileIdStr);
+        } else {
+          file = await storage.getFile(fileId);
+        }
+      } else {
+        // Treat as filename
+        file = await storage.getFileByFilename(fileIdStr);
+      }
 
       if (!file) {
         return res.status(404).json({ error: 'File not found' });

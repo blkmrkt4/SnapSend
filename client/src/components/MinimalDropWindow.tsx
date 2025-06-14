@@ -131,25 +131,29 @@ export function MinimalDropWindow({
         video.srcObject = stream;
         video.play();
 
-        video.addEventListener('loadedmetadata', () => {
+        video.addEventListener('loadedmetadata', async () => {
           const canvas = document.createElement('canvas');
           canvas.width = video.videoWidth;
           canvas.height = video.videoHeight;
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(video, 0, 0);
           
-          canvas.toBlob(async (blob) => {
-            if (blob) {
-              const filename = `screenshot-${Date.now()}.png`;
-              await onSendFile({
-                filename,
-                originalName: filename,
-                mimeType: 'image/png',
-                size: blob.size,
-                isClipboard: false,
-              });
-            }
-          }, 'image/png');
+          // Convert canvas to base64 data URL
+          const dataURL = canvas.toDataURL('image/png');
+          const filename = `screenshot-${Date.now()}.png`;
+          
+          // Calculate approximate size from base64 string
+          const base64Length = dataURL.split(',')[1].length;
+          const sizeInBytes = Math.round(base64Length * 0.75);
+          
+          await onSendFile({
+            filename,
+            originalName: filename,
+            mimeType: 'image/png',
+            size: sizeInBytes,
+            content: dataURL,
+            isClipboard: false,
+          });
 
           stream.getTracks().forEach(track => track.stop());
         });
