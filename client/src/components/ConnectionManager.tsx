@@ -167,53 +167,50 @@ export function ConnectionManager({
 
       {/* Pending Connection Requests */}
       {pendingRequests.length > 0 && (
-        <Card className="border-orange-200 bg-orange-50">
+        <Card className="border-blue-200 bg-blue-50">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-orange-900">
+            <CardTitle className="flex items-center gap-2 text-blue-900">
               <Key className="h-5 w-5" />
               Incoming Connection Requests ({pendingRequests.length})
             </CardTitle>
-            <CardDescription className="text-orange-700">
-              Someone wants to connect with you. Verify the connection key before approving.
+            <CardDescription className="text-blue-700">
+              Share the verification number below to approve the connection request.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {pendingRequests.map((request) => (
-              <div key={request.connectionId} className="p-4 border border-orange-200 rounded-lg bg-white">
+              <div key={request.connectionId} className="p-4 border border-blue-200 rounded-lg bg-white">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <p className="font-semibold text-lg">{request.requesterNickname}</p>
                     <p className="text-sm text-muted-foreground mb-2">
                       wants to connect with you
                     </p>
-                    <div className="flex items-center gap-2 p-2 bg-orange-100 rounded border-orange-300 border">
-                      <Key className="h-4 w-4 text-orange-600" />
-                      <span className="text-sm font-medium text-orange-800">
-                        Connection Key: 
-                      </span>
-                      <span className="text-xl font-bold text-orange-900 bg-white px-2 py-1 rounded border">
-                        {request.connectionKey}
-                      </span>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 p-3 bg-blue-100 rounded border-blue-300 border">
+                        <Key className="h-5 w-5 text-blue-600" />
+                        <div>
+                          <span className="text-sm font-medium text-blue-800 block">
+                            To approve this connection, provide this number to {request.requesterNickname}:
+                          </span>
+                          <span className="text-2xl font-bold text-blue-900 bg-white px-3 py-1 rounded border mt-1 inline-block">
+                            {request.connectionKey}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-blue-600">
+                        The connection will be established automatically when they enter the correct number
+                      </p>
                     </div>
-                    <p className="text-xs text-orange-600 mt-1">
-                      Share this key with {request.requesterNickname} - they need to enter it to verify their identity
-                    </p>
                   </div>
                   <div className="flex flex-col gap-2 ml-4">
-                    <Button
-                      onClick={() => handleRespondToRequest(true)}
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      <Check className="h-4 w-4 mr-2" />
-                      Approve Connection
-                    </Button>
                     <Button
                       variant="outline"
                       onClick={() => handleRespondToRequest(false)}
                       className="border-red-300 text-red-700 hover:bg-red-50"
                     >
                       <X className="h-4 w-4 mr-2" />
-                      Reject
+                      Reject Connection
                     </Button>
                   </div>
                 </div>
