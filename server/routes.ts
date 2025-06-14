@@ -43,6 +43,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           const message = JSON.parse(data.toString());
           
+          // Update last seen for this device if it exists
+          if (device) {
+            await storage.updateDeviceLastSeen(device.socketId);
+          }
+          
           // Handle device setup
           if (message.type === 'device-setup') {
             if (!device) {
@@ -323,21 +328,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         } catch (error) {
           console.error('Error processing WebSocket message:', error);
+          // Send error to client but don't crash the connection
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+              type: 'error',
+              data: { message: 'Server error processing request' }
+            }));
+          }
         }
       });
 
       ws.on('close', async () => {
         if (device && clientId) {
           connectedClients.delete(clientId);
-          await storage.updateDeviceOnlineStatus(device.socketId, false);
           
-          const disconnectMessage: WebSocketMessage = {
-            type: 'device-disconnected',
-            data: { deviceNickname: device.nickname, totalDevices: connectedClients.size }
-          };
-          
-          broadcast(disconnectMessage);
-          console.log(`Device disconnected: ${device.nickname} (${clientId})`);
+          try {
+            await storage.updateDeviceOnlineStatus(device.socketId, false);
+            
+            const disconnectMessage: WebSocketMessage = {
+              type: 'device-disconnected',
+              data: { deviceNickname: device.nickname, totalDevices: connectedClients.size }
+            };
+            
+            broadcast(disconnectMessage);
+            console.log(`Device disconnected: ${device.nickname} (${clientId})`);
+          } catch (error) {
+            console.error('Error updating device offline status:', error);
+          }
         }
       });
 
