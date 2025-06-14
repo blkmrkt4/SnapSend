@@ -190,6 +190,19 @@ export function useConnectionSystem() {
             }));
             break;
 
+          case 'file-sent-confirmation':
+            setState(prev => ({ 
+              ...prev, 
+              notifications: [...prev.notifications, {
+                id: Date.now(),
+                type: 'file-sent',
+                title: message.data.isClipboard ? 'Clipboard shared' : 'File sent',
+                message: `${message.data.filename} sent to ${message.data.recipientCount} device${message.data.recipientCount > 1 ? 's' : ''}`,
+                timestamp: new Date()
+              }]
+            }));
+            break;
+
           case 'error':
             setState(prev => ({ 
               ...prev, 

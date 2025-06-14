@@ -66,7 +66,7 @@ export type File = typeof files.$inferSelect;
 export interface WebSocketMessage {
   type: 'device-connected' | 'device-disconnected' | 'file-received' | 'clipboard-sync' | 
         'connection-request' | 'connection-response' | 'connection-approved' | 'connection-terminated' |
-        'scan-users' | 'scan-results';
+        'scan-users' | 'scan-results' | 'file-sent-confirmation';
   data?: any;
 }
 
