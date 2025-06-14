@@ -182,9 +182,11 @@ export function ConnectionManager({
               <div key={request.connectionId} className="p-4 border border-blue-200 rounded-lg bg-white">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <p className="font-semibold text-lg">{request.requesterNickname}</p>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      wants to connect with you
+                    <p className="font-semibold text-xl text-blue-800">
+                      Connection Request from {request.requesterNickname}
+                    </p>
+                    <p className="text-sm text-blue-600 mb-2">
+                      {request.requesterNickname} wants to connect with you
                     </p>
                     <div className="space-y-3">
                       <div className="flex items-center gap-2 p-3 bg-blue-100 rounded border-blue-300 border">
@@ -206,7 +208,7 @@ export function ConnectionManager({
                   <div className="flex flex-col gap-2 ml-4">
                     <Button
                       variant="outline"
-                      onClick={() => handleRespondToRequest(false)}
+                      onClick={() => onRespondToConnection(request.connectionId, false)}
                       className="border-red-300 text-red-700 hover:bg-red-50"
                     >
                       <X className="h-4 w-4 mr-2" />

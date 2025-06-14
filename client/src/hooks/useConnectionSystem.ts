@@ -136,13 +136,20 @@ export function useConnectionSystem() {
             break;
 
           case 'connection-rejected':
+            console.log('Connection rejected received:', message.data);
             setState(prev => ({ 
               ...prev, 
+              // Remove from pending requests if we're the receiver
+              pendingRequests: prev.pendingRequests.filter(r => r.connectionId !== message.data.connectionId),
+              // Remove from outgoing requests if we're the requester
+              outgoingRequests: prev.outgoingRequests.filter(r => r.connectionId !== message.data.connectionId),
               notifications: [...prev.notifications, {
                 id: Date.now(),
                 type: 'connection-rejected',
                 title: 'Connection rejected',
-                message: 'Connection request was rejected',
+                message: message.data.rejectedBy ? 
+                  `Connection request was rejected by ${message.data.rejectedBy}` : 
+                  'Connection request was rejected',
                 timestamp: new Date()
               }]
             }));

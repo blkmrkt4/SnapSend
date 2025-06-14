@@ -218,8 +218,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           // Handle connection response (approve/reject) - simplified for receiver
           if (message.type === 'connection-response') {
+            console.log(`Connection response from ${device.nickname}:`, message.data);
             const connection = await storage.getConnection(message.data.connectionId);
+            console.log('Found connection for response:', connection);
+            
             if (!connection || connection.targetDeviceId !== device.id) {
+              console.log('Invalid connection or target mismatch for response');
               ws.send(JSON.stringify({
                 type: 'error',
                 data: { message: 'Invalid connection request' }
@@ -228,18 +232,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
 
             if (!message.data.approved) {
+              console.log('Connection rejected, updating status');
               await storage.updateConnectionStatus(connection.id, 'rejected');
               
               // Notify requester of rejection
               const requesterClient = Array.from(connectedClients.entries())
                 .find(([id, client]) => parseInt(id) === connection.requesterDeviceId)?.[1];
               
+              console.log('Sending rejection to requester:', !!requesterClient);
               if (requesterClient && requesterClient.readyState === WebSocket.OPEN) {
                 requesterClient.send(JSON.stringify({
                   type: 'connection-rejected',
-                  data: { connectionId: connection.id }
+                  data: { connectionId: connection.id, rejectedBy: device.nickname }
                 }));
               }
+
+              // Also send confirmation to the person who rejected
+              ws.send(JSON.stringify({
+                type: 'connection-rejected',
+                data: { connectionId: connection.id, rejectedBy: device.nickname }
+              }));
             }
             // If approved, we wait for the requester to submit the verification key
             return;
