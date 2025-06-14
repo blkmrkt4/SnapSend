@@ -131,7 +131,7 @@ export function MinimalDropWindow({
         video.srcObject = stream;
         video.play();
 
-        video.addEventListener('loadedmetadata', async () => {
+        video.addEventListener('loadedmetadata', () => {
           const canvas = document.createElement('canvas');
           canvas.width = video.videoWidth;
           canvas.height = video.videoHeight;
@@ -146,14 +146,17 @@ export function MinimalDropWindow({
           const base64Length = dataURL.split(',')[1].length;
           const sizeInBytes = Math.round(base64Length * 0.75);
           
-          await onSendFile({
-            filename,
-            originalName: filename,
-            mimeType: 'image/png',
-            size: sizeInBytes,
-            content: dataURL,
-            isClipboard: false,
-          });
+          // Use setTimeout to avoid async in event listener
+          setTimeout(async () => {
+            await onSendFile({
+              filename,
+              originalName: filename,
+              mimeType: 'image/png',
+              size: sizeInBytes,
+              content: dataURL,
+              isClipboard: false,
+            });
+          }, 0);
 
           stream.getTracks().forEach(track => track.stop());
         });

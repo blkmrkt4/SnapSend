@@ -202,6 +202,11 @@ export class DatabaseStorage implements IStorage {
     return file || undefined;
   }
 
+  async getFileByFilename(filename: string): Promise<File | undefined> {
+    const [file] = await db.select().from(files).where(eq(files.filename, filename));
+    return file || undefined;
+  }
+
   async getFilesByDevice(deviceId: number): Promise<File[]> {
     return await db.select().from(files).where(eq(files.toDeviceId, deviceId));
   }

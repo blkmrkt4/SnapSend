@@ -306,7 +306,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 originalName: message.data.originalName,
                 mimeType: message.data.mimeType,
                 size: message.data.size,
-                content: message.data.isClipboard ? message.data.content : undefined,
+                content: message.data.content, // Store content for all files (clipboard, images, text)
                 fromDeviceId: device.id,
                 toDeviceId: connection.requesterDeviceId === device.id ? connection.targetDeviceId : connection.requesterDeviceId,
                 connectionId: connection.id,
