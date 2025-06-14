@@ -86,17 +86,17 @@ export function ConnectionManager({
   return (
     <div className="space-y-4">
       {/* Compact Header with Device Status */}
-      <div className="flex items-center justify-between pb-2 border-b">
+      <div className="flex items-center justify-between pb-3 border-b-2 border-primary/20">
         <div className="flex items-center gap-3">
-          <h2 className="text-xl font-semibold">Connections</h2>
+          <h2 className="text-2xl font-bold text-foreground">Connections</h2>
           <div className="flex items-center gap-2">
-            <Wifi className="h-4 w-4 text-green-500" />
-            <span className="font-medium text-sm">{currentDevice?.nickname}</span>
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
+            <Wifi className="h-5 w-5 text-primary" />
+            <span className="font-semibold text-foreground">{currentDevice?.nickname}</span>
+            <Badge className="bg-primary text-primary-foreground shadow-sm">
               Online
             </Badge>
             {connections.length > 0 && (
-              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
+              <Badge variant="secondary" className="bg-secondary text-secondary-foreground shadow-sm">
                 {connections.length} Connected
               </Badge>
             )}
@@ -105,10 +105,10 @@ export function ConnectionManager({
       </div>
 
       {/* Connect to New Device - moved to top */}
-      <Card className="w-full">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Search className="h-4 w-4" />
+      <Card className="w-full border-primary/20 shadow-lg">
+        <CardHeader className="pb-3 bg-gradient-to-r from-primary/5 to-secondary/5">
+          <CardTitle className="flex items-center gap-2 text-lg text-foreground font-semibold">
+            <Search className="h-5 w-5 text-primary" />
             Connect to New Device
           </CardTitle>
         </CardHeader>
@@ -120,13 +120,13 @@ export function ConnectionManager({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 disabled={isSearching}
-                className="flex-1"
+                className="flex-1 border-primary/30 focus:border-primary"
               />
               <Button 
                 type="submit" 
                 disabled={!searchQuery.trim() || isSearching}
                 size="sm"
-                className="bg-blue-600 hover:bg-blue-700"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md"
               >
                 {isSearching ? 'Searching...' : 'Find'}
               </Button>
@@ -137,16 +137,16 @@ export function ConnectionManager({
           {searchResults.length > 0 && (
             <div className="mt-4 space-y-2">
               {searchResults.map((user) => (
-                <div key={user.id} className="flex items-center justify-between p-2 border border-green-200 rounded bg-green-50">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${user.isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
-                    <span className="font-medium text-sm">{user.nickname}</span>
+                <div key={user.id} className="flex items-center justify-between p-3 border border-primary/30 rounded-lg bg-gradient-to-r from-primary/5 to-accent/10 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-3 h-3 rounded-full shadow-sm ${user.isOnline ? 'bg-primary animate-pulse' : 'bg-muted-foreground'}`} />
+                    <span className="font-semibold text-foreground">{user.nickname}</span>
                   </div>
                   <Button
                     disabled={!user.isOnline}
                     onClick={() => handleConnectionRequest(user.nickname)}
                     size="sm"
-                    className="bg-green-600 hover:bg-green-700 text-xs"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md"
                   >
                     Connect
                   </Button>
@@ -159,19 +159,19 @@ export function ConnectionManager({
 
       {/* Active Connections */}
       {connections.length > 0 && (
-        <Card className="w-full">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Users className="h-4 w-4" />
+        <Card className="w-full border-primary/20 shadow-lg">
+          <CardHeader className="pb-3 bg-gradient-to-r from-secondary/5 to-primary/5">
+            <CardTitle className="flex items-center gap-2 text-lg text-foreground font-semibold">
+              <Users className="h-5 w-5 text-secondary" />
               Active Connections ({connections.length})
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-0 space-y-2">
+          <CardContent className="pt-0 space-y-3">
             {connections.map((connection) => (
-              <div key={connection.id} className="flex items-center justify-between p-2 border rounded bg-green-50 border-green-200">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span className="font-medium text-sm text-green-800">
+              <div key={connection.id} className="flex items-center justify-between p-3 border rounded-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/30 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-3 bg-primary rounded-full animate-pulse shadow-sm"></div>
+                  <span className="font-semibold text-foreground">
                     {(connection as any).partnerNickname || 'Partner'}
                   </span>
                 </div>
@@ -179,7 +179,7 @@ export function ConnectionManager({
                   variant="outline"
                   size="sm"
                   onClick={() => onTerminateConnection(connection.id)}
-                  className="border-red-300 text-red-700 hover:bg-red-50 text-xs"
+                  className="border-destructive/50 text-destructive hover:bg-destructive/10 shadow-sm"
                 >
                   Disconnect
                 </Button>
@@ -191,33 +191,33 @@ export function ConnectionManager({
 
       {/* Pending Connection Requests */}
       {pendingRequests.length > 0 && (
-        <Card className="border-blue-200 bg-blue-50 w-full">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-blue-900 text-base">
-              <Key className="h-4 w-4" />
+        <Card className="border-secondary/30 bg-gradient-to-r from-secondary/5 to-accent/5 w-full shadow-lg">
+          <CardHeader className="pb-3 bg-gradient-to-r from-secondary/10 to-accent/10">
+            <CardTitle className="flex items-center gap-2 text-foreground text-lg font-semibold">
+              <Key className="h-5 w-5 text-secondary" />
               Incoming Requests ({pendingRequests.length})
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-0 space-y-2">
+          <CardContent className="pt-0 space-y-3">
             {pendingRequests.map((request) => (
-              <div key={request.connectionId} className="p-3 border border-blue-200 rounded bg-white">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium text-sm text-blue-800">
+              <div key={request.connectionId} className="p-3 border border-secondary/30 rounded-lg bg-white shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="font-semibold text-foreground">
                     {request.requesterNickname} wants to connect
                   </span>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => onRespondToConnection(request.connectionId, false)}
-                    className="border-red-300 text-red-700 hover:bg-red-50 text-xs"
+                    className="border-destructive/50 text-destructive hover:bg-destructive/10 shadow-sm"
                   >
                     Reject
                   </Button>
                 </div>
-                <div className="flex items-center gap-2 p-2 bg-blue-100 rounded">
-                  <Key className="h-4 w-4 text-blue-600" />
-                  <span className="text-xs text-blue-800">Share this code:</span>
-                  <span className="text-lg font-bold text-blue-900 bg-white px-2 py-1 rounded">
+                <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-accent/20 to-primary/10 rounded-lg border border-primary/20">
+                  <Key className="h-5 w-5 text-secondary" />
+                  <span className="text-sm font-medium text-foreground">Share this code:</span>
+                  <span className="text-xl font-bold text-foreground bg-white px-3 py-1 rounded-lg shadow-sm border border-primary/30">
                     {request.connectionKey}
                   </span>
                 </div>
@@ -229,29 +229,29 @@ export function ConnectionManager({
 
       {/* Outgoing Connection Requests */}
       {outgoingRequests.length > 0 && (
-        <Card className="border-blue-200 bg-blue-50 w-full">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-blue-900 text-base">
-              <Key className="h-4 w-4" />
+        <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-secondary/5 w-full shadow-lg">
+          <CardHeader className="pb-3 bg-gradient-to-r from-primary/10 to-secondary/10">
+            <CardTitle className="flex items-center gap-2 text-foreground text-lg font-semibold">
+              <Key className="h-5 w-5 text-primary" />
               Your Requests ({outgoingRequests.length})
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-0 space-y-2">
+          <CardContent className="pt-0 space-y-3">
             {outgoingRequests.map((request) => (
-              <div key={request.connectionId} className="p-3 border border-blue-200 rounded bg-white">
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">Request sent - Ask for verification key</p>
-                  <div className="flex items-center gap-2">
+              <div key={request.connectionId} className="p-3 border border-primary/30 rounded-lg bg-white shadow-sm">
+                <div className="space-y-3">
+                  <p className="font-semibold text-foreground">Request sent - Enter verification key</p>
+                  <div className="flex items-center gap-3">
                     <Input
                       type="text"
-                      placeholder="2-digit key"
+                      placeholder="XX"
                       value={verificationKey}
                       onChange={(e) => {
                         const value = e.target.value.replace(/\D/g, '').slice(0, 2);
                         setVerificationKey(value);
                       }}
                       maxLength={2}
-                      className="w-16 text-center font-mono"
+                      className="w-20 text-center font-mono text-lg border-primary/30 focus:border-primary"
                     />
                     <Button
                       onClick={() => {
@@ -262,7 +262,7 @@ export function ConnectionManager({
                       }}
                       disabled={!verificationKey || verificationKey.length !== 2}
                       size="sm"
-                      className="bg-green-600 hover:bg-green-700 text-xs"
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md"
                     >
                       Connect
                     </Button>
@@ -276,22 +276,19 @@ export function ConnectionManager({
 
       {/* Notifications Section */}
       {notifications && notifications.length > 0 && (
-        <Card className="border-yellow-200 bg-yellow-50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-yellow-900">
-              <Users className="h-5 w-5" />
+        <Card className="border-accent/30 bg-gradient-to-r from-accent/10 to-primary/5 w-full shadow-lg">
+          <CardHeader className="pb-3 bg-gradient-to-r from-accent/20 to-primary/10">
+            <CardTitle className="flex items-center gap-2 text-foreground text-lg font-semibold">
+              <Users className="h-5 w-5 text-secondary" />
               Recent Activity ({notifications.length})
             </CardTitle>
-            <CardDescription className="text-yellow-700">
-              Connection and file transfer notifications
-            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {notifications.map((notification) => (
-              <div key={notification.id} className="p-4 border border-yellow-200 rounded-lg bg-white">
+              <div key={notification.id} className="p-3 border border-accent/30 rounded-lg bg-white shadow-sm">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <p className="font-semibold text-sm">{notification.title}</p>
+                    <p className="font-semibold text-foreground">{notification.title}</p>
                     <p className="text-sm text-muted-foreground">{notification.message}</p>
                     <p className="text-xs text-muted-foreground mt-1">
                       {new Date(notification.timestamp).toLocaleString()}
@@ -303,7 +300,7 @@ export function ConnectionManager({
                         size="sm"
                         variant="outline"
                         onClick={() => onOpenFile(notification)}
-                        className="text-xs"
+                        className="border-primary/30 text-primary hover:bg-primary/10 shadow-sm"
                       >
                         View
                       </Button>
@@ -313,7 +310,7 @@ export function ConnectionManager({
                         size="sm"
                         variant="outline"
                         onClick={() => onSaveFile(notification)}
-                        className="text-xs"
+                        className="border-secondary/30 text-secondary hover:bg-secondary/10 shadow-sm"
                       >
                         Save
                       </Button>
@@ -323,9 +320,9 @@ export function ConnectionManager({
                         size="sm"
                         variant="ghost"
                         onClick={() => onDismissNotification(notification.id)}
-                        className="text-xs"
+                        className="text-muted-foreground hover:bg-muted/50"
                       >
-                        <X className="h-3 w-3" />
+                        <X className="h-4 w-4" />
                       </Button>
                     )}
                   </div>
