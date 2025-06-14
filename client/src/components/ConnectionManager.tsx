@@ -20,6 +20,10 @@ interface ConnectionManagerProps {
   pendingRequests: any[];
   outgoingRequests: any[];
   isSearching: boolean;
+  notifications?: any[];
+  onDismissNotification?: (id: number) => void;
+  onOpenFile?: (notification: any) => void;
+  onSaveFile?: (notification: any) => void;
 }
 
 export function ConnectionManager({
@@ -33,7 +37,11 @@ export function ConnectionManager({
   searchResults,
   pendingRequests,
   outgoingRequests,
-  isSearching
+  isSearching,
+  notifications = [],
+  onDismissNotification,
+  onOpenFile,
+  onSaveFile,
 }: ConnectionManagerProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showConnectionDialog, setShowConnectionDialog] = useState(false);
@@ -484,6 +492,68 @@ export function ConnectionManager({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Notifications Section */}
+      {notifications && notifications.length > 0 && (
+        <Card className="border-yellow-200 bg-yellow-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-yellow-900">
+              <Bell className="h-5 w-5" />
+              Recent Activity ({notifications.length})
+            </CardTitle>
+            <CardDescription className="text-yellow-700">
+              Connection and file transfer notifications
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {notifications.map((notification) => (
+              <div key={notification.id} className="p-4 border border-yellow-200 rounded-lg bg-white">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <p className="font-semibold text-sm">{notification.title}</p>
+                    <p className="text-sm text-muted-foreground">{notification.message}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {new Date(notification.timestamp).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {notification.file && onOpenFile && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onOpenFile(notification)}
+                        className="text-xs"
+                      >
+                        View
+                      </Button>
+                    )}
+                    {notification.file && onSaveFile && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onSaveFile(notification)}
+                        className="text-xs"
+                      >
+                        Save
+                      </Button>
+                    )}
+                    {onDismissNotification && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => onDismissNotification(notification.id)}
+                        className="text-xs"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -129,10 +129,9 @@ export default function Home() {
         </div>
 
         <Tabs defaultValue="connections" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="connections">Connections</TabsTrigger>
             <TabsTrigger value="files">File Transfer</TabsTrigger>
-            <TabsTrigger value="notifications">Notifications</TabsTrigger>
           </TabsList>
 
           <TabsContent value="connections" className="mt-6">
@@ -148,6 +147,10 @@ export default function Home() {
               pendingRequests={pendingRequests}
               outgoingRequests={outgoingRequests}
               isSearching={isSearching}
+              notifications={notifications}
+              onDismissNotification={dismissNotification}
+              onOpenFile={handleOpenFile}
+              onSaveFile={handleSaveFile}
             />
           </TabsContent>
 
@@ -172,14 +175,7 @@ export default function Home() {
             </div>
           </TabsContent>
 
-          <TabsContent value="notifications" className="mt-6">
-            <NotificationWindow
-              notifications={notifications}
-              onDismiss={dismissNotification}
-              onOpenFile={handleOpenFile}
-              onSaveFile={handleSaveFile}
-            />
-          </TabsContent>
+
         </Tabs>
 
         <FilePreviewModal
