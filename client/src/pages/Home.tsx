@@ -161,11 +161,12 @@ export default function Home() {
               />
 
               {showExpanded && (
-                <ExpandedFileManager
+                <FileExplorer
                   files={files}
                   onPreviewFile={handlePreviewFile}
                   onRefresh={handleRefresh}
                   onClearAll={handleClearAll}
+                  currentDevice={currentDevice}
                 />
               )}
             </div>
