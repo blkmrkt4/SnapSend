@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Search, Users, Wifi, WifiOff, Key, Check, X, Bell } from 'lucide-react';
+import { Search, Users, Wifi, WifiOff, Key, Check, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { type Device, type Connection } from '@shared/schema';
 
@@ -498,7 +498,7 @@ export function ConnectionManager({
         <Card className="border-yellow-200 bg-yellow-50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-yellow-900">
-              <Bell className="h-5 w-5" />
+              <Users className="h-5 w-5" />
               Recent Activity ({notifications.length})
             </CardTitle>
             <CardDescription className="text-yellow-700">
