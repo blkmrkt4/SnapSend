@@ -108,8 +108,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Handle user search
           if (message.type === 'scan-users') {
             const searchResults = await storage.searchDevicesByNickname(message.data.query);
-            // Don't include current device in results
-            const filteredResults = searchResults.filter(d => d.id !== device.id);
+            // Only include online devices and exclude current device
+            const filteredResults = searchResults.filter(d => d.id !== device.id && d.isOnline);
             
             ws.send(JSON.stringify({
               type: 'scan-results',
@@ -120,11 +120,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           // Handle connection request
           if (message.type === 'connection-request') {
-            const targetDevice = await storage.getDeviceByNickname(message.data.targetNickname);
+            console.log(`Connection request from ${device.nickname} to ${message.data.targetNickname}`);
+            
+            // Get only online devices and find the target by nickname
+            const onlineDevices = await storage.getOnlineDevices();
+            const targetDevice = onlineDevices.find(d => d.nickname === message.data.targetNickname);
+            console.log('Target device found:', targetDevice);
+            console.log('All online devices:', onlineDevices.map(d => ({ id: d.id, nickname: d.nickname })));
+            
             if (!targetDevice) {
+              console.log('Target device not found or not online');
               ws.send(JSON.stringify({
                 type: 'error',
-                data: { message: 'User not found' }
+                data: { message: 'User not found or offline' }
+              }));
+              return;
+            }
+
+            // Verify target device is in connected clients
+            const targetClientId = targetDevice.id.toString();
+            if (!connectedClients.has(targetClientId)) {
+              console.log('Target device not in connected clients map');
+              ws.send(JSON.stringify({
+                type: 'error',
+                data: { message: 'User is not currently connected' }
               }));
               return;
             }
