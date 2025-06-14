@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -51,6 +51,7 @@ export function ConnectionManager({
   };
 
   const handleConnectionRequest = (targetNickname: string) => {
+    console.log('Requesting connection to:', targetNickname);
     onRequestConnection(targetNickname);
     setSearchQuery('');
   };

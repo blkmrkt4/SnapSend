@@ -98,13 +98,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async searchDevicesByNickname(query: string): Promise<Device[]> {
-    return await db
+    // Get only the most recent device for each nickname that's online
+    const results = await db
       .select()
       .from(devices)
       .where(and(
         ilike(devices.nickname, `%${query}%`),
         eq(devices.isOnline, true)
-      ));
+      ))
+      .orderBy(desc(devices.lastSeen));
+    
+    // Remove duplicates by nickname, keeping only the most recent
+    const uniqueDevices = new Map<string, typeof results[0]>();
+    for (const device of results) {
+      if (!uniqueDevices.has(device.nickname)) {
+        uniqueDevices.set(device.nickname, device);
+      }
+    }
+    
+    return Array.from(uniqueDevices.values());
   }
 
   // Connection management methods

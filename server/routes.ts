@@ -373,6 +373,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`Device disconnected: ${device?.nickname || 'Unknown'} (${clientId})`);
         
         if (device) {
+          console.log(`Setting device ${device.nickname} offline`);
           await storage.updateDeviceOnlineStatus(device.socketId, false);
         }
         

@@ -85,6 +85,7 @@ export function useConnectionSystem() {
             break;
 
           case 'connection-request-sent':
+            console.log('Connection request sent, adding to outgoing requests:', message.data);
             setState(prev => ({ 
               ...prev, 
               outgoingRequests: [...prev.outgoingRequests, {
