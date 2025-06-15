@@ -1,12 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { type Device, type Connection, type File } from '@shared/schema';
 
+interface ExtendedFile extends File {
+  transferType?: 'sent' | 'received';
+  fromDevice?: string;
+}
+
 export interface ConnectionSystemState {
   isSetup: boolean;
   isConnecting: boolean;
   currentDevice: Device | null;
   connections: any[];
-  files: File[];
+  files: ExtendedFile[];
   notifications: any[];
   searchResults: Device[];
   pendingRequests: any[];
