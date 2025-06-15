@@ -48,6 +48,117 @@
   --radius: 0.5rem;
 }
 
+/* Colorful Swirling Mist Animation */
+@keyframes swirl1 {
+  0% { transform: translateX(-50%) translateY(50%) rotate(0deg) scale(0); opacity: 0; }
+  20% { opacity: 0.8; transform: translateX(-30%) translateY(30%) rotate(90deg) scale(0.5); }
+  50% { opacity: 1; transform: translateX(10%) translateY(-10%) rotate(180deg) scale(1); }
+  80% { opacity: 0.6; transform: translateX(30%) translateY(-30%) rotate(270deg) scale(0.8); }
+  100% { opacity: 0; transform: translateX(50%) translateY(-50%) rotate(360deg) scale(0); }
+}
+
+@keyframes swirl2 {
+  0% { transform: translateX(50%) translateY(50%) rotate(0deg) scale(0); opacity: 0; }
+  20% { opacity: 0.7; transform: translateX(30%) translateY(20%) rotate(-90deg) scale(0.6); }
+  50% { opacity: 1; transform: translateX(-10%) translateY(-20%) rotate(-180deg) scale(1.2); }
+  80% { opacity: 0.5; transform: translateX(-40%) translateY(-40%) rotate(-270deg) scale(0.7); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-50%) rotate(-360deg) scale(0); }
+}
+
+@keyframes swirl3 {
+  0% { transform: translateX(0%) translateY(60%) rotate(45deg) scale(0); opacity: 0; }
+  25% { opacity: 0.9; transform: translateX(20%) translateY(40%) rotate(135deg) scale(0.8); }
+  60% { opacity: 1; transform: translateX(-20%) translateY(10%) rotate(225deg) scale(1.1); }
+  85% { opacity: 0.4; transform: translateX(-30%) translateY(-20%) rotate(315deg) scale(0.6); }
+  100% { opacity: 0; transform: translateX(0%) translateY(-60%) rotate(405deg) scale(0); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes fadeInOut {
+  0% { opacity: 0; }
+  50% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.mist-animation {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.mist-particle {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(2px);
+}
+
+.mist-particle:nth-child(1) {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(45deg, #71C0BB, #E3EEB2);
+  top: 20%;
+  left: 20%;
+  animation: swirl1 2s ease-in-out forwards;
+}
+
+.mist-particle:nth-child(2) {
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, #4E6688, #71C0BB);
+  top: 60%;
+  left: 70%;
+  animation: swirl2 2.5s ease-in-out 0.3s forwards;
+}
+
+.mist-particle:nth-child(3) {
+  width: 70px;
+  height: 70px;
+  background: linear-gradient(225deg, #332D56, #4E6688);
+  top: 40%;
+  left: 50%;
+  animation: swirl3 2.2s ease-in-out 0.6s forwards;
+}
+
+.mist-particle:nth-child(4) {
+  width: 50px;
+  height: 50px;
+  background: linear-gradient(315deg, #E3EEB2, #71C0BB);
+  top: 70%;
+  left: 30%;
+  animation: swirl1 2.8s ease-in-out 0.2s forwards;
+}
+
+.mist-particle:nth-child(5) {
+  width: 65px;
+  height: 65px;
+  background: linear-gradient(180deg, #71C0BB, #332D56);
+  top: 30%;
+  left: 80%;
+  animation: swirl2 2.3s ease-in-out 0.5s forwards;
+}
+
+.mist-particle:nth-child(6) {
+  width: 55px;
+  height: 55px;
+  background: linear-gradient(90deg, #4E6688, #E3EEB2);
+  top: 80%;
+  left: 60%;
+  animation: swirl3 2.6s ease-in-out 0.1s forwards;
+}
+
+.mist-container {
+  animation: fadeInOut 3s ease-in-out forwards;
+}
+
 @layer base {
   * {
     @apply border-border;

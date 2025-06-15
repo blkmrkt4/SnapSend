@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { CloudUpload, Clipboard, Camera, Minus, Expand, FileImage, Check } from 'lucide-react';
 import { useFileTransfer } from '@/hooks/useFileTransfer';
+import { MistAnimation } from './MistAnimation';
 import { type File } from '@shared/schema';
 
 interface MinimalDropWindowProps {
@@ -20,6 +21,7 @@ export function MinimalDropWindow({
 }: MinimalDropWindowProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [showMist, setShowMist] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { readFileAsText, readFileAsDataURL } = useFileTransfer();
 
@@ -59,6 +61,9 @@ export function MinimalDropWindow({
           isClipboard: false,
         });
       }
+      
+      // Trigger mist animation after successful file transfer
+      setShowMist(true);
     } catch (error) {
       console.error('Error uploading files:', error);
     } finally {
@@ -93,6 +98,9 @@ export function MinimalDropWindow({
           isClipboard: false,
         });
       }
+      
+      // Trigger mist animation after successful file transfer
+      setShowMist(true);
     } catch (error) {
       console.error('Error uploading files:', error);
     } finally {
@@ -118,6 +126,9 @@ export function MinimalDropWindow({
             content: text,
             isClipboard: true,
           });
+          
+          // Trigger mist animation after successful clipboard transfer
+          setShowMist(true);
         }
       }
     } catch (error) {
