@@ -158,8 +158,21 @@ export function ExpandedFileManager({
                       <button
                         className="p-1 hover:bg-white rounded"
                         onClick={(e) => handleDownload(file, e)}
+                        title="Download file"
                       >
                         <Download className="text-gray-400 w-4 h-4" />
+                      </button>
+                      <button
+                        className="p-1 hover:bg-white rounded"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm(`Are you sure you want to permanently delete "${file.originalName}"?`)) {
+                            onDeleteFile(file.id);
+                          }
+                        }}
+                        title="Delete file permanently"
+                      >
+                        <Trash2 className="text-red-400 hover:text-red-600 w-4 h-4" />
                       </button>
                     </div>
                   </div>
