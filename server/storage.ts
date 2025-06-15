@@ -1,10 +1,13 @@
 import { 
+  users,
   devices, 
   files, 
   connections,
+  type User,
   type Device, 
   type File, 
   type Connection,
+  type InsertUser,
   type InsertDevice, 
   type InsertFile,
   type InsertConnection
@@ -13,6 +16,13 @@ import { db } from "./db";
 import { eq, like, or, desc, and, ilike } from "drizzle-orm";
 
 export interface IStorage {
+  // User management
+  createUser(user: InsertUser): Promise<User>;
+  getUser(id: number): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
+  getAllUsers(): Promise<User[]>;
+
   // Device management
   createDevice(device: InsertDevice): Promise<Device>;
   getDevice(id: number): Promise<Device | undefined>;
@@ -46,6 +56,35 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  // User management methods
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(insertUser)
+      .returning();
+    return user;
+  }
+
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.nickname, username));
+    return user || undefined;
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users);
+  }
+
+  // Device management methods
   async getDevice(id: number): Promise<Device | undefined> {
     const [device] = await db.select().from(devices).where(eq(devices.id, id));
     return device || undefined;
