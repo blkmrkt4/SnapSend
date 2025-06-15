@@ -185,22 +185,10 @@ export function useConnectionSystem() {
             break;
 
           case 'clipboard-sync':
+            // Only sync to system clipboard, don't add to files list (already handled by file-received)
             if (navigator.clipboard && navigator.clipboard.writeText) {
               navigator.clipboard.writeText(message.data.content).catch(console.error);
             }
-            
-            setState(prev => ({ 
-              ...prev, 
-              files: message.data.file ? [message.data.file, ...prev.files] : prev.files,
-              notifications: [...prev.notifications, {
-                id: Date.now(),
-                type: 'clipboard',
-                title: 'Clipboard synced',
-                message: `Text from ${message.data.fromDevice}`,
-                content: message.data.content,
-                timestamp: new Date()
-              }]
-            }));
             break;
 
           case 'file-sent-confirmation':
