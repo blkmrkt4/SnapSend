@@ -143,46 +143,43 @@ export function FileExplorer({
     });
 
   return (
-    <Card className="h-full">
-      <CardHeader>
+    <Card className="h-full border-primary/20 shadow-lg">
+      <CardHeader className="bg-gradient-to-r from-primary/5 to-secondary/5">
+        {/* Title Bar - Line 1 */}
         <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <File className="h-5 w-5" />
-              File Explorer ({files.length} files)
-            </CardTitle>
-            <CardDescription>
-              Double-click any file to open it instantly
-            </CardDescription>
-          </div>
+          <CardTitle className="text-xl font-bold text-foreground">
+            Shared Files <span className="text-sm font-normal text-muted-foreground">({files.length})</span>
+          </CardTitle>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={onRefresh}
+              className="border-primary/30 text-primary hover:bg-primary/10 shadow-sm"
             >
-              <RefreshCw className="h-4 w-4 mr-2" />
+              <RefreshCw className="h-4 w-4 mr-1" />
               Refresh
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={onClearAll}
+              className="border-destructive/50 text-destructive hover:bg-destructive/10 shadow-sm"
             >
-              <Trash2 className="h-4 w-4 mr-2" />
+              <Trash2 className="h-4 w-4 mr-1" />
               Clear All
             </Button>
           </div>
         </div>
         
-        {/* Filters and Sorting */}
-        <div className="flex items-center gap-4 mt-4">
+        {/* Title Bar - Line 2 - Filters */}
+        <div className="flex items-center gap-4 mt-3">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">Filter:</span>
+            <span className="text-sm font-medium text-foreground">Filter:</span>
             <select 
               value={filterBy} 
               onChange={(e) => setFilterBy(e.target.value as any)}
-              className="text-sm border rounded px-2 py-1"
+              className="text-sm border border-primary/30 rounded px-2 py-1 bg-white focus:border-primary"
             >
               <option value="all">All Files</option>
               <option value="sent">Sent Files</option>
@@ -191,11 +188,11 @@ export function FileExplorer({
           </div>
           
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">Sort by:</span>
+            <span className="text-sm font-medium text-foreground">Sort by:</span>
             <select 
               value={sortBy} 
               onChange={(e) => setSortBy(e.target.value as any)}
-              className="text-sm border rounded px-2 py-1"
+              className="text-sm border border-primary/30 rounded px-2 py-1 bg-white focus:border-primary"
             >
               <option value="date">Date</option>
               <option value="name">Name</option>
