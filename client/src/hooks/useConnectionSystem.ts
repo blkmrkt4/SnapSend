@@ -396,6 +396,39 @@ export function useConnectionSystem() {
     }
   }, []);
 
+  const deleteFile = useCallback(async (fileId: number) => {
+    try {
+      const response = await fetch(`/api/files/${fileId}`, { method: 'DELETE' });
+      if (response.ok) {
+        setState(prev => ({ 
+          ...prev, 
+          files: prev.files.filter(file => file.id !== fileId),
+          notifications: [...prev.notifications, {
+            id: Date.now(),
+            type: 'success',
+            title: 'File deleted',
+            message: 'File has been permanently deleted',
+            timestamp: new Date()
+          }]
+        }));
+      } else {
+        throw new Error('Failed to delete file');
+      }
+    } catch (error) {
+      console.error('Error deleting file:', error);
+      setState(prev => ({ 
+        ...prev, 
+        notifications: [...prev.notifications, {
+          id: Date.now(),
+          type: 'error',
+          title: 'Delete failed',
+          message: 'Could not delete file. Please try again.',
+          timestamp: new Date()
+        }]
+      }));
+    }
+  }, []);
+
   return {
     ...state,
     setupDevice,
@@ -409,5 +442,6 @@ export function useConnectionSystem() {
     clearAllNotifications,
     clearAllFiles,
     refreshFiles,
+    deleteFile,
   };
 }
