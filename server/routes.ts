@@ -364,20 +364,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
             // Send confirmation back to sender with file data
             if (successfulTransfers > 0) {
-              // Create a file object for the sender's records
-              const senderFile = {
-                id: Date.now(), // Temporary ID for frontend
-                filename: message.data.filename,
+              // Create a file record for the sender as well
+              const senderFile = await storage.createFile({
+                filename: filename,
                 originalName: message.data.originalName,
                 mimeType: message.data.mimeType,
                 size: message.data.size,
-                content: message.data.isClipboard ? message.data.content : undefined,
+                content: message.data.content, // Store content for sender's record too
                 fromDeviceId: device.id,
-                toDeviceId: null, // Multiple recipients
+                toDeviceId: null, // Indicates this is the sender's copy
                 connectionId: null,
-                transferredAt: new Date(),
                 isClipboard: message.data.isClipboard ? 1 : 0,
-              };
+              });
 
               ws.send(JSON.stringify({
                 type: 'file-sent-confirmation',
