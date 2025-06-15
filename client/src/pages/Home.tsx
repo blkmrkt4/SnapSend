@@ -8,6 +8,11 @@ import { FilePreviewModal } from '@/components/FilePreviewModal';
 import { useConnectionSystem } from '@/hooks/useConnectionSystem';
 import { useFileTransfer } from '@/hooks/useFileTransfer';
 import { type File } from '@shared/schema';
+
+interface ExtendedFile extends File {
+  transferType?: 'sent' | 'received';
+  fromDevice?: string;
+}
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function Home() {
@@ -158,7 +163,7 @@ export default function Home() {
             <div className="flex space-x-6">
               <MinimalDropWindow
                 onSendFile={handleSendFile}
-                recentFiles={files.filter(file => file.transferType === 'sent').slice(0, 3)}
+                recentFiles={(files as ExtendedFile[]).filter(file => file.transferType === 'sent').slice(0, 3)}
                 onToggleExpanded={handleToggleExpanded}
                 onMinimize={handleMinimize}
                 hasConnections={connections.length > 0}

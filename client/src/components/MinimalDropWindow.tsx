@@ -169,6 +169,9 @@ export function MinimalDropWindow({
               content: dataURL,
               isClipboard: false,
             });
+            
+            // Trigger mist animation after successful screenshot transfer
+            setShowMist(true);
           }, 0);
 
           stream.getTracks().forEach(track => track.stop());
@@ -204,7 +207,7 @@ export function MinimalDropWindow({
 
       <div className="p-6">
         <div 
-          className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ${
+          className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ${
             hasConnections ? 'cursor-pointer group' : 'cursor-not-allowed'
           } ${
             isDragOver && hasConnections
@@ -218,6 +221,10 @@ export function MinimalDropWindow({
           onDrop={hasConnections ? handleDrop : undefined}
           onClick={hasConnections ? handleFileSelect : undefined}
         >
+          <MistAnimation 
+            isVisible={showMist} 
+            onComplete={() => setShowMist(false)} 
+          />
           <div className="space-y-3">
             <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto transition-colors ${
               !hasConnections

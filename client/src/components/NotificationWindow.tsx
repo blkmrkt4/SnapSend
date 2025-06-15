@@ -1,4 +1,6 @@
 import { Check, X, ExternalLink, Save, Key, Copy } from 'lucide-react';
+import { MistAnimation } from './MistAnimation';
+import { useState, useEffect } from 'react';
 
 interface NotificationWindowProps {
   notifications: any[];
@@ -13,7 +15,15 @@ export function NotificationWindow({
   onOpenFile, 
   onSaveFile 
 }: NotificationWindowProps) {
+  const [showMist, setShowMist] = useState(false);
   const recentNotification = notifications[0];
+
+  // Trigger mist animation when new file notifications arrive
+  useEffect(() => {
+    if (recentNotification && recentNotification.type === 'file-received') {
+      setShowMist(true);
+    }
+  }, [recentNotification]);
 
   if (!recentNotification) {
     return (
@@ -50,7 +60,11 @@ export function NotificationWindow({
 
   return (
     <div className="w-72 space-y-4">
-      <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-4">
+      <div className="relative bg-white rounded-lg shadow-lg border border-gray-200 p-4">
+        <MistAnimation 
+          isVisible={showMist} 
+          onComplete={() => setShowMist(false)} 
+        />
         <div className="flex items-center space-x-3 mb-3">
           <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
             <Check className="text-green-600 w-4 h-4" />
