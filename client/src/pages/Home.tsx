@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { DeviceSetup } from '@/components/DeviceSetup';
+import { useState, useEffect } from 'react';
+import { Sidebar } from '@/components/Sidebar';
+import { SettingsPage } from '@/components/SettingsPage';
 import { ConnectionManager } from '@/components/ConnectionManager';
 import { MinimalDropWindow } from '@/components/MinimalDropWindow';
 import { FileExplorer } from '@/components/FileExplorer';
@@ -9,16 +10,14 @@ import { useConnectionSystem } from '@/hooks/useConnectionSystem';
 import { useFileTransfer } from '@/hooks/useFileTransfer';
 import { useAuth } from '@/hooks/use-auth';
 import { type File } from '@shared/schema';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { LogOut, User } from 'lucide-react';
 
 export default function Home() {
+  const [activeSection, setActiveSection] = useState<'connections' | 'files' | 'settings'>('connections');
   const [isMinimized, setIsMinimized] = useState(false);
   const [showExpanded, setShowExpanded] = useState(true);
   const [previewFile, setPreviewFile] = useState<File | null>(null);
 
-  const { user, logoutMutation } = useAuth();
+  const { user } = useAuth();
   const { 
     isSetup,
     isConnecting,
@@ -45,6 +44,14 @@ export default function Home() {
   } = useConnectionSystem();
 
   const { downloadFile } = useFileTransfer();
+
+  // Auto-setup device with user's nickname if not already setup
+  useEffect(() => {
+    if (!isSetup && user && !isConnecting) {
+      // Use user's nickname as default device name
+      setupDevice(user.nickname, user.id);
+    }
+  }, [isSetup, user, isConnecting, setupDevice]);
 
   // Show device setup if not configured
   if (!isSetup) {
