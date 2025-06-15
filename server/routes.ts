@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
+import { setupAuth } from "./auth";
 import multer from "multer";
 import { insertFileSchema, type FileTransferMessage, type WebSocketMessage } from "@shared/schema";
 import { z } from "zod";
@@ -16,6 +17,9 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Setup authentication first
+  setupAuth(app);
+  
   const httpServer = createServer(app);
 
   // WebSocket server setup

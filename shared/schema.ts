@@ -16,7 +16,7 @@ export const users = pgTable("users", {
 
 export const devices = pgTable("devices", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
+  userId: integer("user_id").references(() => users.id),
   nickname: text("nickname").notNull(),
   socketId: text("socket_id").notNull().unique(),
   isOnline: boolean("is_online").default(false),
