@@ -158,7 +158,7 @@ export default function Home() {
             <div className="flex space-x-6">
               <MinimalDropWindow
                 onSendFile={handleSendFile}
-                recentFiles={files.slice(0, 3)}
+                recentFiles={files.filter(file => file.transferType === 'sent').slice(0, 3)}
                 onToggleExpanded={handleToggleExpanded}
                 onMinimize={handleMinimize}
                 hasConnections={connections.length > 0}
