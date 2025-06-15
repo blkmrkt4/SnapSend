@@ -169,6 +169,77 @@ export function setupAuth(app: Express) {
       isActive: user.isActive,
     });
   });
+
+  // Update user profile
+  app.put("/api/user/update", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    try {
+      const { name, email, nickname } = req.body;
+      const user = req.user as UserType;
+
+      if (!name || !email || !nickname) {
+        return res.status(400).json({ error: "All fields are required" });
+      }
+
+      // Check if email is already taken by another user
+      if (email !== user.email) {
+        const existingUser = await storage.getUserByEmail(email);
+        if (existingUser && existingUser.id !== user.id) {
+          return res.status(400).json({ error: "Email already exists" });
+        }
+      }
+
+      // Update user in database (we'll need to add this method to storage)
+      const updatedUser = await storage.updateUser(user.id, { name, email, nickname });
+      
+      res.json({
+        id: updatedUser.id,
+        email: updatedUser.email,
+        name: updatedUser.name,
+        nickname: updatedUser.nickname,
+        isActive: updatedUser.isActive,
+      });
+    } catch (error) {
+      console.error("User update error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Change password
+  app.put("/api/user/change-password", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    try {
+      const { currentPassword, newPassword } = req.body;
+      const user = req.user as UserType;
+
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ error: "Current and new passwords are required" });
+      }
+
+      // Verify current password
+      const isCurrentPasswordValid = await comparePasswords(currentPassword, user.password);
+      if (!isCurrentPasswordValid) {
+        return res.status(400).json({ error: "Current password is incorrect" });
+      }
+
+      // Hash new password
+      const hashedNewPassword = await hashPassword(newPassword);
+
+      // Update password in database
+      await storage.updateUserPassword(user.id, hashedNewPassword);
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Password change error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
 }
 
 export { hashPassword, comparePasswords };

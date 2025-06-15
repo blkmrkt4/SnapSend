@@ -21,6 +21,8 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  updateUser(id: number, updates: Partial<Pick<User, 'name' | 'email' | 'nickname'>>): Promise<User>;
+  updateUserPassword(id: number, hashedPassword: string): Promise<void>;
   getAllUsers(): Promise<User[]>;
 
   // Device management
@@ -82,6 +84,22 @@ export class DatabaseStorage implements IStorage {
 
   async getAllUsers(): Promise<User[]> {
     return await db.select().from(users);
+  }
+
+  async updateUser(id: number, updates: Partial<Pick<User, 'name' | 'email' | 'nickname'>>): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
+  async updateUserPassword(id: number, hashedPassword: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ password: hashedPassword, updatedAt: new Date() })
+      .where(eq(users.id, id));
   }
 
   // Device management methods

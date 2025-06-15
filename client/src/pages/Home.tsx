@@ -53,16 +53,6 @@ export default function Home() {
     }
   }, [isSetup, user, isConnecting, setupDevice]);
 
-  // Show device setup if not configured
-  if (!isSetup) {
-    return (
-      <DeviceSetup 
-        onSetupComplete={(nickname) => setupDevice(nickname, user?.id)}
-        isConnecting={isConnecting}
-      />
-    );
-  }
-
   const handleSendFile = async (fileData: any) => {
     try {
       sendFile(fileData);
@@ -111,6 +101,75 @@ export default function Home() {
     }
   };
 
+  const handleDeviceNicknameUpdate = (nickname: string) => {
+    if (user?.id) {
+      setupDevice(nickname, user.id);
+    }
+  };
+
+  const renderMainContent = () => {
+    switch (activeSection) {
+      case 'connections':
+        return (
+          <ConnectionManager
+            currentDevice={currentDevice}
+            connections={connections}
+            onSearchUsers={searchUsers}
+            onRequestConnection={requestConnection}
+            onRespondToConnection={respondToConnection}
+            onTerminateConnection={terminateConnection}
+            onSubmitVerificationKey={submitVerificationKey}
+            searchResults={searchResults}
+            pendingRequests={pendingRequests}
+            outgoingRequests={outgoingRequests}
+            isSearching={isSearching}
+            notifications={notifications}
+            onDismissNotification={dismissNotification}
+            onClearAllNotifications={clearAllNotifications}
+            onOpenFile={handleOpenFile}
+            onSaveFile={handleSaveFile}
+          />
+        );
+      
+      case 'files':
+        return (
+          <div className="flex space-x-6">
+            <MinimalDropWindow
+              onSendFile={handleSendFile}
+              recentFiles={files.filter(file => file.transferType === 'sent').slice(0, 3)}
+              onToggleExpanded={handleToggleExpanded}
+              onMinimize={handleMinimize}
+              hasConnections={connections.length > 0}
+            />
+
+            {showExpanded && (
+              <div className="flex-1 min-w-0">
+                <FileExplorer
+                  files={files}
+                  onPreviewFile={handlePreviewFile}
+                  onRefresh={handleRefresh}
+                  onClearAll={handleClearAll}
+                  onDeleteFile={deleteFile}
+                  currentDevice={currentDevice}
+                />
+              </div>
+            )}
+          </div>
+        );
+      
+      case 'settings':
+        return (
+          <SettingsPage
+            currentDevice={currentDevice}
+            onDeviceNicknameUpdate={handleDeviceNicknameUpdate}
+          />
+        );
+      
+      default:
+        return null;
+    }
+  };
+
   if (isMinimized) {
     return (
       <div className="min-h-screen p-4 bg-gradient-to-br from-background to-primary/20">
@@ -133,93 +192,36 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen p-4">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <div className="text-center flex-1">
-            <h1 className="text-3xl font-bold mb-2">Secure File Sharing</h1>
-            <p className="text-muted-foreground">
-              Connected as {currentDevice?.nickname} • {connections.length} active connection{connections.length !== 1 ? 's' : ''}
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <User className="h-4 w-4" />
-              <span>{user?.name} ({user?.email})</span>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => logoutMutation.mutate()}
-              disabled={logoutMutation.isPending}
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              {logoutMutation.isPending ? "Signing out..." : "Sign Out"}
-            </Button>
-          </div>
+    <div className="min-h-screen bg-background">
+      <Sidebar
+        activeSection={activeSection}
+        onSectionChange={setActiveSection}
+        connectionCount={connections.length}
+        fileCount={files.length}
+      />
+      
+      <main className="pl-4 pr-4 pt-16 pb-4">
+        <div className="max-w-7xl mx-auto">
+          {renderMainContent()}
         </div>
+      </main>
 
-        <Tabs defaultValue="connections" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="connections">Connections</TabsTrigger>
-            <TabsTrigger value="files">File Transfer</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="connections" className="mt-6">
-            <ConnectionManager
-              currentDevice={currentDevice}
-              connections={connections}
-              onSearchUsers={searchUsers}
-              onRequestConnection={requestConnection}
-              onRespondToConnection={respondToConnection}
-              onTerminateConnection={terminateConnection}
-              onSubmitVerificationKey={submitVerificationKey}
-              searchResults={searchResults}
-              pendingRequests={pendingRequests}
-              outgoingRequests={outgoingRequests}
-              isSearching={isSearching}
-              notifications={notifications}
-              onDismissNotification={dismissNotification}
-              onClearAllNotifications={clearAllNotifications}
-              onOpenFile={handleOpenFile}
-              onSaveFile={handleSaveFile}
-            />
-          </TabsContent>
-
-          <TabsContent value="files" className="mt-6">
-            <div className="flex space-x-6">
-              <MinimalDropWindow
-                onSendFile={handleSendFile}
-                recentFiles={files.filter(file => file.transferType === 'sent').slice(0, 3)}
-                onToggleExpanded={handleToggleExpanded}
-                onMinimize={handleMinimize}
-                hasConnections={connections.length > 0}
-              />
-
-              {showExpanded && (
-                <div className="flex-1 min-w-0">
-                  <FileExplorer
-                    files={files}
-                    onPreviewFile={handlePreviewFile}
-                    onRefresh={handleRefresh}
-                    onClearAll={handleClearAll}
-                    onDeleteFile={deleteFile}
-                    currentDevice={currentDevice}
-                  />
-                </div>
-              )}
-            </div>
-          </TabsContent>
-
-
-        </Tabs>
-
-        <FilePreviewModal
-          file={previewFile}
-          isOpen={!!previewFile}
-          onClose={handleClosePreview}
+      {/* Notification Window */}
+      {notifications.length > 0 && (
+        <NotificationWindow
+          notifications={notifications}
+          onDismiss={dismissNotification}
+          onOpenFile={handleOpenFile}
+          onSaveFile={handleSaveFile}
         />
-      </div>
+      )}
+
+      {/* File Preview Modal */}
+      <FilePreviewModal
+        file={previewFile}
+        isOpen={!!previewFile}
+        onClose={handleClosePreview}
+      />
     </div>
   );
 }
