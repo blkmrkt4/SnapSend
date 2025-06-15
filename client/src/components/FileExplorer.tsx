@@ -143,19 +143,19 @@ export function FileExplorer({
     });
 
   return (
-    <Card className="h-full border-primary/20 shadow-lg">
-      <CardHeader className="bg-gradient-to-r from-primary/5 to-secondary/5">
+    <Card className="h-full border-primary/20 shadow-lg w-full">
+      <CardHeader className="bg-gradient-to-r from-secondary to-secondary/90 text-secondary-foreground">
         {/* Title Bar - Line 1 */}
         <div className="flex items-center justify-between">
-          <CardTitle className="text-xl font-bold text-foreground">
-            Shared Files <span className="text-sm font-normal text-muted-foreground">({files.length})</span>
+          <CardTitle className="text-xl font-bold text-secondary-foreground">
+            Shared Files <span className="text-sm font-normal text-secondary-foreground/70">({files.length})</span>
           </CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Button
               variant="outline"
               size="sm"
               onClick={onRefresh}
-              className="border-primary/30 text-primary hover:bg-primary/10 shadow-sm"
+              className="border-secondary-foreground/30 text-secondary-foreground hover:bg-secondary-foreground/10 shadow-sm bg-white/10"
             >
               <RefreshCw className="h-4 w-4 mr-1" />
               Refresh
@@ -164,7 +164,7 @@ export function FileExplorer({
               variant="outline"
               size="sm"
               onClick={onClearAll}
-              className="border-destructive/50 text-destructive hover:bg-destructive/10 shadow-sm"
+              className="border-red-300 text-red-600 hover:bg-red-50 shadow-sm bg-white/20"
             >
               <Trash2 className="h-4 w-4 mr-1" />
               Clear All
@@ -173,13 +173,13 @@ export function FileExplorer({
         </div>
         
         {/* Title Bar - Line 2 - Filters */}
-        <div className="flex items-center gap-4 mt-3">
+        <div className="flex items-center gap-6 mt-3">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-foreground">Filter:</span>
+            <span className="text-sm font-medium text-secondary-foreground">Filter:</span>
             <select 
               value={filterBy} 
               onChange={(e) => setFilterBy(e.target.value as any)}
-              className="text-sm border border-primary/30 rounded px-2 py-1 bg-white focus:border-primary"
+              className="text-sm border border-secondary-foreground/30 rounded px-3 py-1 bg-white/90 focus:border-secondary-foreground focus:bg-white shadow-sm"
             >
               <option value="all">All Files</option>
               <option value="sent">Sent Files</option>
@@ -188,11 +188,11 @@ export function FileExplorer({
           </div>
           
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-foreground">Sort by:</span>
+            <span className="text-sm font-medium text-secondary-foreground">Sort by:</span>
             <select 
               value={sortBy} 
               onChange={(e) => setSortBy(e.target.value as any)}
-              className="text-sm border border-primary/30 rounded px-2 py-1 bg-white focus:border-primary"
+              className="text-sm border border-secondary-foreground/30 rounded px-3 py-1 bg-white/90 focus:border-secondary-foreground focus:bg-white shadow-sm"
             >
               <option value="date">Date</option>
               <option value="name">Name</option>

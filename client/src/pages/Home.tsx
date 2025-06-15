@@ -164,13 +164,15 @@ export default function Home() {
               />
 
               {showExpanded && (
-                <FileExplorer
-                  files={files}
-                  onPreviewFile={handlePreviewFile}
-                  onRefresh={handleRefresh}
-                  onClearAll={handleClearAll}
-                  currentDevice={currentDevice}
-                />
+                <div className="flex-1 min-w-0">
+                  <FileExplorer
+                    files={files}
+                    onPreviewFile={handlePreviewFile}
+                    onRefresh={handleRefresh}
+                    onClearAll={handleClearAll}
+                    currentDevice={currentDevice}
+                  />
+                </div>
               )}
             </div>
           </TabsContent>
