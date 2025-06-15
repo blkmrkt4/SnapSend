@@ -273,8 +273,8 @@ export function MinimalDropWindow({
         </div>
       </div>
 
-      <div className="border-t border-gray-100 px-6 py-4">
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Recent</h3>
+      <div className="border-t border-primary/20 px-6 py-4">
+        <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-3">Recently Sent</h3>
         <div className="space-y-2">
           {recentFiles.slice(0, 3).map((file) => (
             <div key={file.id} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50">
