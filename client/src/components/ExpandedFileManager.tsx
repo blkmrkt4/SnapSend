@@ -8,13 +8,15 @@ interface ExpandedFileManagerProps {
   onPreviewFile: (file: File) => void;
   onRefresh: () => void;
   onClearAll: () => void;
+  onDeleteFile: (fileId: number) => void;
 }
 
 export function ExpandedFileManager({ 
   files, 
   onPreviewFile, 
   onRefresh, 
-  onClearAll 
+  onClearAll,
+  onDeleteFile 
 }: ExpandedFileManagerProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');

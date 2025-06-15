@@ -37,6 +37,7 @@ export default function Home() {
     clearAllNotifications,
     clearAllFiles,
     refreshFiles,
+    deleteFile,
   } = useConnectionSystem();
 
   const { downloadFile } = useFileTransfer();
@@ -174,6 +175,7 @@ export default function Home() {
                     onPreviewFile={handlePreviewFile}
                     onRefresh={handleRefresh}
                     onClearAll={handleClearAll}
+                    onDeleteFile={deleteFile}
                     currentDevice={currentDevice}
                   />
                 </div>

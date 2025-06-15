@@ -29,6 +29,7 @@ interface FileExplorerProps {
   onPreviewFile: (file: ExtendedFile) => void;
   onRefresh: () => void;
   onClearAll: () => void;
+  onDeleteFile: (fileId: number) => void;
   currentDevice: any;
 }
 
@@ -37,6 +38,7 @@ export function FileExplorer({
   onPreviewFile, 
   onRefresh, 
   onClearAll,
+  onDeleteFile,
   currentDevice 
 }: FileExplorerProps) {
   const [sortBy, setSortBy] = useState<'date' | 'name' | 'type'>('date');
@@ -276,6 +278,7 @@ export function FileExplorer({
                         e.stopPropagation();
                         onPreviewFile(file);
                       }}
+                      title="Preview file"
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
@@ -287,8 +290,24 @@ export function FileExplorer({
                         e.stopPropagation();
                         handleDoubleClick(file);
                       }}
+                      title="Download file"
                     >
                       <Download className="h-4 w-4" />
+                    </Button>
+                    
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm(`Are you sure you want to permanently delete "${file.originalName}"?`)) {
+                          onDeleteFile(file.id);
+                        }
+                      }}
+                      title="Delete file permanently"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
