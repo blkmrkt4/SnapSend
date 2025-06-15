@@ -57,7 +57,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log(`Received device setup request for: ${message.data.nickname}`);
             if (!device) {
               try {
+                // Get user ID from the session/authentication
+                const userId = message.data.userId;
+                if (!userId) {
+                  throw new Error('User authentication required');
+                }
+
                 device = await storage.createDevice({
+                  userId: userId,
                   nickname: message.data.nickname,
                   socketId: socketId,
                 });

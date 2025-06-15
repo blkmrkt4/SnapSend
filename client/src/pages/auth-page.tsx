@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileShare, Shield, Users, Zap } from "lucide-react";
+import { Share2, Shield, Users, Zap } from "lucide-react";
 
 export default function AuthPage() {
   const { user, loginMutation, registerMutation } = useAuth();
@@ -42,7 +42,7 @@ export default function AuthPage() {
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-2 mb-4">
-              <FileShare className="h-8 w-8 text-primary" />
+              <Share2 className="h-8 w-8 text-primary" />
               <h1 className="text-2xl font-bold">Secure File Share</h1>
             </div>
             <p className="text-muted-foreground">
@@ -190,7 +190,7 @@ export default function AuthPage() {
                 <p className="text-sm text-muted-foreground">Share files across devices</p>
               </div>
               <div className="bg-white/20 p-4 rounded-lg backdrop-blur-sm">
-                <FileShare className="h-8 w-8 text-primary mx-auto mb-2" />
+                <Share2 className="h-8 w-8 text-primary mx-auto mb-2" />
                 <h3 className="font-semibold">Cross-platform</h3>
                 <p className="text-sm text-muted-foreground">Works on any device, anywhere</p>
               </div>

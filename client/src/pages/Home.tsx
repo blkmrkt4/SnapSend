@@ -7,14 +7,18 @@ import { NotificationWindow } from '@/components/NotificationWindow';
 import { FilePreviewModal } from '@/components/FilePreviewModal';
 import { useConnectionSystem } from '@/hooks/useConnectionSystem';
 import { useFileTransfer } from '@/hooks/useFileTransfer';
+import { useAuth } from '@/hooks/use-auth';
 import { type File } from '@shared/schema';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { LogOut, User } from 'lucide-react';
 
 export default function Home() {
   const [isMinimized, setIsMinimized] = useState(false);
   const [showExpanded, setShowExpanded] = useState(true);
   const [previewFile, setPreviewFile] = useState<File | null>(null);
 
+  const { user, logoutMutation } = useAuth();
   const { 
     isSetup,
     isConnecting,
@@ -124,11 +128,28 @@ export default function Home() {
   return (
     <div className="min-h-screen p-4">
       <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold mb-2">Secure File Sharing</h1>
-          <p className="text-muted-foreground">
-            Connected as {currentDevice?.nickname} • {connections.length} active connection{connections.length !== 1 ? 's' : ''}
-          </p>
+        <div className="flex items-center justify-between mb-6">
+          <div className="text-center flex-1">
+            <h1 className="text-3xl font-bold mb-2">Secure File Sharing</h1>
+            <p className="text-muted-foreground">
+              Connected as {currentDevice?.nickname} • {connections.length} active connection{connections.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <User className="h-4 w-4" />
+              <span>{user?.name} ({user?.email})</span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => logoutMutation.mutate()}
+              disabled={logoutMutation.isPending}
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              {logoutMutation.isPending ? "Signing out..." : "Sign Out"}
+            </Button>
+          </div>
         </div>
 
         <Tabs defaultValue="connections" className="w-full">
