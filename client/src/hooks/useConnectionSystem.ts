@@ -352,6 +352,13 @@ export function useConnectionSystem() {
     }));
   }, []);
 
+  const clearAllNotifications = useCallback(() => {
+    setState(prev => ({ 
+      ...prev, 
+      notifications: []
+    }));
+  }, []);
+
   return {
     ...state,
     setupDevice,
@@ -362,5 +369,6 @@ export function useConnectionSystem() {
     sendFile,
     submitVerificationKey,
     dismissNotification,
+    clearAllNotifications,
   };
 }

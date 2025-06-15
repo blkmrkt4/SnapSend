@@ -34,6 +34,7 @@ export default function Home() {
     sendFile,
     submitVerificationKey,
     dismissNotification,
+    clearAllNotifications,
   } = useConnectionSystem();
 
   const { downloadFile } = useFileTransfer();

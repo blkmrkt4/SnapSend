@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Search, Users, Wifi, WifiOff, Key, Check, X } from 'lucide-react';
+import { Search, Users, Wifi, WifiOff, Key, Check, X, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { type Device, type Connection } from '@shared/schema';
 
@@ -22,6 +22,7 @@ interface ConnectionManagerProps {
   isSearching: boolean;
   notifications?: any[];
   onDismissNotification?: (id: number) => void;
+  onClearAllNotifications?: () => void;
   onOpenFile?: (notification: any) => void;
   onSaveFile?: (notification: any) => void;
 }
@@ -40,6 +41,7 @@ export function ConnectionManager({
   isSearching,
   notifications = [],
   onDismissNotification,
+  onClearAllNotifications,
   onOpenFile,
   onSaveFile,
 }: ConnectionManagerProps) {
@@ -278,9 +280,22 @@ export function ConnectionManager({
       {notifications && notifications.length > 0 && (
         <Card className="border-accent/30 bg-gradient-to-r from-accent/10 to-primary/5 w-full shadow-lg">
           <CardHeader className="pb-3 bg-gradient-to-r from-accent/20 to-primary/10">
-            <CardTitle className="flex items-center gap-2 text-foreground text-lg font-semibold">
-              <Users className="h-5 w-5 text-secondary" />
-              Recent Activity ({notifications.length})
+            <CardTitle className="flex items-center justify-between text-foreground text-lg font-semibold">
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-secondary" />
+                Recent Activity ({notifications.length})
+              </div>
+              {notifications.length > 0 && onClearAllNotifications && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onClearAllNotifications}
+                  className="border-destructive/50 text-destructive hover:bg-destructive/10 shadow-sm"
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Clear
+                </Button>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
