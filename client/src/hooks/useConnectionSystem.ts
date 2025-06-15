@@ -359,6 +359,31 @@ export function useConnectionSystem() {
     }));
   }, []);
 
+  const clearAllFiles = useCallback(() => {
+    setState(prev => ({ 
+      ...prev, 
+      files: []
+    }));
+  }, []);
+
+  const refreshFiles = useCallback(async () => {
+    try {
+      const response = await fetch('/api/files');
+      if (response.ok) {
+        const fetchedFiles = await response.json();
+        setState(prev => ({ 
+          ...prev, 
+          files: fetchedFiles.map((file: any) => ({
+            ...file,
+            transferType: file.fromDeviceId === prev.currentDevice?.id ? 'sent' : 'received'
+          }))
+        }));
+      }
+    } catch (error) {
+      console.error('Error refreshing files:', error);
+    }
+  }, []);
+
   return {
     ...state,
     setupDevice,
@@ -370,5 +395,7 @@ export function useConnectionSystem() {
     submitVerificationKey,
     dismissNotification,
     clearAllNotifications,
+    clearAllFiles,
+    refreshFiles,
   };
 }

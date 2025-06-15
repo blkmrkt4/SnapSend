@@ -35,6 +35,8 @@ export default function Home() {
     submitVerificationKey,
     dismissNotification,
     clearAllNotifications,
+    clearAllFiles,
+    refreshFiles,
   } = useConnectionSystem();
 
   const { downloadFile } = useFileTransfer();
@@ -74,12 +76,11 @@ export default function Home() {
   };
 
   const handleRefresh = () => {
-    // Refresh connections and files
-    console.log('Refresh connections');
+    refreshFiles();
   };
 
   const handleClearAll = () => {
-    console.log('Clear all files');
+    clearAllFiles();
   };
 
   const handleOpenFile = (notification: any) => {
