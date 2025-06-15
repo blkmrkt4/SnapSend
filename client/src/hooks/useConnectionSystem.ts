@@ -368,14 +368,26 @@ export function useConnectionSystem() {
 
   const refreshFiles = useCallback(async () => {
     try {
-      const response = await fetch('/api/files');
-      if (response.ok) {
-        const fetchedFiles = await response.json();
+      const [filesResponse, devicesResponse] = await Promise.all([
+        fetch('/api/files'),
+        fetch('/api/devices')
+      ]);
+      
+      if (filesResponse.ok && devicesResponse.ok) {
+        const fetchedFiles = await filesResponse.json();
+        const devices = await devicesResponse.json();
+        
+        // Create a map of device IDs to nicknames
+        const deviceMap = new Map(devices.map((device: any) => [device.id, device.nickname]));
+        
         setState(prev => ({ 
           ...prev, 
           files: fetchedFiles.map((file: any) => ({
             ...file,
-            transferType: file.fromDeviceId === prev.currentDevice?.id ? 'sent' : 'received'
+            transferType: file.fromDeviceId === prev.currentDevice?.id ? 'sent' : 'received',
+            fromDevice: file.fromDeviceId !== prev.currentDevice?.id 
+              ? deviceMap.get(file.fromDeviceId) || 'Unknown'
+              : undefined
           }))
         }));
       }

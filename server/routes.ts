@@ -469,7 +469,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // API Routes
   app.get('/api/devices', async (req, res) => {
     try {
-      const devices = await storage.getOnlineDevices();
+      const devices = await storage.getAllDevices();
       res.json(devices);
     } catch (error) {
       console.error('Error fetching devices:', error);
