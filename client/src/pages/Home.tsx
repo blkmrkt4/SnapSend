@@ -150,6 +150,7 @@ export default function Home() {
               isSearching={isSearching}
               notifications={notifications}
               onDismissNotification={dismissNotification}
+              onClearAllNotifications={clearAllNotifications}
               onOpenFile={handleOpenFile}
               onSaveFile={handleSaveFile}
             />
