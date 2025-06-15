@@ -8,13 +8,15 @@ interface MinimalDropWindowProps {
   recentFiles: File[];
   onToggleExpanded: () => void;
   onMinimize: () => void;
+  hasConnections: boolean;
 }
 
 export function MinimalDropWindow({ 
   onSendFile, 
   recentFiles, 
   onToggleExpanded, 
-  onMinimize 
+  onMinimize,
+  hasConnections 
 }: MinimalDropWindowProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -191,35 +193,43 @@ export function MinimalDropWindow({
 
       <div className="p-6">
         <div 
-          className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 cursor-pointer group ${
-            isDragOver 
+          className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ${
+            hasConnections ? 'cursor-pointer group' : 'cursor-not-allowed'
+          } ${
+            isDragOver && hasConnections
               ? 'border-primary bg-primary/10' 
-              : 'border-primary/30 hover:border-primary hover:bg-primary/5'
+              : hasConnections
+              ? 'border-primary/30 hover:border-primary hover:bg-primary/5'
+              : 'border-muted-foreground/30 bg-muted/20'
           }`}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          onClick={handleFileSelect}
+          onDragOver={hasConnections ? handleDragOver : undefined}
+          onDragLeave={hasConnections ? handleDragLeave : undefined}
+          onDrop={hasConnections ? handleDrop : undefined}
+          onClick={hasConnections ? handleFileSelect : undefined}
         >
           <div className="space-y-3">
             <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto transition-colors ${
-              isDragOver 
+              !hasConnections
+                ? 'bg-muted/30'
+                : isDragOver 
                 ? 'bg-primary/20' 
                 : 'bg-primary/10 group-hover:bg-primary/20'
             }`}>
               {isUploading ? (
                 <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
               ) : (
-                <CloudUpload className="text-primary w-6 h-6" />
+                <CloudUpload className={`w-6 h-6 ${hasConnections ? 'text-primary' : 'text-muted-foreground'}`} />
               )}
             </div>
             <div>
-              <p className="text-foreground font-semibold">
-                {isUploading ? 'Uploading...' : 'Drop files here'}
+              <p className={`font-semibold ${hasConnections ? 'text-foreground' : 'text-muted-foreground'}`}>
+                {isUploading ? 'Uploading...' : hasConnections ? 'Drop files here' : 'No Live Connections'}
               </p>
-              <p className="text-muted-foreground text-sm mt-1">or paste from clipboard</p>
+              <p className="text-muted-foreground text-sm mt-1">
+                {hasConnections ? 'or paste from clipboard' : 'Connect to a device first'}
+              </p>
             </div>
-            {!isUploading && (
+            {!isUploading && hasConnections && (
               <button className="text-primary text-sm font-semibold hover:text-primary/80 transition-colors">
                 Browse files
               </button>
@@ -239,14 +249,24 @@ export function MinimalDropWindow({
       <div className="px-6 pb-6">
         <div className="flex space-x-2">
           <button 
-            className="flex-1 bg-accent hover:bg-accent/80 text-foreground py-2 px-3 rounded-lg text-sm font-semibold transition-colors shadow-sm border border-primary/20"
-            onClick={handlePasteFromClipboard}
+            className={`flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition-colors shadow-sm border ${
+              hasConnections 
+                ? 'bg-accent hover:bg-accent/80 text-foreground border-primary/20' 
+                : 'bg-muted text-muted-foreground border-muted cursor-not-allowed'
+            }`}
+            onClick={hasConnections ? handlePasteFromClipboard : undefined}
+            disabled={!hasConnections}
           >
             <Clipboard className="w-4 h-4 mr-2 inline" />Clipboard
           </button>
           <button 
-            className="flex-1 bg-secondary hover:bg-secondary/90 text-secondary-foreground py-2 px-3 rounded-lg text-sm font-semibold transition-colors shadow-sm"
-            onClick={handleScreenshot}
+            className={`flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition-colors shadow-sm ${
+              hasConnections 
+                ? 'bg-secondary hover:bg-secondary/90 text-secondary-foreground' 
+                : 'bg-muted text-muted-foreground cursor-not-allowed'
+            }`}
+            onClick={hasConnections ? handleScreenshot : undefined}
+            disabled={!hasConnections}
           >
             <Camera className="w-4 h-4 mr-2 inline" />Screenshot
           </button>

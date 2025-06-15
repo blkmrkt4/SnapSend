@@ -161,6 +161,7 @@ export default function Home() {
                 recentFiles={files.slice(0, 3)}
                 onToggleExpanded={handleToggleExpanded}
                 onMinimize={handleMinimize}
+                hasConnections={connections.length > 0}
               />
 
               {showExpanded && (
