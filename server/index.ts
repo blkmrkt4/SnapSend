@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { testDatabaseConnection } from "./db";
+import { seedDatabase } from "./seed";
 
 const app = express();
 app.use(express.json());
@@ -46,6 +47,9 @@ app.use((req, res, next) => {
       log("Database connection failed, exiting...");
       process.exit(1);
     }
+
+    // Seed database with initial users
+    await seedDatabase();
 
     const server = await registerRoutes(app);
 
