@@ -262,13 +262,13 @@ export function useConnectionSystem() {
     };
   }, [connect]);
 
-  const setupDevice = useCallback((nickname: string) => {
+  const setupDevice = useCallback((nickname: string, userId?: number) => {
     setState(prev => ({ ...prev, isConnecting: true }));
     
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({
         type: 'device-setup',
-        data: { nickname }
+        data: { nickname, userId }
       }));
     }
   }, []);

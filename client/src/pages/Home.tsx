@@ -50,7 +50,7 @@ export default function Home() {
   if (!isSetup) {
     return (
       <DeviceSetup 
-        onSetupComplete={setupDevice}
+        onSetupComplete={(nickname) => setupDevice(nickname, user?.id)}
         isConnecting={isConnecting}
       />
     );
