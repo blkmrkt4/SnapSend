@@ -109,11 +109,7 @@ export default function Home() {
             pendingRequests={pendingRequests}
             outgoingRequests={outgoingRequests}
             isSearching={isSearching}
-            notifications={notifications}
-            onDismissNotification={dismissNotification}
-            onClearAllNotifications={clearAllNotifications}
-            onOpenFile={handleOpenFile}
-            onSaveFile={handleSaveFile}
+
           />
         );
       

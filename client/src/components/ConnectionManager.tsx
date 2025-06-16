@@ -20,11 +20,6 @@ interface ConnectionManagerProps {
   pendingRequests: any[];
   outgoingRequests: any[];
   isSearching: boolean;
-  notifications?: any[];
-  onDismissNotification?: (id: number) => void;
-  onClearAllNotifications?: () => void;
-  onOpenFile?: (notification: any) => void;
-  onSaveFile?: (notification: any) => void;
 }
 
 export function ConnectionManager({
@@ -39,116 +34,122 @@ export function ConnectionManager({
   pendingRequests,
   outgoingRequests,
   isSearching,
-  notifications = [],
-  onDismissNotification,
-  onClearAllNotifications,
-  onOpenFile,
-  onSaveFile,
 }: ConnectionManagerProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showConnectionDialog, setShowConnectionDialog] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
-  const [enteredKey, setEnteredKey] = useState('');
   const [verificationKey, setVerificationKey] = useState('');
 
   useEffect(() => {
-    console.log('Outgoing requests updated:', outgoingRequests);
-  }, [outgoingRequests]);
+    if (pendingRequests.length > 0) {
+      setSelectedRequest(pendingRequests[0]);
+      setShowConnectionDialog(true);
+    }
+  }, [pendingRequests]);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSearch = () => {
     if (searchQuery.trim()) {
-      onSearchUsers(searchQuery.trim());
+      onSearchUsers(searchQuery);
     }
   };
 
-  const handleConnectionRequest = (targetNickname: string) => {
-    console.log('Requesting connection to:', targetNickname);
-    onRequestConnection(targetNickname);
-    setSearchQuery('');
-  };
-
-  const handleRespondToRequest = (approved: boolean) => {
-    if (selectedRequest) {
-      onRespondToConnection(selectedRequest.connectionId, approved, enteredKey);
+  const handleApprove = () => {
+    if (selectedRequest && verificationKey) {
+      onRespondToConnection(selectedRequest.connectionId, true, verificationKey);
       setShowConnectionDialog(false);
+      setVerificationKey('');
       setSelectedRequest(null);
-      setEnteredKey('');
     }
   };
 
-  const openConnectionDialog = (request: any) => {
-    setSelectedRequest(request);
-    setShowConnectionDialog(true);
-    setEnteredKey('');
+  const handleReject = () => {
+    if (selectedRequest) {
+      onRespondToConnection(selectedRequest.connectionId, false);
+      setShowConnectionDialog(false);
+      setVerificationKey('');
+      setSelectedRequest(null);
+    }
   };
-
-
 
   return (
-    <div className="space-y-4">
-      {/* Compact Header with Device Status */}
-      <div className="flex items-center justify-between pb-3 border-b-2 border-primary/20">
-        <div className="flex items-center gap-3">
-          <h2 className="text-2xl font-bold text-foreground">Connections</h2>
-          <div className="flex items-center gap-2">
-            <Wifi className="h-5 w-5 text-primary" />
-            <span className="font-semibold text-foreground">{currentDevice?.nickname}</span>
-            <Badge className="bg-primary text-primary-foreground shadow-sm">
-              Online
-            </Badge>
-            {connections.length > 0 && (
-              <Badge variant="secondary" className="bg-secondary text-secondary-foreground shadow-sm">
-                {connections.length} Connected
-              </Badge>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Connect to New Device - moved to top */}
-      <Card className="w-full border-primary/20 shadow-lg">
-        <CardHeader className="pb-3 bg-gradient-to-r from-primary/5 to-secondary/5">
-          <CardTitle className="flex items-center gap-2 text-lg text-foreground font-semibold">
-            <Search className="h-5 w-5 text-primary" />
-            Connect to New Device
+    <div className="space-y-6">
+      {/* Current Device Status */}
+      <Card className="border-primary/30 bg-gradient-to-r from-primary/10 to-secondary/5 shadow-lg">
+        <CardHeader className="bg-gradient-to-r from-primary/20 to-secondary/10">
+          <CardTitle className="flex items-center gap-2 text-foreground">
+            <Users className="h-5 w-5 text-primary" />
+            Device Status
           </CardTitle>
         </CardHeader>
-        <CardContent className="pt-0">
-          <form onSubmit={handleSearch} className="space-y-3">
-            <div className="flex gap-2">
-              <Input
-                placeholder="Enter user's nickname..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                disabled={isSearching}
-                className="flex-1 border-primary/30 focus:border-primary"
-              />
-              <Button 
-                type="submit" 
-                disabled={!searchQuery.trim() || isSearching}
-                size="sm"
-                className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md"
-              >
-                {isSearching ? 'Searching...' : 'Find'}
-              </Button>
+        <CardContent className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Device Name:</span>
+            <span className="font-medium text-foreground">{currentDevice?.nickname || 'Not Set'}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Active Connections:</span>
+            <Badge variant={connections.length > 0 ? "default" : "secondary"}>
+              {connections.length}
+            </Badge>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Status:</span>
+            <div className="flex items-center gap-2">
+              {connections.length > 0 ? (
+                <>
+                  <Wifi className="h-4 w-4 text-green-500" />
+                  <span className="text-sm text-green-600 dark:text-green-400 font-medium">Connected</span>
+                </>
+              ) : (
+                <>
+                  <WifiOff className="h-4 w-4 text-red-500" />
+                  <span className="text-sm text-red-600 dark:text-red-400 font-medium">No Connections</span>
+                </>
+              )}
             </div>
-          </form>
+          </div>
+        </CardContent>
+      </Card>
 
-          {/* Search Results */}
+      {/* Search Users */}
+      <Card className="border-accent/30 bg-gradient-to-r from-accent/10 to-primary/5 shadow-lg">
+        <CardHeader className="bg-gradient-to-r from-accent/20 to-primary/10">
+          <CardTitle className="flex items-center gap-2 text-foreground">
+            <Search className="h-5 w-5 text-secondary" />
+            Find Users
+          </CardTitle>
+          <CardDescription>
+            Search for users to connect with by their device nickname
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-2">
+            <Input
+              placeholder="Enter device nickname..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+              className="flex-1"
+            />
+            <Button 
+              onClick={handleSearch} 
+              disabled={isSearching || !searchQuery.trim()}
+              className="shadow-sm"
+            >
+              {isSearching ? 'Searching...' : 'Search'}
+            </Button>
+          </div>
+
           {searchResults.length > 0 && (
-            <div className="mt-4 space-y-2">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-foreground">Search Results</Label>
               {searchResults.map((user) => (
-                <div key={user.id} className="flex items-center justify-between p-3 border border-primary/30 rounded-lg bg-gradient-to-r from-primary/5 to-accent/10 shadow-sm">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full shadow-sm ${user.isOnline ? 'bg-primary animate-pulse' : 'bg-muted-foreground'}`} />
-                    <span className="font-semibold text-foreground">{user.nickname}</span>
-                  </div>
+                <div key={user.id} className="flex items-center justify-between p-3 border border-accent/30 rounded-lg bg-white shadow-sm">
+                  <span className="font-medium text-foreground">{user.nickname}</span>
                   <Button
-                    disabled={!user.isOnline}
-                    onClick={() => handleConnectionRequest(user.nickname)}
                     size="sm"
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md"
+                    onClick={() => onRequestConnection(user.nickname)}
+                    className="border-primary/30 text-primary hover:bg-primary/10 shadow-sm"
                   >
                     Connect
                   </Button>
@@ -161,28 +162,27 @@ export function ConnectionManager({
 
       {/* Active Connections */}
       {connections.length > 0 && (
-        <Card className="w-full border-primary/20 shadow-lg">
-          <CardHeader className="pb-3 bg-gradient-to-r from-secondary/5 to-primary/5">
-            <CardTitle className="flex items-center gap-2 text-lg text-foreground font-semibold">
-              <Users className="h-5 w-5 text-secondary" />
+        <Card className="border-success/30 bg-gradient-to-r from-success/10 to-primary/5 shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-success/20 to-primary/10">
+            <CardTitle className="flex items-center gap-2 text-foreground">
+              <Wifi className="h-5 w-5 text-green-500" />
               Active Connections ({connections.length})
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-0 space-y-3">
+          <CardContent className="space-y-3">
             {connections.map((connection) => (
-              <div key={connection.id} className="flex items-center justify-between p-3 border rounded-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/30 shadow-sm">
+              <div key={connection.id} className="flex items-center justify-between p-3 border border-success/30 rounded-lg bg-white shadow-sm">
                 <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 bg-primary rounded-full animate-pulse shadow-sm"></div>
-                  <span className="font-semibold text-foreground">
-                    {(connection as any).partnerNickname || 'Partner'}
-                  </span>
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="font-medium text-foreground">Connected Device</span>
                 </div>
                 <Button
-                  variant="outline"
                   size="sm"
+                  variant="outline"
                   onClick={() => onTerminateConnection(connection.id)}
                   className="border-destructive/50 text-destructive hover:bg-destructive/10 shadow-sm"
                 >
+                  <X className="h-4 w-4 mr-1" />
                   Disconnect
                 </Button>
               </div>
@@ -191,162 +191,64 @@ export function ConnectionManager({
         </Card>
       )}
 
-      {/* Pending Connection Requests */}
-      {pendingRequests.length > 0 && (
-        <Card className="border-secondary/30 bg-gradient-to-r from-secondary/5 to-accent/5 w-full shadow-lg">
-          <CardHeader className="pb-3 bg-gradient-to-r from-secondary/10 to-accent/10">
-            <CardTitle className="flex items-center gap-2 text-foreground text-lg font-semibold">
-              <Key className="h-5 w-5 text-secondary" />
-              Incoming Requests ({pendingRequests.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0 space-y-3">
-            {pendingRequests.map((request) => (
-              <div key={request.connectionId} className="p-3 border border-secondary/30 rounded-lg bg-white shadow-sm">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="font-semibold text-foreground">
-                    {request.requesterNickname} wants to connect
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onRespondToConnection(request.connectionId, false)}
-                    className="border-destructive/50 text-destructive hover:bg-destructive/10 shadow-sm"
-                  >
-                    Reject
-                  </Button>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-accent/20 to-primary/10 rounded-lg border border-primary/20">
-                  <Key className="h-5 w-5 text-secondary" />
-                  <span className="text-sm font-medium text-foreground">Share this code:</span>
-                  <span className="text-xl font-bold text-foreground bg-white px-3 py-1 rounded-lg shadow-sm border border-primary/30">
-                    {request.connectionKey}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Outgoing Connection Requests */}
+      {/* Outgoing Requests */}
       {outgoingRequests.length > 0 && (
-        <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-secondary/5 w-full shadow-lg">
-          <CardHeader className="pb-3 bg-gradient-to-r from-primary/10 to-secondary/10">
-            <CardTitle className="flex items-center gap-2 text-foreground text-lg font-semibold">
-              <Key className="h-5 w-5 text-primary" />
-              Your Requests ({outgoingRequests.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0 space-y-3">
-            {outgoingRequests.map((request) => (
-              <div key={request.connectionId} className="p-3 border border-primary/30 rounded-lg bg-white shadow-sm">
-                <div className="space-y-3">
-                  <p className="font-semibold text-foreground">Request sent - Enter verification key</p>
-                  <div className="flex items-center gap-3">
-                    <Input
-                      type="text"
-                      placeholder="XX"
-                      value={verificationKey}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, '').slice(0, 2);
-                        setVerificationKey(value);
-                      }}
-                      maxLength={2}
-                      className="w-20 text-center font-mono text-lg border-primary/30 focus:border-primary"
-                    />
-                    <Button
-                      onClick={() => {
-                        if (verificationKey && verificationKey.length === 2) {
-                          onSubmitVerificationKey(request.connectionId, verificationKey);
-                          setVerificationKey('');
-                        }
-                      }}
-                      disabled={!verificationKey || verificationKey.length !== 2}
-                      size="sm"
-                      className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md"
-                    >
-                      Connect
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Notifications Section */}
-      {notifications && notifications.length > 0 && (
-        <Card className="border-accent/30 bg-gradient-to-r from-accent/10 to-primary/5 w-full shadow-lg">
-          <CardHeader className="pb-3 bg-gradient-to-r from-accent/20 to-primary/10">
-            <CardTitle className="flex items-center justify-between text-foreground text-lg font-semibold">
-              <div className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-secondary" />
-                Recent Activity ({notifications.length})
-              </div>
-              {notifications.length > 0 && onClearAllNotifications && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onClearAllNotifications}
-                  className="border-destructive/50 text-destructive hover:bg-destructive/10 shadow-sm"
-                >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Clear
-                </Button>
-              )}
+        <Card className="border-warning/30 bg-gradient-to-r from-warning/10 to-primary/5 shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-warning/20 to-primary/10">
+            <CardTitle className="flex items-center gap-2 text-foreground">
+              <Key className="h-5 w-5 text-yellow-500" />
+              Pending Outgoing Requests ({outgoingRequests.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {notifications.map((notification) => (
-              <div key={notification.id} className="p-3 border border-accent/30 rounded-lg bg-white shadow-sm">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <p className="font-semibold text-foreground">{notification.title}</p>
-                    <p className="text-sm text-muted-foreground">{notification.message}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {new Date(notification.timestamp).toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {notification.file && onOpenFile && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => onOpenFile(notification)}
-                        className="border-primary/30 text-primary hover:bg-primary/10 shadow-sm"
-                      >
-                        View
-                      </Button>
-                    )}
-                    {notification.file && onSaveFile && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => onSaveFile(notification)}
-                        className="border-secondary/30 text-secondary hover:bg-secondary/10 shadow-sm"
-                      >
-                        Save
-                      </Button>
-                    )}
-                    {onDismissNotification && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => onDismissNotification(notification.id)}
-                        className="text-muted-foreground hover:bg-muted/50"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
+            {outgoingRequests.map((request, index) => (
+              <div key={index} className="p-3 border border-warning/30 rounded-lg bg-white shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-foreground">Connection Request Sent</span>
+                  <Badge variant="secondary">Waiting for Key</Badge>
                 </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Waiting for the other device to provide verification key
+                </p>
               </div>
             ))}
           </CardContent>
         </Card>
       )}
+
+      {/* Connection Request Dialog */}
+      <Dialog open={showConnectionDialog} onOpenChange={setShowConnectionDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Connection Request</DialogTitle>
+            <DialogDescription>
+              {selectedRequest && `${selectedRequest.requesterNickname} wants to connect with you.`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="verification-key">Enter verification key from the requesting device:</Label>
+              <Input
+                id="verification-key"
+                type="text"
+                value={verificationKey}
+                onChange={(e) => setVerificationKey(e.target.value)}
+                placeholder="Enter key..."
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleApprove} disabled={!verificationKey} className="flex-1">
+                <Check className="h-4 w-4 mr-2" />
+                Approve
+              </Button>
+              <Button onClick={handleReject} variant="outline" className="flex-1">
+                <X className="h-4 w-4 mr-2" />
+                Reject
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
