@@ -9,9 +9,11 @@ import {
   Settings, 
   LogOut, 
   User,
-  X 
+  X,
+  Home
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { Link } from 'wouter';
 
 interface SidebarProps {
   activeSection: 'connections' | 'files' | 'settings';
@@ -30,6 +32,15 @@ export function Sidebar({
   const { user, logoutMutation } = useAuth();
 
   const menuItems = [
+    {
+      id: 'get-started' as const,
+      label: 'Get Started',
+      icon: Home,
+      badge: null,
+      description: 'Landing page and features',
+      isExternal: true,
+      href: '/'
+    },
     {
       id: 'connections' as const,
       label: 'Connections',
@@ -97,10 +108,33 @@ export function Sidebar({
                 const Icon = item.icon;
                 const isActive = activeSection === item.id;
                 
+                // Handle external links (like Get Started)
+                if ('isExternal' in item && item.isExternal) {
+                  return (
+                    <Link key={item.id} href={item.href}>
+                      <button
+                        onClick={() => setIsOpen(false)}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left hover:bg-muted"
+                      >
+                        <Icon className="h-5 w-5" />
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">{item.label}</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {item.description}
+                          </p>
+                        </div>
+                      </button>
+                    </Link>
+                  );
+                }
+                
+                // Handle internal navigation
                 return (
                   <button
                     key={item.id}
-                    onClick={() => handleSectionChange(item.id)}
+                    onClick={() => handleSectionChange(item.id as 'connections' | 'files' | 'settings')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${
                       isActive 
                         ? 'bg-primary text-primary-foreground' 
