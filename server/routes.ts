@@ -395,6 +395,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
             // Send confirmation back to sender with file data
             if (successfulTransfers > 0) {
+              console.log(`Creating sender file record for ${device.nickname}`);
               // Create a file record for the sender as well
               const senderFile = await storage.createFile({
                 filename: filename,
@@ -407,7 +408,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 connectionId: null,
                 isClipboard: message.data.isClipboard ? 1 : 0,
               });
+              console.log(`Sender file record created: ${senderFile.id}`);
 
+              console.log(`Sending file-sent-confirmation to ${device.nickname}`);
               ws.send(JSON.stringify({
                 type: 'file-sent-confirmation',
                 data: { 
@@ -417,6 +420,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   file: senderFile
                 }
               }));
+              console.log(`File transfer complete: ${successfulTransfers} recipients`);
+            } else {
+              console.log('No successful transfers, not sending confirmation');
             }
             return;
           }

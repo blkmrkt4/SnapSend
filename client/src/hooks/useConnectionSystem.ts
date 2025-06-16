@@ -175,6 +175,7 @@ export function useConnectionSystem() {
             break;
 
           case 'file-received':
+            console.log('File received message:', message.data);
             setState(prev => ({ 
               ...prev, 
               files: [{ ...message.data.file, transferType: 'received', fromDevice: message.data.fromDevice }, ...prev.files],
@@ -187,6 +188,7 @@ export function useConnectionSystem() {
                 timestamp: new Date()
               }]
             }));
+            console.log('File added to files list');
             break;
 
           case 'clipboard-sync':
@@ -246,6 +248,16 @@ export function useConnectionSystem() {
 
     ws.onerror = (error) => {
       console.error('WebSocket error:', error);
+      setState(prev => ({ 
+        ...prev, 
+        notifications: [...prev.notifications, {
+          id: Date.now(),
+          type: 'error',
+          title: 'Connection Error',
+          message: 'WebSocket connection failed',
+          timestamp: new Date()
+        }]
+      }));
     };
   }, []);
 
