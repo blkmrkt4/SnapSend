@@ -85,21 +85,7 @@ export default function Home() {
     clearAllFiles();
   };
 
-  const handleOpenFile = (notification: any) => {
-    if (notification.file) {
-      setPreviewFile(notification.file);
-    }
-  };
 
-  const handleSaveFile = async (notification: any) => {
-    if (notification.file) {
-      try {
-        await downloadFile(notification.file.id);
-      } catch (error) {
-        console.error('Error saving file:', error);
-      }
-    }
-  };
 
   const handleDeviceNicknameUpdate = (nickname: string) => {
     if (user?.id) {
