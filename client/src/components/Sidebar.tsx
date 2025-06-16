@@ -10,7 +10,9 @@ import {
   LogOut, 
   User,
   X,
-  Home
+  Home,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { Link } from 'wouter';
@@ -70,12 +72,32 @@ export function Sidebar({
   };
 
   return (
-    <Sheet open={isOpen} onOpenChange={setIsOpen}>
-      <SheetTrigger asChild>
-        <Button variant="outline" size="sm" className="fixed top-4 left-4 z-50">
-          <Menu className="h-4 w-4" />
-        </Button>
-      </SheetTrigger>
+    <>
+      {/* Connection Status Indicator */}
+      <div className="fixed top-4 left-16 z-50 flex items-center gap-2">
+        {connectionCount > 0 ? (
+          <div className="flex items-center gap-1 bg-green-500/20 border border-green-500/30 rounded-full px-3 py-1">
+            <Wifi className="h-4 w-4 text-green-500 animate-pulse" />
+            <span className="text-sm font-medium text-green-600 dark:text-green-400">
+              {connectionCount}
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1 bg-red-500/20 border border-red-500/30 rounded-full px-3 py-1">
+            <WifiOff className="h-4 w-4 text-red-500 animate-pulse" />
+            <span className="text-sm font-medium text-red-600 dark:text-red-400">
+              0
+            </span>
+          </div>
+        )}
+      </div>
+
+      <Sheet open={isOpen} onOpenChange={setIsOpen}>
+        <SheetTrigger asChild>
+          <Button variant="outline" size="sm" className="fixed top-4 left-4 z-50">
+            <Menu className="h-4 w-4" />
+          </Button>
+        </SheetTrigger>
       <SheetContent side="left" className="w-80 p-0">
         <div className="flex flex-col h-full">
           {/* Header */}
@@ -181,6 +203,7 @@ export function Sidebar({
           </div>
         </div>
       </SheetContent>
-    </Sheet>
+      </Sheet>
+    </>
   );
 }

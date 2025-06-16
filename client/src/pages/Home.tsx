@@ -4,7 +4,7 @@ import { SettingsPage } from '@/components/SettingsPage';
 import { ConnectionManager } from '@/components/ConnectionManager';
 import { MinimalDropWindow } from '@/components/MinimalDropWindow';
 import { FileExplorer } from '@/components/FileExplorer';
-import { NotificationWindow } from '@/components/NotificationWindow';
+
 import { FilePreviewModal } from '@/components/FilePreviewModal';
 import { useConnectionSystem } from '@/hooks/useConnectionSystem';
 import { useFileTransfer } from '@/hooks/useFileTransfer';
@@ -206,15 +206,7 @@ export default function Home() {
         </div>
       </main>
 
-      {/* Notification Window */}
-      {notifications.length > 0 && (
-        <NotificationWindow
-          notifications={notifications}
-          onDismiss={dismissNotification}
-          onOpenFile={handleOpenFile}
-          onSaveFile={handleSaveFile}
-        />
-      )}
+
 
       {/* File Preview Modal */}
       <FilePreviewModal
