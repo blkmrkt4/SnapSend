@@ -11,8 +11,8 @@ export default function LandingPage() {
   const features = [
     {
       icon: <Zap className="h-6 w-6" />,
-      title: "Lightning Fast Transfer",
-      description: "Transfer files instantly between devices with real-time WebSocket technology"
+      title: "Lightning Fast Sending",
+      description: "Snap and send files, clipboard, and screenshots instantly with real-time technology"
     },
     {
       icon: <Shield className="h-6 w-6" />,
@@ -31,8 +31,8 @@ export default function LandingPage() {
     },
     {
       icon: <FileText className="h-6 w-6" />,
-      title: "Any File Type",
-      description: "Share documents, images, videos, and any file type without restrictions"
+      title: "Everything Supported",
+      description: "Send files, clipboard text, images, and screenshots - no file type restrictions"
     },
     {
       icon: <Wifi className="h-6 w-6" />,
@@ -99,7 +99,7 @@ export default function LandingPage() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-2">
               <Smartphone className="h-8 w-8 text-primary" />
-              <span className="text-xl font-bold">FileShare Pro</span>
+              <span className="text-xl font-bold">SnapSend</span>
             </div>
             <div className="flex items-center space-x-4">
               <Link href="/auth">
@@ -117,13 +117,13 @@ export default function LandingPage() {
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto text-center">
           <h1 className="text-4xl sm:text-6xl font-bold mb-6">
-            Share Files{' '}
-            <span className="text-primary">Instantly</span>{' '}
-            Between Devices
+            Send Files, Clipboard &{' '}
+            <span className="text-primary">Screenshots</span>{' '}
+            Instantly
           </h1>
           <p className="text-xl text-muted-foreground mb-8 max-w-3xl mx-auto">
-            The fastest and most secure way to transfer files between your devices. 
-            No more emails, USB drives, or cloud uploads. Just instant, direct transfers.
+            The fastest way to snap and send anything between your devices. 
+            Files, clipboard content, and screenshots - all transferred instantly with zero hassle.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/auth">
@@ -146,10 +146,10 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              Everything you need for seamless file sharing
+              Everything you need for instant sharing
             </h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Built for speed, security, and simplicity. Transfer files the way it should be.
+              Built for speed, security, and simplicity. Snap and send anything, anywhere.
             </p>
           </div>
           
@@ -241,11 +241,11 @@ export default function LandingPage() {
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-primary text-primary-foreground">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl sm:text-4xl font-bold mb-6">
-            Ready to revolutionize your file sharing?
+            Ready to snap and send instantly?
           </h2>
           <p className="text-xl mb-8 opacity-90">
-            Join thousands of users who have already made the switch to faster, 
-            more secure file transfers.
+            Join thousands of users who snap and send files, clipboard, and screenshots 
+            across their devices effortlessly.
           </p>
           <Link href="/auth">
             <Button size="lg" variant="secondary" className="text-lg px-8 py-3">
@@ -261,7 +261,7 @@ export default function LandingPage() {
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="flex items-center space-x-2 mb-4 md:mb-0">
               <Smartphone className="h-6 w-6 text-primary" />
-              <span className="text-lg font-semibold">FileShare Pro</span>
+              <span className="text-lg font-semibold">SnapSend</span>
             </div>
             <div className="flex space-x-6 text-sm text-muted-foreground">
               <a href="#" className="hover:text-foreground transition-colors">Privacy</a>
@@ -271,7 +271,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="mt-8 pt-8 border-t text-center text-sm text-muted-foreground">
-            © 2025 FileShare Pro. All rights reserved.
+            © 2025 SnapSend. All rights reserved.
           </div>
         </div>
       </footer>

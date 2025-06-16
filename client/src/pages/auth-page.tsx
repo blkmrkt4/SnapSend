@@ -43,10 +43,10 @@ export default function AuthPage() {
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-2 mb-4">
               <Share2 className="h-8 w-8 text-primary" />
-              <h1 className="text-2xl font-bold">Secure File Share</h1>
+              <h1 className="text-2xl font-bold">SnapSend</h1>
             </div>
             <p className="text-muted-foreground">
-              Sign in to access your secure file sharing workspace
+              Sign in to snap and send files, clipboard, and screenshots instantly
             </p>
           </div>
 
@@ -105,7 +105,7 @@ export default function AuthPage() {
                 <CardHeader>
                   <CardTitle>Create Account</CardTitle>
                   <CardDescription>
-                    Sign up for a new secure file sharing account
+                    Sign up to start snapping and sending instantly
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
