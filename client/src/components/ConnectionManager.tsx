@@ -39,6 +39,8 @@ export function ConnectionManager({
   const [showConnectionDialog, setShowConnectionDialog] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   const [verificationKey, setVerificationKey] = useState('');
+  const [showVerificationDialog, setShowVerificationDialog] = useState(false);
+  const [selectedOutgoingRequest, setSelectedOutgoingRequest] = useState<any>(null);
 
   useEffect(() => {
     if (pendingRequests.length > 0) {
@@ -54,8 +56,9 @@ export function ConnectionManager({
   };
 
   const handleApprove = () => {
-    if (selectedRequest && verificationKey) {
-      onRespondToConnection(selectedRequest.connectionId, true, verificationKey);
+    if (selectedRequest) {
+      // When Robin approves, we automatically use the connectionKey from the request
+      onRespondToConnection(selectedRequest.connectionId, true, selectedRequest.connectionKey);
       setShowConnectionDialog(false);
       setVerificationKey('');
       setSelectedRequest(null);
@@ -69,6 +72,20 @@ export function ConnectionManager({
       setVerificationKey('');
       setSelectedRequest(null);
     }
+  };
+
+  const handleSubmitVerificationKey = () => {
+    if (selectedOutgoingRequest && verificationKey) {
+      onSubmitVerificationKey(selectedOutgoingRequest.connectionId, verificationKey);
+      setShowVerificationDialog(false);
+      setVerificationKey('');
+      setSelectedOutgoingRequest(null);
+    }
+  };
+
+  const handleOpenVerificationDialog = (request: any) => {
+    setSelectedOutgoingRequest(request);
+    setShowVerificationDialog(true);
   };
 
   return (
@@ -204,12 +221,21 @@ export function ConnectionManager({
             {outgoingRequests.map((request, index) => (
               <div key={index} className="p-3 border border-warning/30 rounded-lg bg-white shadow-sm">
                 <div className="flex items-center justify-between">
-                  <span className="font-medium text-foreground">Connection Request Sent</span>
-                  <Badge variant="secondary">Waiting for Key</Badge>
+                  <div>
+                    <span className="font-medium text-foreground">Connection Request Sent</span>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Ask the other user for their verification key, then enter it below
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => handleOpenVerificationDialog(request)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <Key className="h-4 w-4 mr-1" />
+                    Enter Key
+                  </Button>
                 </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Waiting for the other device to provide verification key
-                </p>
               </div>
             ))}
           </CardContent>
@@ -226,24 +252,60 @@ export function ConnectionManager({
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
-              <Label htmlFor="verification-key">Enter verification key from the requesting device:</Label>
-              <Input
-                id="verification-key"
-                type="text"
-                value={verificationKey}
-                onChange={(e) => setVerificationKey(e.target.value)}
-                placeholder="Enter key..."
-              />
-            </div>
+            {selectedRequest && selectedRequest.connectionKey && (
+              <div className="p-4 bg-primary/10 border border-primary/30 rounded-lg">
+                <Label className="text-sm font-medium">Share this verification key with {selectedRequest.requesterNickname}:</Label>
+                <div className="mt-2 p-3 bg-white dark:bg-gray-800 border rounded font-mono text-lg font-bold text-center">
+                  {selectedRequest.connectionKey}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  The requesting user needs to enter this key to complete the connection.
+                </p>
+              </div>
+            )}
             <div className="flex gap-2">
-              <Button onClick={handleApprove} disabled={!verificationKey} className="flex-1">
+              <Button onClick={() => handleApprove()} className="flex-1">
                 <Check className="h-4 w-4 mr-2" />
-                Approve
+                Allow Connection
               </Button>
               <Button onClick={handleReject} variant="outline" className="flex-1">
                 <X className="h-4 w-4 mr-2" />
                 Reject
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Verification Key Entry Dialog */}
+      <Dialog open={showVerificationDialog} onOpenChange={setShowVerificationDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enter Verification Key</DialogTitle>
+            <DialogDescription>
+              Enter the verification key that the other user shared with you to complete the connection.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="verification-key-input">Verification Key:</Label>
+              <Input
+                id="verification-key-input"
+                type="text"
+                value={verificationKey}
+                onChange={(e) => setVerificationKey(e.target.value)}
+                placeholder="Enter the key..."
+                className="font-mono text-center"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleSubmitVerificationKey} disabled={!verificationKey} className="flex-1">
+                <Check className="h-4 w-4 mr-2" />
+                Connect
+              </Button>
+              <Button onClick={() => setShowVerificationDialog(false)} variant="outline" className="flex-1">
+                <X className="h-4 w-4 mr-2" />
+                Cancel
               </Button>
             </div>
           </div>
