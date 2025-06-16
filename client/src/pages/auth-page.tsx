@@ -198,18 +198,18 @@ export default function AuthPage() {
           </div>
           
           <h2 className="text-3xl font-bold mb-4">
-            Secure File Sharing Made Simple
+            Snap and Send Anything, Instantly
           </h2>
           <p className="text-lg text-muted-foreground mb-6">
-            Share files securely across your devices with real-time synchronization 
-            and end-to-end encryption. Connect multiple devices and collaborate seamlessly.
+            Send files, clipboard content, and screenshots across your devices with instant 
+            synchronization and secure encryption. Connect multiple devices seamlessly.
           </p>
           
           <div className="text-sm text-muted-foreground">
-            <p className="mb-2"><strong>✓</strong> Real-time file transfers</p>
+            <p className="mb-2"><strong>✓</strong> Instant file transfers</p>
             <p className="mb-2"><strong>✓</strong> Clipboard synchronization</p>
-            <p className="mb-2"><strong>✓</strong> Multi-device connections</p>
-            <p><strong>✓</strong> Secure authentication</p>
+            <p className="mb-2"><strong>✓</strong> Screenshot sharing</p>
+            <p><strong>✓</strong> Multi-device connections</p>
           </div>
         </div>
       </div>

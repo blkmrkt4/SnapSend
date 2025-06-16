@@ -184,7 +184,7 @@ export default function Home() {
             className="bg-primary text-primary-foreground p-4 rounded-full shadow-xl hover:bg-primary/90 transition-all duration-200 hover:scale-105"
             onClick={() => setIsMinimized(false)}
           >
-            Open File Share
+            Open SnapSend
           </button>
         </div>
       </div>

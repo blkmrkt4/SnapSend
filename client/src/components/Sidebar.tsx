@@ -70,7 +70,7 @@ export function Sidebar({
           {/* Header */}
           <div className="p-6 border-b bg-gradient-to-r from-primary/10 to-secondary/10">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold">Secure File Share</h2>
+              <h2 className="text-xl font-semibold">SnapSend</h2>
               <Button 
                 variant="ghost" 
                 size="sm" 
