@@ -7,6 +7,7 @@ import {
 import { User } from "@shared/schema";
 import { getQueryFn, apiRequest, queryClient } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 type AuthContextType = {
   user: User | null;
@@ -33,6 +34,7 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const {
     data: user,
     error,
@@ -53,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         title: "Welcome back!",
         description: `Logged in as ${user.name}`,
       });
+      navigate("/app");
     },
     onError: (error: Error) => {
       toast({
@@ -74,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         title: "Account created",
         description: `Welcome ${user.name}!`,
       });
+      navigate("/app");
     },
     onError: (error: Error) => {
       toast({
