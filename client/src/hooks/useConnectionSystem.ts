@@ -318,11 +318,23 @@ export function useConnectionSystem() {
   }, []);
 
   const sendFile = useCallback((fileData: any) => {
+    console.log('Sending file data:', {
+      filename: fileData.filename,
+      originalName: fileData.originalName,
+      size: fileData.size,
+      mimeType: fileData.mimeType,
+      hasContent: !!fileData.content,
+      isClipboard: fileData.isClipboard
+    });
+    
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({
         type: 'file-transfer',
         data: fileData
       }));
+      console.log('File transfer message sent to server');
+    } else {
+      console.log('WebSocket not open, cannot send file');
     }
   }, []);
 

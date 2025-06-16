@@ -295,9 +295,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Handle file transfer - only within active connections
           if (message.type === 'file-transfer') {
+            console.log(`File transfer from ${device.nickname}:`, {
+              filename: message.data.filename,
+              originalName: message.data.originalName,
+              size: message.data.size,
+              mimeType: message.data.mimeType,
+              isClipboard: message.data.isClipboard,
+              hasContent: !!message.data.content
+            });
+            
             // Check if this is sent to a specific connection
             const activeConnections = await storage.getActiveConnectionsForDevice(device.id);
+            console.log(`Active connections for ${device.nickname}:`, activeConnections.length);
+            
             if (activeConnections.length === 0) {
+              console.log('No active connections for file transfer');
               ws.send(JSON.stringify({
                 type: 'error',
                 data: { message: 'No active connections for file transfer' }
@@ -337,6 +349,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Send file to all active connections
             let successfulTransfers = 0;
             for (const connection of activeConnections) {
+              console.log(`Creating file record for connection ${connection.id}`);
               const file = await storage.createFile({
                 filename: filename,
                 originalName: message.data.originalName,
@@ -348,18 +361,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 connectionId: connection.id,
                 isClipboard: message.data.isClipboard ? 1 : 0,
               });
+              console.log(`File record created:`, file.id);
 
               // Send to the connected partner
               const partnerId = connection.requesterDeviceId === device.id ? connection.targetDeviceId : connection.requesterDeviceId;
+              console.log(`Looking for partner device ${partnerId}`);
               const partnerClient = Array.from(connectedClients.entries())
                 .find(([id, client]) => parseInt(id) === partnerId)?.[1];
               
+              console.log(`Partner client found: ${!!partnerClient}, WebSocket open: ${partnerClient?.readyState === WebSocket.OPEN}`);
               if (partnerClient && partnerClient.readyState === WebSocket.OPEN) {
+                console.log(`Sending file-received message to partner`);
                 partnerClient.send(JSON.stringify({
                   type: 'file-received',
                   data: { file, fromDevice: device.nickname }
                 }));
                 successfulTransfers++;
+                console.log(`File sent successfully to partner`);
+              } else {
+                console.log(`Partner not available for file transfer`);
               }
 
               // If it's clipboard content, also send clipboard sync
