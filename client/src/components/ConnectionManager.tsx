@@ -148,7 +148,7 @@ export function ConnectionManager({
                   <Button
                     size="sm"
                     onClick={() => onRequestConnection(user.nickname)}
-                    className="border-primary/30 text-primary hover:bg-primary/10 shadow-sm"
+                    className="border-primary/30 text-[#332f50] hover:bg-primary/10 shadow-sm"
                   >
                     Connect
                   </Button>
