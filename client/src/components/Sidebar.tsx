@@ -83,7 +83,7 @@ export function Sidebar({
             </span>
           </div>
         ) : (
-          <div className="flex items-center gap-1 bg-red-500/20 border border-red-500/30 rounded-full px-3 py-1">
+          <div className="flex items-center gap-1 bg-red-500/20 border border-red-500/30 rounded-full px-3 py-1 pl-[17px] pr-[17px] ml-[44px] mr-[44px]">
             <WifiOff className="h-4 w-4 text-red-500 animate-pulse" />
             <span className="text-sm font-medium text-red-600 dark:text-red-400">
               0
@@ -91,7 +91,6 @@ export function Sidebar({
           </div>
         )}
       </div>
-
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
         <SheetTrigger asChild>
           <Button 
