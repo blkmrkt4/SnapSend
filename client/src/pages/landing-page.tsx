@@ -3,10 +3,12 @@ import { Link } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Check, Zap, Shield, Cloud, Users, FileText, Smartphone, Wifi } from 'lucide-react';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Check, Zap, Shield, Cloud, Users, FileText, Smartphone, Wifi, Menu, X } from 'lucide-react';
 
 export default function LandingPage() {
   const [selectedPlan, setSelectedPlan] = useState<'free' | 'pro' | 'enterprise'>('pro');
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const features = [
     {
@@ -93,11 +95,76 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-primary/10">
+      {/* Prominent Hamburger Menu */}
+      <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+        <SheetTrigger asChild>
+          <Button 
+            size="lg" 
+            className="fixed top-4 left-4 z-50 bg-purple-900 hover:bg-purple-800 text-white border-2 border-purple-700 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="w-80 p-0">
+          <div className="flex flex-col h-full">
+            {/* Header */}
+            <div className="p-6 border-b bg-gradient-to-r from-primary/10 to-secondary/10">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold">SnapSend</h2>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Instantly send files, clipboard, and screenshots
+              </p>
+            </div>
+
+            {/* Menu Items */}
+            <div className="flex-1 p-4">
+              <nav className="space-y-2">
+                <Link href="/">
+                  <button
+                    onClick={() => setIsMenuOpen(false)}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left hover:bg-muted"
+                  >
+                    <Smartphone className="h-5 w-5" />
+                    <span className="font-medium">Home</span>
+                  </button>
+                </Link>
+                <Link href="/auth">
+                  <button
+                    onClick={() => setIsMenuOpen(false)}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left hover:bg-muted"
+                  >
+                    <Users className="h-5 w-5" />
+                    <span className="font-medium">Sign In</span>
+                  </button>
+                </Link>
+                <Link href="/auth">
+                  <button
+                    onClick={() => setIsMenuOpen(false)}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left bg-primary text-primary-foreground hover:bg-primary/90"
+                  >
+                    <Zap className="h-5 w-5" />
+                    <span className="font-medium">Get Started</span>
+                  </button>
+                </Link>
+              </nav>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
       {/* Navigation */}
-      <nav className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50">
+      <nav className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 ml-16">
               <Smartphone className="h-8 w-8 text-primary" />
               <span className="text-xl font-bold">SnapSend</span>
             </div>

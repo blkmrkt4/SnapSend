@@ -94,8 +94,11 @@ export function Sidebar({
 
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
         <SheetTrigger asChild>
-          <Button variant="outline" size="sm" className="fixed top-4 left-4 z-50">
-            <Menu className="h-4 w-4" />
+          <Button 
+            size="lg" 
+            className="fixed top-4 left-4 z-50 bg-purple-900 hover:bg-purple-800 text-white border-2 border-purple-700 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
+          >
+            <Menu className="h-5 w-5" />
           </Button>
         </SheetTrigger>
       <SheetContent side="left" className="w-80 p-0">
