@@ -159,7 +159,6 @@ export default function LandingPage() {
           </div>
         </SheetContent>
       </Sheet>
-
       {/* Navigation */}
       <nav className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -179,7 +178,6 @@ export default function LandingPage() {
           </div>
         </div>
       </nav>
-
       {/* Hero Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto text-center">
@@ -202,12 +200,9 @@ export default function LandingPage() {
               Watch Demo
             </Button>
           </div>
-          <p className="text-sm text-muted-foreground mt-4">
-            No credit card required • 14-day free trial
-          </p>
+          <p className="text-sm text-muted-foreground mt-4"> 7 Day Free Trial, or Buy Credits</p>
         </div>
       </section>
-
       {/* Features Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-muted/30">
         <div className="max-w-7xl mx-auto">
@@ -237,7 +232,6 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
-
       {/* Pricing Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
@@ -303,7 +297,6 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
-
       {/* CTA Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-primary text-primary-foreground">
         <div className="max-w-4xl mx-auto text-center">
@@ -321,7 +314,6 @@ export default function LandingPage() {
           </Link>
         </div>
       </section>
-
       {/* Footer */}
       <footer className="py-12 px-4 sm:px-6 lg:px-8 border-t bg-background/50">
         <div className="max-w-7xl mx-auto">
