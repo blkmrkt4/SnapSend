@@ -76,7 +76,7 @@ export function Sidebar({
       {/* Connection Status Indicator */}
       <div className="fixed top-4 left-16 z-50 flex items-center gap-2">
         {connectionCount > 0 ? (
-          <div className="flex items-center gap-1 bg-green-500/20 border border-green-500/30 rounded-full px-3 py-1">
+          <div className="flex items-center gap-1 bg-green-500/20 border border-green-500/30 rounded-full px-3 py-1 ml-[53px] mr-[53px]">
             <Wifi className="h-4 w-4 text-green-500 animate-pulse" />
             <span className="text-sm font-medium text-green-600 dark:text-green-400">
               {connectionCount}
