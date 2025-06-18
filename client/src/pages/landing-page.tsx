@@ -45,30 +45,15 @@ export default function LandingPage() {
 
   const plans = [
     {
-      id: 'free',
-      name: 'Free',
-      price: '$0',
-      period: '/month',
-      description: 'Perfect for personal use',
-      features: [
-        '2 connected devices',
-        '100MB file size limit',
-        'Basic file transfer',
-        'Email support'
-      ],
-      popular: false
-    },
-    {
       id: 'pro',
       name: 'Pro',
-      price: '$9.99',
+      price: '$5.00',
       period: '/month',
       description: 'For professionals and teams',
       features: [
         'Unlimited devices',
-        '10GB file size limit',
+        'Unlimited file size',
         'Advanced security features',
-        'Priority support',
         'File history & versioning',
         'Custom device names'
       ],
@@ -82,7 +67,6 @@ export default function LandingPage() {
       description: 'For large organizations',
       features: [
         'Everything in Pro',
-        'Unlimited file size',
         'Advanced admin controls',
         'SSO integration',
         '24/7 phone support',
@@ -244,7 +228,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             {plans.map((plan) => (
               <Card 
                 key={plan.id} 
@@ -288,7 +272,7 @@ export default function LandingPage() {
                       variant={plan.popular ? 'default' : 'outline'}
                       size="lg"
                     >
-                      {plan.price === '$0' ? 'Get Started Free' : 'Start Free Trial'}
+                      Start Free Trial
                     </Button>
                   </Link>
                 </CardContent>
@@ -304,8 +288,8 @@ export default function LandingPage() {
             Ready to snap and send instantly?
           </h2>
           <p className="text-xl mb-8 opacity-90">
-            Join thousands of users who snap and send files, clipboard, and screenshots 
-            across their devices effortlessly.
+            Join thousands of users who instantly send files, clipboard, and screenshots 
+            from one device to another.
           </p>
           <Link href="/auth">
             <Button size="lg" variant="secondary" className="text-lg px-8 py-3">
