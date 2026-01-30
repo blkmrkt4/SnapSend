@@ -49,9 +49,9 @@ export default function LandingPage() {
       name: 'Pro',
       price: '$5.00',
       period: '/month',
-      description: 'For professionals and teams',
+      description: 'For individuals or collaborators',
       features: [
-        'Unlimited devices',
+        'Unlimited devices from your login',
         'Unlimited file size',
         'Advanced security features',
         'File history & versioning',
@@ -61,10 +61,10 @@ export default function LandingPage() {
     },
     {
       id: 'enterprise',
-      name: 'Enterprise',
-      price: '$29.99',
-      period: '/month',
-      description: 'For large organizations',
+      name: 'Credits',
+      price: '$10.00',
+      period: '200 Transfers',
+      description: 'For organizations',
       features: [
         'Everything in Pro',
         'Advanced admin controls',
@@ -171,7 +171,7 @@ export default function LandingPage() {
             Instantly
           </h1>
           <p className="text-xl text-muted-foreground mb-8 max-w-3xl mx-auto">
-            The fastest way to snap and send anything between your devices. 
+            The fastest way to send anything with limited keystrokes between your devices. 
             Files, clipboard content, and screenshots - all transferred instantly with zero hassle.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -195,7 +195,7 @@ export default function LandingPage() {
               Everything you need for instant sharing
             </h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Built for speed, security, and simplicity. Snap and send anything, anywhere.
+              Built for speed, security, and simplicity. Drag or paste to send anything, anywhere.
             </p>
           </div>
           
