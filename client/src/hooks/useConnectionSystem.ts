@@ -45,7 +45,23 @@ function saveKnownDevices(devices: KnownDevice[]) {
   localStorage.setItem('snapsend-known-devices', JSON.stringify(devices));
 }
 
-function getOrCreateDeviceName(): string {
+// Promise that resolves with the device name (fetches from Electron if available)
+let deviceNamePromise: Promise<string> | null = null;
+
+async function getDeviceNameAsync(): Promise<string> {
+  // In Electron, get the name from main process (synced with mDNS broadcast)
+  const api = (window as any).electronAPI;
+  if (api?.getDeviceName) {
+    try {
+      const name = await api.getDeviceName();
+      if (name) {
+        localStorage.setItem('snapsend-device-name', name); // Keep in sync
+        return name;
+      }
+    } catch {}
+  }
+
+  // Fallback: localStorage or auto-generate
   const saved = localStorage.getItem('snapsend-device-name');
   if (saved) return saved;
 
@@ -62,6 +78,31 @@ function getOrCreateDeviceName(): string {
   const name = `${base}-${suffix}`;
   localStorage.setItem('snapsend-device-name', name);
   return name;
+}
+
+function getOrCreateDeviceName(): string {
+  // Sync version: return cached localStorage value (will be updated async)
+  const saved = localStorage.getItem('snapsend-device-name');
+  if (saved) return saved;
+
+  // Auto-generate (same logic as async version)
+  const ua = navigator.userAgent;
+  let base = 'Device';
+  if (/Macintosh|Mac OS/.test(ua)) base = 'Mac';
+  else if (/Windows/.test(ua)) base = 'Windows-PC';
+  else if (/Linux/.test(ua)) base = 'Linux-PC';
+  else if (/iPhone/.test(ua)) base = 'iPhone';
+  else if (/Android/.test(ua)) base = 'Android';
+
+  const suffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+  const name = `${base}-${suffix}`;
+  localStorage.setItem('snapsend-device-name', name);
+  return name;
+}
+
+// Pre-fetch device name on module load (populates localStorage before WS connects)
+if (typeof window !== 'undefined') {
+  deviceNamePromise = getDeviceNameAsync();
 }
 
 function getOrCreateDeviceUUID(): string {
@@ -275,16 +316,17 @@ export function useConnectionSystem() {
 
         switch (message.type) {
           case 'setup-required': {
-            // Auto-setup with persisted (or auto-generated) device name + UUID
-            const deviceName = getOrCreateDeviceName();
-            const deviceUUID = getOrCreateDeviceUUID();
-            if (ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({
-                type: 'device-setup',
-                data: { name: deviceName, uuid: deviceUUID }
-              }));
-            }
+            // Auto-setup with persisted (or Electron-provided) device name + UUID
             setState(prev => ({ ...prev, isConnecting: true }));
+            getDeviceNameAsync().then(deviceName => {
+              const deviceUUID = getOrCreateDeviceUUID();
+              if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                  type: 'device-setup',
+                  data: { name: deviceName, uuid: deviceUUID }
+                }));
+              }
+            });
             break;
           }
 
