@@ -1,57 +1,41 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { SettingsPage } from '@/components/SettingsPage';
 import { ConnectionManager } from '@/components/ConnectionManager';
 import { MinimalDropWindow } from '@/components/MinimalDropWindow';
 import { FileExplorer } from '@/components/FileExplorer';
-
 import { FilePreviewModal } from '@/components/FilePreviewModal';
+import { HomePage } from '@/components/HomePage';
 import { useConnectionSystem } from '@/hooks/useConnectionSystem';
 import { useFileTransfer } from '@/hooks/useFileTransfer';
-import { useAuth } from '@/hooks/use-auth';
 import { type File } from '@shared/schema';
 
 export default function Home() {
-  const [activeSection, setActiveSection] = useState<'connections' | 'files' | 'settings'>('connections');
-  const [isMinimized, setIsMinimized] = useState(false);
+  const [activeSection, setActiveSection] = useState<'home' | 'connections' | 'files' | 'settings'>('connections');
   const [showExpanded, setShowExpanded] = useState(true);
   const [previewFile, setPreviewFile] = useState<File | null>(null);
 
-  const { user } = useAuth();
-  const { 
-    isSetup,
-    isConnecting,
+  const {
     currentDevice,
+    onlineDevices,
     connections,
     files,
-    notifications,
-    searchResults,
-    pendingRequests,
-    outgoingRequests,
-    isSearching,
+    pendingFiles,
+    selectedTargetId,
+    knownDevices,
     setupDevice,
-    searchUsers,
-    requestConnection,
-    respondToConnection,
+    pairWithDevice,
     terminateConnection,
     sendFile,
-    submitVerificationKey,
-    dismissNotification,
-    clearAllNotifications,
+    setSelectedTarget,
     clearAllFiles,
     refreshFiles,
     deleteFile,
+    renameFile,
+    refreshDiscovery,
   } = useConnectionSystem();
 
   const { downloadFile } = useFileTransfer();
-
-  // Auto-setup device with user's nickname if not already setup
-  useEffect(() => {
-    if (!isSetup && user && !isConnecting) {
-      // Use user's nickname as default device name
-      setupDevice(user.nickname, user.id);
-    }
-  }, [isSetup, user, isConnecting, setupDevice]);
 
   const handleSendFile = async (fileData: any) => {
     try {
@@ -61,117 +45,73 @@ export default function Home() {
     }
   };
 
-  const handlePreviewFile = (file: File) => {
-    setPreviewFile(file);
-  };
-
-  const handleClosePreview = () => {
-    setPreviewFile(null);
-  };
-
-  const handleToggleExpanded = () => {
-    setShowExpanded(!showExpanded);
-  };
-
-  const handleMinimize = () => {
-    setIsMinimized(true);
-  };
-
-  const handleRefresh = () => {
-    refreshFiles();
-  };
-
-  const handleClearAll = () => {
-    clearAllFiles();
-  };
-
-
-
-  const handleDeviceNicknameUpdate = (nickname: string) => {
-    if (user?.id) {
-      setupDevice(nickname, user.id);
-    }
+  const handleDeviceNameUpdate = (name: string) => {
+    setupDevice(name);
   };
 
   const renderMainContent = () => {
     switch (activeSection) {
+      case 'home':
+        return <HomePage />;
+
       case 'connections':
         return (
           <ConnectionManager
             currentDevice={currentDevice}
+            onlineDevices={onlineDevices}
             connections={connections}
-            onSearchUsers={searchUsers}
-            onRequestConnection={requestConnection}
-            onRespondToConnection={respondToConnection}
+            onPairWithDevice={pairWithDevice}
             onTerminateConnection={terminateConnection}
-            onSubmitVerificationKey={submitVerificationKey}
-            searchResults={searchResults}
-            pendingRequests={pendingRequests}
-            outgoingRequests={outgoingRequests}
-            isSearching={isSearching}
-
+            onDeviceNameUpdate={handleDeviceNameUpdate}
+            onRefreshDiscovery={refreshDiscovery}
           />
         );
-      
+
       case 'files':
         return (
           <div className="flex space-x-6">
             <MinimalDropWindow
               onSendFile={handleSendFile}
               recentFiles={files.filter(file => file.transferType === 'sent').slice(0, 3)}
-              onToggleExpanded={handleToggleExpanded}
-              onMinimize={handleMinimize}
-              hasConnections={connections.length > 0}
+              onToggleExpanded={() => setShowExpanded(!showExpanded)}
+              onMinimize={() => {}}
+              connections={connections}
+              onlineDevices={onlineDevices}
+              knownDevices={knownDevices}
+              currentDevice={currentDevice}
+              selectedTargetId={selectedTargetId}
+              onSelectTarget={setSelectedTarget}
+              pendingFileCount={pendingFiles.length}
             />
 
             {showExpanded && (
               <div className="flex-1 min-w-0">
                 <FileExplorer
                   files={files}
-                  onPreviewFile={handlePreviewFile}
-                  onRefresh={handleRefresh}
-                  onClearAll={handleClearAll}
+                  onPreviewFile={(file: File) => setPreviewFile(file)}
+                  onRefresh={refreshFiles}
+                  onClearAll={clearAllFiles}
                   onDeleteFile={deleteFile}
+                  onRenameFile={renameFile}
                   currentDevice={currentDevice}
                 />
               </div>
             )}
           </div>
         );
-      
+
       case 'settings':
         return (
           <SettingsPage
             currentDevice={currentDevice}
-            onDeviceNicknameUpdate={handleDeviceNicknameUpdate}
+            onDeviceNameUpdate={handleDeviceNameUpdate}
           />
         );
-      
+
       default:
         return null;
     }
   };
-
-  if (isMinimized) {
-    return (
-      <div className="min-h-screen p-4 bg-gradient-to-br from-background to-primary/20">
-        <div className="text-center mb-4">
-          <h1 className="text-3xl font-bold text-foreground">{currentDevice?.nickname}</h1>
-          <p className="text-muted-foreground text-lg">
-            {connections.length} active connection{connections.length !== 1 ? 's' : ''}
-          </p>
-        </div>
-        <div className="fixed bottom-4 right-4">
-          <button
-            className="bg-primary text-primary-foreground p-4 rounded-full shadow-xl hover:bg-primary/90 transition-all duration-200 hover:scale-105"
-            onClick={() => setIsMinimized(false)}
-          >
-            Open SnapSend
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -180,22 +120,24 @@ export default function Home() {
         onSectionChange={setActiveSection}
         connectionCount={connections.length}
         fileCount={files.length}
+        deviceName={currentDevice?.name}
       />
-      
-      <main className="pl-4 pr-4 pt-16 pb-4">
+
+      <main className="px-4 pt-14 pb-4">
         <div className="max-w-7xl mx-auto">
           {renderMainContent()}
         </div>
       </main>
 
-
-
-      {/* File Preview Modal */}
       <FilePreviewModal
         file={previewFile}
         isOpen={!!previewFile}
-        onClose={handleClosePreview}
+        onClose={() => setPreviewFile(null)}
       />
+
+      <div className="fixed bottom-2 right-3 text-[10px] text-muted-foreground/50 select-none pointer-events-none">
+        SnapSend v{__APP_VERSION__}
+      </div>
     </div>
   );
 }

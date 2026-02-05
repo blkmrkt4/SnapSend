@@ -1,4 +1,4 @@
-import { X, Download, FileImage, FileText, Clipboard } from 'lucide-react';
+import { X, Download, FileImage, FileText, Clipboard, EyeOff } from 'lucide-react';
 import { type File } from '@shared/schema';
 import { useFileTransfer } from '@/hooks/useFileTransfer';
 
@@ -15,6 +15,25 @@ export function FilePreviewModal({ file, isOpen, onClose }: FilePreviewModalProp
 
   const handleDownload = async () => {
     try {
+      // If we have content in memory (queued files or small transfers), use it directly
+      if (file.content) {
+        let blob: Blob;
+        if (file.content.startsWith('data:')) {
+          const res = await fetch(file.content);
+          blob = await res.blob();
+        } else {
+          blob = new Blob([file.content], { type: file.mimeType });
+        }
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.originalName;
+        document.body.appendChild(a);
+        a.click();
+        URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        return;
+      }
       await downloadFile(file.id);
     } catch (error) {
       console.error('Error downloading file:', error);
@@ -101,10 +120,18 @@ export function FilePreviewModal({ file, isOpen, onClose }: FilePreviewModalProp
                 </button>
               </div>
             </div>
+          ) : file.mimeType.startsWith('image/') && file.content?.startsWith('data:') ? (
+            <div className="flex items-center justify-center bg-gray-50 rounded-lg p-4">
+              <img
+                src={file.content}
+                alt={file.originalName}
+                className="max-w-full max-h-[60vh] object-contain rounded"
+              />
+            </div>
           ) : file.mimeType.startsWith('image/') ? (
             <div className="flex items-center justify-center bg-gray-50 rounded-lg min-h-[400px]">
               <div className="text-center">
-                <FileImage className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <EyeOff className="w-16 h-16 text-red-300 mx-auto mb-4" />
                 <p className="text-gray-500">Image preview not available</p>
                 <p className="text-sm text-gray-400 mt-2">
                   Use the download button to view the image
@@ -123,7 +150,7 @@ export function FilePreviewModal({ file, isOpen, onClose }: FilePreviewModalProp
           ) : (
             <div className="flex items-center justify-center bg-gray-50 rounded-lg min-h-[400px]">
               <div className="text-center">
-                <IconComponent className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <EyeOff className="w-16 h-16 text-red-300 mx-auto mb-4" />
                 <p className="text-gray-500">Preview not available for this file type</p>
                 <p className="text-sm text-gray-400 mt-2">
                   Use the download button to access the file

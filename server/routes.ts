@@ -2,39 +2,108 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { setupAuth } from "./auth";
 import multer from "multer";
-import { insertFileSchema, type FileTransferMessage, type WebSocketMessage } from "@shared/schema";
-import { z } from "zod";
+import { type WebSocketMessage } from "@shared/schema";
 import path from "path";
 import fs from "fs";
 
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB limit
+    fileSize: 100 * 1024 * 1024, // 100MB limit
   },
 });
 
-export async function registerRoutes(app: Express): Promise<Server> {
-  // Setup authentication first
-  setupAuth(app);
-  
+export interface RouteOptions {
+  onP2PFileReceived?: (data: { file: any; fromDevice: string; isClipboard: boolean; clipboardContent?: string }) => void;
+  onPeerHandshake?: (ws: any, peerId: string, peerName: string) => void;
+}
+
+export async function registerRoutes(app: Express, options?: RouteOptions): Promise<Server> {
   const httpServer = createServer(app);
 
   // WebSocket server setup
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
 
-  // Store connected clients
+  // Store connected clients (local renderer clients, keyed by device ID)
   const connectedClients = new Map<string, WebSocket>();
+
+  // Store connected P2P peers (remote Electron instances)
+  const connectedPeers = new Map<string, WebSocket>();
+
+  // Name maps for relay visibility
+  const peerNameMap = new Map<string, string>();     // peerId → display name
+  const clientNameMap = new Map<string, string>();   // clientId → display name
+
+  // Build virtual device entries representing P2P peers (for browser clients)
+  function getPeerVirtualDevices(): any[] {
+    const devices: any[] = [];
+    peerNameMap.forEach((name, pid) => {
+      devices.push({
+        id: 0,
+        name,
+        uuid: null,
+        socketId: `peer:${pid}`,
+        isOnline: true,
+        lastSeen: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+      });
+    });
+    return devices;
+  }
+
+  // Build simple device entries representing browser clients (for P2P peers)
+  function getClientVirtualDevices(): { id: string; name: string }[] {
+    const devices: { id: string; name: string }[] = [];
+    clientNameMap.forEach((name, cid) => {
+      devices.push({ id: cid, name });
+    });
+    return devices;
+  }
+
+  // Push current client list to all connected P2P peers
+  function broadcastRelayDevicesToPeers() {
+    const devices = getClientVirtualDevices();
+    const msg = JSON.stringify({ type: 'relay-devices', data: { devices } });
+    connectedPeers.forEach((peerWs) => {
+      if (peerWs.readyState === WebSocket.OPEN) {
+        peerWs.send(msg);
+      }
+    });
+  }
+
+  // Push updated peer list to all browser clients as device-connected/disconnected events
+  function broadcastPeerAsDeviceToClients(peerId: string, peerName: string, connected: boolean) {
+    const virtualDevice = {
+      id: 0,
+      name: peerName,
+      uuid: null,
+      socketId: `peer:${peerId}`,
+      isOnline: connected,
+      lastSeen: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+    };
+
+    const msgType = connected ? 'device-connected' : 'device-disconnected';
+    connectedClients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify({
+          type: msgType,
+          data: { device: virtualDevice }
+        }));
+      }
+    });
+  }
 
   wss.on('connection', async (ws: WebSocket, req) => {
     let device: any = null;
     let clientId: string = '';
     let socketId = `ws_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+    let isPeerConnection = false;
+    let peerId: string | null = null;
+
     try {
-      // Send setup required message immediately
+      // Send setup required message immediately (for local renderer clients)
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({
           type: 'setup-required',
@@ -46,53 +115,302 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ws.on('message', async (data) => {
         try {
           const message = JSON.parse(data.toString());
-          
+
+          // ─── P2P Peer Handshake (remote Electron instance) ───
+          if (message.type === 'peer-handshake') {
+            isPeerConnection = true;
+            peerId = message.data.id;
+            const peerName = message.data.name;
+
+            console.log(`Peer handshake from: ${peerName} (${peerId})`);
+
+            connectedPeers.set(peerId!, ws);
+            peerNameMap.set(peerId!, peerName);
+
+            // Notify Electron main process so PeerConnectionManager can also track this connection.
+            // handleIncomingHandshake sends the ack with the real device ID/name.
+            if (options?.onPeerHandshake) {
+              options.onPeerHandshake(ws, peerId!, peerName);
+            } else {
+              // Standalone server mode (no Electron): send ack ourselves
+              if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                  type: 'peer-handshake-ack',
+                  data: { id: socketId, name: 'local-server' }
+                }));
+              }
+            }
+
+            // Send current browser clients to this new peer
+            if (ws.readyState === WebSocket.OPEN) {
+              const clientDevices = getClientVirtualDevices();
+              if (clientDevices.length > 0) {
+                ws.send(JSON.stringify({
+                  type: 'relay-devices',
+                  data: { devices: clientDevices }
+                }));
+              }
+            }
+
+            // Notify all browser clients about this new peer
+            broadcastPeerAsDeviceToClients(peerId!, peerName, true);
+
+            return;
+          }
+
+          // ─── P2P File Transfer from remote peer ───
+          if (isPeerConnection && message.type === 'file-transfer') {
+            const fileData = message.data;
+            console.log(`P2P file received from ${fileData.fromName}: ${fileData.originalName}`);
+
+            let filename = fileData.filename || `${Date.now()}_${fileData.originalName}`;
+
+            // Save file to disk if not clipboard
+            if (fileData.content && !fileData.isClipboard) {
+              try {
+                const uploadsDir = process.env.SNAPSEND_UPLOADS_DIR || path.join(process.cwd(), 'uploads');
+                if (!fs.existsSync(uploadsDir)) {
+                  fs.mkdirSync(uploadsDir, { recursive: true });
+                }
+
+                const filePath = path.join(uploadsDir, filename);
+                if (fileData.content.startsWith('data:')) {
+                  const base64Data = fileData.content.split(',')[1];
+                  const buffer = Buffer.from(base64Data, 'base64');
+                  fs.writeFileSync(filePath, buffer);
+                } else if (fileData.mimeType?.startsWith('text/')) {
+                  fs.writeFileSync(filePath, fileData.content, 'utf8');
+                } else {
+                  fs.writeFileSync(filePath, fileData.content);
+                }
+              } catch (error) {
+                console.error('Error saving P2P file to disk:', error);
+              }
+            }
+
+            // Save to DB (omit large content for non-clipboard files — it's already on disk)
+            const savedFile = await storage.createFile({
+              filename,
+              originalName: fileData.originalName,
+              mimeType: fileData.mimeType,
+              size: fileData.size,
+              content: fileData.isClipboard ? fileData.content : null,
+              fromDeviceId: null,
+              toDeviceId: null,
+              connectionId: null,
+              isClipboard: fileData.isClipboard ? 1 : 0,
+              fromDeviceName: fileData.fromName || 'Unknown',
+              toDeviceName: 'local',
+            });
+
+            // Forward to local renderer
+            connectedClients.forEach((client) => {
+              if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify({
+                  type: 'file-received',
+                  data: { file: savedFile, fromDevice: fileData.fromName || 'Unknown' }
+                }));
+
+                if (fileData.isClipboard) {
+                  client.send(JSON.stringify({
+                    type: 'clipboard-sync',
+                    data: { content: fileData.content, fromDevice: fileData.fromName, file: savedFile }
+                  }));
+                }
+              }
+            });
+
+            // Notify Electron renderer via IPC callback (connectedClients may be empty in P2P mode)
+            if (options?.onP2PFileReceived) {
+              options.onP2PFileReceived({
+                file: savedFile,
+                fromDevice: fileData.fromName || 'Unknown',
+                isClipboard: !!fileData.isClipboard,
+                clipboardContent: fileData.isClipboard ? fileData.content : undefined,
+              });
+            }
+
+            // Send ack back to peer
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({
+                type: 'file-received-ack',
+                data: { filename }
+              }));
+            }
+
+            return;
+          }
+
+          // ─── P2P Relay File Transfer (peer → specific browser client) ───
+          if (isPeerConnection && message.type === 'relay-file-transfer') {
+            const { targetClientId, ...fileTransferData } = message.data;
+            const targetWs = connectedClients.get(targetClientId);
+
+            let filename = fileTransferData.filename || `${Date.now()}_${fileTransferData.originalName}`;
+
+            // Save file to disk if not clipboard
+            if (fileTransferData.content && !fileTransferData.isClipboard) {
+              try {
+                const uploadsDir = process.env.SNAPSEND_UPLOADS_DIR || path.join(process.cwd(), 'uploads');
+                if (!fs.existsSync(uploadsDir)) {
+                  fs.mkdirSync(uploadsDir, { recursive: true });
+                }
+                const filePath = path.join(uploadsDir, filename);
+                if (fileTransferData.content.startsWith('data:')) {
+                  const base64Data = fileTransferData.content.split(',')[1];
+                  const buffer = Buffer.from(base64Data, 'base64');
+                  fs.writeFileSync(filePath, buffer);
+                } else if (fileTransferData.mimeType?.startsWith('text/')) {
+                  fs.writeFileSync(filePath, fileTransferData.content, 'utf8');
+                } else {
+                  fs.writeFileSync(filePath, fileTransferData.content);
+                }
+              } catch (error) {
+                console.error('Error saving relay file to disk:', error);
+              }
+            }
+
+            // Save to DB
+            const savedFile = await storage.createFile({
+              filename,
+              originalName: fileTransferData.originalName,
+              mimeType: fileTransferData.mimeType,
+              size: fileTransferData.size,
+              content: fileTransferData.isClipboard ? fileTransferData.content : null,
+              fromDeviceId: null,
+              toDeviceId: null,
+              connectionId: null,
+              isClipboard: fileTransferData.isClipboard ? 1 : 0,
+              fromDeviceName: peerNameMap.get(peerId!) || fileTransferData.fromName || 'Unknown',
+              toDeviceName: clientNameMap.get(targetClientId) || 'Unknown',
+            });
+
+            // Forward to the specific browser client
+            if (targetWs && targetWs.readyState === WebSocket.OPEN) {
+              targetWs.send(JSON.stringify({
+                type: 'file-received',
+                data: { file: savedFile, fromDevice: peerNameMap.get(peerId!) || fileTransferData.fromName || 'Unknown' }
+              }));
+
+              if (fileTransferData.isClipboard) {
+                targetWs.send(JSON.stringify({
+                  type: 'clipboard-sync',
+                  data: { content: fileTransferData.content, fromDevice: peerNameMap.get(peerId!) || fileTransferData.fromName, file: savedFile }
+                }));
+              }
+            }
+
+            // Send ack back to peer
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({
+                type: 'relay-file-ack',
+                data: { filename }
+              }));
+            }
+
+            return;
+          }
+
+          // ─── Local Renderer Client Messages (browser mode) ───
+
           // Update last seen for this device if it exists
           if (device) {
             await storage.updateDeviceLastSeen(device.socketId);
           }
-          
+
           // Handle device setup
           if (message.type === 'device-setup') {
-            console.log(`Received device setup request for: ${message.data.nickname}`);
+            console.log(`Received device setup request for: ${message.data.name} (uuid: ${message.data.uuid || 'none'})`);
             if (!device) {
               try {
-                // Get user ID from the session/authentication
-                const userId = message.data.userId;
-                if (!userId) {
-                  throw new Error('User authentication required');
+                // Look up by UUID first (stable identity), then fall back to name
+                const clientUUID = message.data.uuid;
+                let existing: any = null;
+                if (clientUUID) {
+                  existing = await storage.getDeviceByUUID(clientUUID);
+                }
+                if (!existing) {
+                  existing = await storage.getDeviceByName(message.data.name);
                 }
 
-                device = await storage.createDevice({
-                  userId: userId,
-                  nickname: message.data.nickname,
-                  socketId: socketId,
-                });
+                if (existing) {
+                  device = await storage.reactivateDevice(existing.id, socketId, message.data.name) || existing;
+                } else {
+                  device = await storage.createDevice({
+                    name: message.data.name,
+                    uuid: clientUUID || null,
+                    socketId: socketId,
+                  });
+                }
 
                 clientId = device.id.toString();
                 connectedClients.set(clientId, ws);
+                clientNameMap.set(clientId, device.name);
 
-                console.log(`Device setup completed: ${message.data.nickname} (${clientId})`);
+                console.log(`Device setup completed: ${message.data.name} (${clientId})`);
 
-                // Send setup confirmation
+                // Get all online devices + virtual peers
+                const onlineDevices = await storage.getOnlineDevices();
+                const allDevices = [...onlineDevices, ...getPeerVirtualDevices()];
+
+                // Send setup confirmation with device list (includes virtual peers)
                 if (ws.readyState === WebSocket.OPEN) {
-                  const setupResponse = {
+                  ws.send(JSON.stringify({
                     type: 'setup-complete',
-                    data: { device }
-                  };
-                  console.log('Sending setup-complete message:', setupResponse);
-                  ws.send(JSON.stringify(setupResponse));
-                } else {
-                  console.error('WebSocket not open when trying to send setup-complete');
+                    data: { device, onlineDevices: allDevices }
+                  }));
                 }
+
+                // Notify all P2P peers about this new browser client
+                broadcastRelayDevicesToPeers();
 
                 // Notify all clients about new connection
                 const connectMessage: WebSocketMessage = {
                   type: 'device-connected',
-                  data: { device, totalDevices: connectedClients.size }
+                  data: { device, onlineDevices, totalDevices: connectedClients.size }
                 };
-                
+
                 broadcast(connectMessage, clientId);
+
+                // Auto-pair: if exactly 2 devices online and not already paired
+                if (onlineDevices.length === 2) {
+                  const other = onlineDevices.find(d => d.id !== device.id);
+                  if (other) {
+                    const existingConnections = await storage.getActiveConnectionsForDevice(device.id);
+                    const alreadyPaired = existingConnections.some(
+                      c => (c.deviceAId === device.id && c.deviceBId === other.id) ||
+                           (c.deviceAId === other.id && c.deviceBId === device.id)
+                    );
+                    if (!alreadyPaired) {
+                      const connection = await storage.createConnection({
+                        deviceAId: device.id,
+                        deviceBId: other.id,
+                        status: 'active',
+                      });
+
+                      const autoPairMsg = {
+                        type: 'auto-paired',
+                        data: { connection, partnerDevice: other }
+                      };
+
+                      // Send to this device
+                      if (ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify(autoPairMsg));
+                      }
+
+                      // Send to the other device
+                      const otherClient = connectedClients.get(other.id.toString());
+                      if (otherClient && otherClient.readyState === WebSocket.OPEN) {
+                        otherClient.send(JSON.stringify({
+                          type: 'auto-paired',
+                          data: { connection, partnerDevice: device }
+                        }));
+                      }
+
+                      console.log(`Auto-paired ${device.name} with ${other.name}`);
+                    }
+                  }
+                }
               } catch (error) {
                 console.error('Error during device setup:', error);
                 if (ws.readyState === WebSocket.OPEN) {
@@ -107,6 +425,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return;
           }
 
+          // Handle device name update
+          if (message.type === 'device-name-update' && device) {
+            const newName = message.data.name?.trim();
+            if (newName) {
+              const updated = await storage.updateDeviceName(device.id, newName);
+              if (updated) {
+                device = updated;
+                clientNameMap.set(clientId, newName);
+                console.log(`Device renamed to: ${newName} (${device.id})`);
+                // Notify P2P peers about updated client list
+                broadcastRelayDevicesToPeers();
+
+                // Send confirmation back
+                if (ws.readyState === WebSocket.OPEN) {
+                  ws.send(JSON.stringify({
+                    type: 'name-updated',
+                    data: { device: updated }
+                  }));
+                }
+
+                // Notify other clients about the name change
+                const onlineDevices = await storage.getOnlineDevices();
+                broadcast({
+                  type: 'device-connected',
+                  data: { device: updated, onlineDevices, totalDevices: connectedClients.size }
+                }, clientId);
+              }
+            }
+            return;
+          }
+
           // Require device setup before handling other messages
           if (!device) {
             ws.send(JSON.stringify({
@@ -116,200 +465,137 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return;
           }
 
-          // Handle user search
-          if (message.type === 'scan-users') {
-            const searchResults = await storage.searchDevicesByNickname(message.data.query);
-            // Only include online devices and exclude current device
-            const filteredResults = searchResults.filter(d => d.id !== device.id && d.isOnline);
-            
-            ws.send(JSON.stringify({
-              type: 'scan-results',
-              data: { users: filteredResults }
-            }));
-            return;
-          }
+          // Handle pair request
+          if (message.type === 'pair-request') {
+            const targetDeviceId = message.data.targetDeviceId;
+            const targetDevice = await storage.getDevice(targetDeviceId);
 
-          // Handle connection request
-          if (message.type === 'connection-request') {
-            console.log(`Connection request from ${device.nickname} to ${message.data.targetNickname}`);
-            
-            // Find target device from currently connected clients only
-            const connectedDeviceIds = Array.from(connectedClients.keys()).map(id => parseInt(id));
-            console.log('Connected device IDs:', connectedDeviceIds);
-            
-            let targetDevice = null;
-            for (const deviceId of connectedDeviceIds) {
-              const device = await storage.getDevice(deviceId);
-              if (device && device.nickname === message.data.targetNickname) {
-                targetDevice = device;
-                break;
-              }
-            }
-            
-            console.log('Target device found in connected clients:', targetDevice);
-            
-            if (!targetDevice) {
-              console.log('Target device not found among connected clients');
+            if (!targetDevice || !targetDevice.isOnline) {
               ws.send(JSON.stringify({
                 type: 'error',
-                data: { message: 'User not found or not currently connected' }
+                data: { message: 'Device not found or offline' }
               }));
               return;
             }
 
-            // Generate 2-digit connection key
-            const connectionKey = Math.floor(10 + Math.random() * 90).toString();
-            
+            // Check if already paired
+            const existingConnections = await storage.getActiveConnectionsForDevice(device.id);
+            const alreadyPaired = existingConnections.some(
+              c => (c.deviceAId === device.id && c.deviceBId === targetDeviceId) ||
+                   (c.deviceAId === targetDeviceId && c.deviceBId === device.id)
+            );
+
+            if (alreadyPaired) {
+              ws.send(JSON.stringify({
+                type: 'error',
+                data: { message: 'Already paired with this device' }
+              }));
+              return;
+            }
+
             const connection = await storage.createConnection({
-              requesterDeviceId: device.id,
-              targetDeviceId: targetDevice.id,
-              connectionKey: connectionKey,
-              status: 'pending'
+              deviceAId: device.id,
+              deviceBId: targetDeviceId,
+              status: 'active',
             });
 
-            // Send connection request to target device
-            const targetClient = Array.from(connectedClients.entries())
-              .find(([id, client]) => parseInt(id) === targetDevice.id)?.[1];
-            
-            console.log(`Looking for target client for device ID ${targetDevice.id}`);
-            console.log('Connected clients:', Array.from(connectedClients.keys()));
-            console.log('Target client found:', !!targetClient);
-            
-            if (targetClient && targetClient.readyState === WebSocket.OPEN) {
-              const requestMessage = {
-                type: 'connection-request',
-                data: {
-                  requesterNickname: device.nickname,
-                  connectionKey: connectionKey,
-                  connectionId: connection.id
-                }
-              };
-              console.log('Sending connection request to target:', requestMessage);
-              targetClient.send(JSON.stringify(requestMessage));
-            } else {
-              console.log('Target client not found or not ready');
-            }
-
-            // Confirm request sent to requester
+            // Notify both devices
             ws.send(JSON.stringify({
-              type: 'connection-request-sent',
-              data: { connectionId: connection.id, connectionKey }
+              type: 'pair-accepted',
+              data: { connection, partnerDevice: targetDevice }
             }));
-            return;
-          }
 
-          // Handle verification key submission from requester
-          if (message.type === 'submit-verification-key') {
-            console.log(`Verification key submitted by ${device.nickname}:`, message.data);
-            const connection = await storage.getConnection(message.data.connectionId);
-            console.log('Found connection:', connection);
-            
-            if (!connection || connection.requesterDeviceId !== device.id) {
-              console.log('Invalid connection or requester mismatch');
-              ws.send(JSON.stringify({
-                type: 'error',
-                data: { message: 'Invalid connection request' }
-              }));
-              return;
-            }
-
-            // Validate connection key
-            console.log(`Comparing keys: submitted="${message.data.verificationKey}", expected="${connection.connectionKey}"`);
-            if (message.data.verificationKey !== connection.connectionKey) {
-              console.log('Verification key mismatch');
-              ws.send(JSON.stringify({
-                type: 'error',
-                data: { message: 'Invalid verification key' }
-              }));
-              return;
-            }
-
-            console.log('Verification key valid, approving connection');
-            // Key is valid, approve the connection
-            await storage.updateConnectionStatus(connection.id, 'active', new Date());
-            
-            // Get target device info
-            const targetDevice = await storage.getDevice(connection.targetDeviceId);
-            console.log('Target device:', targetDevice?.nickname);
-            
-            // Notify both parties
-            const targetClient = Array.from(connectedClients.entries())
-              .find(([id, client]) => parseInt(id) === connection.targetDeviceId)?.[1];
-            
-            console.log('Sending approval to target device:', !!targetClient);
+            const targetClient = connectedClients.get(targetDeviceId.toString());
             if (targetClient && targetClient.readyState === WebSocket.OPEN) {
               targetClient.send(JSON.stringify({
-                type: 'connection-approved',
-                data: { connectionId: connection.id, partnerNickname: device.nickname }
+                type: 'pair-accepted',
+                data: { connection, partnerDevice: device }
               }));
             }
 
-            console.log('Sending approval to requester');
-            ws.send(JSON.stringify({
-              type: 'connection-approved',
-              data: { connectionId: connection.id, partnerNickname: targetDevice?.nickname || 'Unknown' }
-            }));
+            console.log(`Paired ${device.name} with ${targetDevice.name}`);
             return;
           }
 
-          // Handle connection response (approve/reject) - simplified for receiver
-          if (message.type === 'connection-response') {
-            console.log(`Connection response from ${device.nickname}:`, message.data);
-            const connection = await storage.getConnection(message.data.connectionId);
-            console.log('Found connection for response:', connection);
-            
-            if (!connection || connection.targetDeviceId !== device.id) {
-              console.log('Invalid connection or target mismatch for response');
-              ws.send(JSON.stringify({
-                type: 'error',
-                data: { message: 'Invalid connection request' }
-              }));
-              return;
-            }
+          // Handle file transfer
+          if (message.type === 'file-transfer') {
+            // ─── C→B Relay: browser client targeting a P2P peer ───
+            const targetPeerId = message.data.targetPeerId;
+            if (targetPeerId && connectedPeers.has(targetPeerId)) {
+              const peerWs = connectedPeers.get(targetPeerId)!;
+              let filename = message.data.filename;
 
-            if (!message.data.approved) {
-              console.log('Connection rejected, updating status');
-              await storage.updateConnectionStatus(connection.id, 'rejected');
-              
-              // Notify requester of rejection
-              const requesterClient = Array.from(connectedClients.entries())
-                .find(([id, client]) => parseInt(id) === connection.requesterDeviceId)?.[1];
-              
-              console.log('Sending rejection to requester:', !!requesterClient);
-              if (requesterClient && requesterClient.readyState === WebSocket.OPEN) {
-                requesterClient.send(JSON.stringify({
-                  type: 'connection-rejected',
-                  data: { connectionId: connection.id, rejectedBy: device.nickname }
+              // Save file to disk if not clipboard
+              if (message.data.content && !message.data.isClipboard) {
+                const uploadsDir = process.env.SNAPSEND_UPLOADS_DIR || path.join(process.cwd(), 'uploads');
+                if (!fs.existsSync(uploadsDir)) {
+                  fs.mkdirSync(uploadsDir, { recursive: true });
+                }
+                const filePath = path.join(uploadsDir, filename);
+                try {
+                  if (message.data.content.startsWith('data:')) {
+                    const base64Data = message.data.content.split(',')[1];
+                    const buffer = Buffer.from(base64Data, 'base64');
+                    fs.writeFileSync(filePath, buffer);
+                  } else if (message.data.mimeType?.startsWith('text/')) {
+                    fs.writeFileSync(filePath, message.data.content, 'utf8');
+                  } else {
+                    fs.writeFileSync(filePath, message.data.content);
+                  }
+                } catch (error) {
+                  console.error('Error saving relay file to disk:', error);
+                }
+              }
+
+              // Save to DB
+              const savedFile = await storage.createFile({
+                filename,
+                originalName: message.data.originalName,
+                mimeType: message.data.mimeType,
+                size: message.data.size,
+                content: message.data.isClipboard ? message.data.content : null,
+                fromDeviceId: device.id,
+                toDeviceId: null,
+                connectionId: null,
+                isClipboard: message.data.isClipboard ? 1 : 0,
+                fromDeviceName: device.name,
+                toDeviceName: peerNameMap.get(targetPeerId) || 'Unknown',
+              });
+
+              // Forward to the P2P peer as a standard file-transfer
+              if (peerWs.readyState === WebSocket.OPEN) {
+                peerWs.send(JSON.stringify({
+                  type: 'file-transfer',
+                  data: {
+                    filename,
+                    originalName: message.data.originalName,
+                    mimeType: message.data.mimeType,
+                    size: message.data.size,
+                    content: message.data.content,
+                    isClipboard: message.data.isClipboard,
+                    fromId: clientId,
+                    fromName: device.name,
+                  }
                 }));
               }
 
-              // Also send confirmation to the person who rejected
+              // Send confirmation back to browser client
               ws.send(JSON.stringify({
-                type: 'connection-rejected',
-                data: { connectionId: connection.id, rejectedBy: device.nickname }
+                type: 'file-sent-confirmation',
+                data: {
+                  filename: message.data.originalName,
+                  recipientCount: 1,
+                  isClipboard: message.data.isClipboard,
+                  file: savedFile,
+                }
               }));
+
+              return;
             }
-            // If approved, we wait for the requester to submit the verification key
-            return;
-          }
-          
-          // Handle file transfer - only within active connections
-          if (message.type === 'file-transfer') {
-            console.log(`File transfer from ${device.nickname}:`, {
-              filename: message.data.filename,
-              originalName: message.data.originalName,
-              size: message.data.size,
-              mimeType: message.data.mimeType,
-              isClipboard: message.data.isClipboard,
-              hasContent: !!message.data.content
-            });
-            
-            // Check if this is sent to a specific connection
+
             const activeConnections = await storage.getActiveConnectionsForDevice(device.id);
-            console.log(`Active connections for ${device.nickname}:`, activeConnections.length);
-            
+
             if (activeConnections.length === 0) {
-              console.log('No active connections for file transfer');
               ws.send(JSON.stringify({
                 type: 'error',
                 data: { message: 'No active connections for file transfer' }
@@ -318,111 +604,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
 
             let filename = message.data.filename;
-            
-            // Always save files to disk if they have content
+
+            // Save files to disk if they have content and aren't clipboard
             if (message.data.content && !message.data.isClipboard) {
-              const uploadsDir = path.join(process.cwd(), 'uploads');
+              const uploadsDir = process.env.SNAPSEND_UPLOADS_DIR || path.join(process.cwd(), 'uploads');
               if (!fs.existsSync(uploadsDir)) {
                 fs.mkdirSync(uploadsDir, { recursive: true });
               }
-              
+
               const filePath = path.join(uploadsDir, filename);
-              
+
               try {
                 if (message.data.content.startsWith('data:')) {
-                  // Handle base64 encoded files (images, binary files)
                   const base64Data = message.data.content.split(',')[1];
                   const buffer = Buffer.from(base64Data, 'base64');
                   fs.writeFileSync(filePath, buffer);
                 } else if (message.data.mimeType.startsWith('text/')) {
-                  // Handle text files
                   fs.writeFileSync(filePath, message.data.content, 'utf8');
                 } else {
-                  // Handle other content as binary
                   fs.writeFileSync(filePath, message.data.content);
                 }
               } catch (error) {
                 console.error('Error saving file to disk:', error);
               }
             }
-            
+
             // Send file to all active connections
             let successfulTransfers = 0;
             for (const connection of activeConnections) {
-              console.log(`Creating file record for connection ${connection.id}`);
+              const partnerId = connection.deviceAId === device.id ? connection.deviceBId : connection.deviceAId;
+
               const file = await storage.createFile({
                 filename: filename,
                 originalName: message.data.originalName,
                 mimeType: message.data.mimeType,
                 size: message.data.size,
-                content: message.data.content, // Store content for all files (clipboard, images, text)
+                content: message.data.content,
                 fromDeviceId: device.id,
-                toDeviceId: connection.requesterDeviceId === device.id ? connection.targetDeviceId : connection.requesterDeviceId,
+                toDeviceId: partnerId,
                 connectionId: connection.id,
                 isClipboard: message.data.isClipboard ? 1 : 0,
               });
-              console.log(`File record created:`, file.id);
 
-              // Send to the connected partner
-              const partnerId = connection.requesterDeviceId === device.id ? connection.targetDeviceId : connection.requesterDeviceId;
-              console.log(`Looking for partner device ${partnerId}`);
-              const partnerClient = Array.from(connectedClients.entries())
-                .find(([id, client]) => parseInt(id) === partnerId)?.[1];
-              
-              console.log(`Partner client found: ${!!partnerClient}, WebSocket open: ${partnerClient?.readyState === WebSocket.OPEN}`);
+              const partnerClient = connectedClients.get(partnerId.toString());
               if (partnerClient && partnerClient.readyState === WebSocket.OPEN) {
-                console.log(`Sending file-received message to partner`);
                 partnerClient.send(JSON.stringify({
                   type: 'file-received',
-                  data: { file, fromDevice: device.nickname }
+                  data: { file, fromDevice: device.name }
                 }));
                 successfulTransfers++;
-                console.log(`File sent successfully to partner`);
-              } else {
-                console.log(`Partner not available for file transfer`);
-              }
 
-              // If it's clipboard content, also send clipboard sync
-              if (message.data.isClipboard) {
-                if (partnerClient && partnerClient.readyState === WebSocket.OPEN) {
+                if (message.data.isClipboard) {
                   partnerClient.send(JSON.stringify({
                     type: 'clipboard-sync',
-                    data: { content: message.data.content, fromDevice: device.nickname, file }
+                    data: { content: message.data.content, fromDevice: device.name, file }
                   }));
                 }
               }
             }
 
-            // Send confirmation back to sender with file data
             if (successfulTransfers > 0) {
-              console.log(`Creating sender file record for ${device.nickname}`);
-              // Create a file record for the sender as well
               const senderFile = await storage.createFile({
                 filename: filename,
                 originalName: message.data.originalName,
                 mimeType: message.data.mimeType,
                 size: message.data.size,
-                content: message.data.content, // Store content for sender's record too
+                content: message.data.content,
                 fromDeviceId: device.id,
-                toDeviceId: null, // Indicates this is the sender's copy
+                toDeviceId: null,
                 connectionId: null,
                 isClipboard: message.data.isClipboard ? 1 : 0,
               });
-              console.log(`Sender file record created: ${senderFile.id}`);
 
-              console.log(`Sending file-sent-confirmation to ${device.nickname}`);
               ws.send(JSON.stringify({
                 type: 'file-sent-confirmation',
-                data: { 
+                data: {
                   filename: message.data.originalName,
                   recipientCount: successfulTransfers,
                   isClipboard: message.data.isClipboard,
                   file: senderFile
                 }
               }));
-              console.log(`File transfer complete: ${successfulTransfers} recipients`);
-            } else {
-              console.log('No successful transfers, not sending confirmation');
             }
             return;
           }
@@ -431,32 +693,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (message.type === 'terminate-connection') {
             const connectionId = message.data.connectionId;
             const connection = await storage.getConnection(connectionId);
-            
-            if (connection && (connection.requesterDeviceId === device.id || connection.targetDeviceId === device.id)) {
+
+            if (connection && (connection.deviceAId === device.id || connection.deviceBId === device.id)) {
               await storage.terminateConnection(connectionId);
-              
-              // Notify the other party
-              const partnerId = connection.requesterDeviceId === device.id ? connection.targetDeviceId : connection.requesterDeviceId;
-              const partnerClient = Array.from(connectedClients.entries())
-                .find(([id, client]) => parseInt(id) === partnerId)?.[1];
-              
+
+              const partnerId = connection.deviceAId === device.id ? connection.deviceBId : connection.deviceAId;
+              const partnerClient = connectedClients.get(partnerId.toString());
+
               if (partnerClient && partnerClient.readyState === WebSocket.OPEN) {
                 partnerClient.send(JSON.stringify({
                   type: 'connection-terminated',
-                  data: { connectionId, terminatedBy: device.nickname }
+                  data: { connectionId, terminatedBy: device.name }
                 }));
               }
-              
+
               ws.send(JSON.stringify({
                 type: 'connection-terminated',
-                data: { connectionId, terminatedBy: device.nickname }
+                data: { connectionId, terminatedBy: device.name }
               }));
             }
             return;
           }
         } catch (error) {
           console.error('Error processing WebSocket message:', error);
-          // Send error to client but don't crash the connection
           if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({
               type: 'error',
@@ -468,21 +727,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Handle disconnect
       ws.on('close', async () => {
-        console.log(`Device disconnected: ${device?.nickname || 'Unknown'} (${clientId})`);
-        
-        if (device) {
-          console.log(`Setting device ${device.nickname} offline`);
-          await storage.updateDeviceOnlineStatus(device.socketId, false);
+        if (isPeerConnection && peerId) {
+          const peerName = peerNameMap.get(peerId) || 'Unknown';
+          console.log(`Peer disconnected: ${peerName} (${peerId})`);
+          connectedPeers.delete(peerId);
+          peerNameMap.delete(peerId);
+          // Notify browser clients that this peer is gone
+          broadcastPeerAsDeviceToClients(peerId, peerName, false);
+          return;
         }
-        
-        connectedClients.delete(clientId);
-        
+
+        console.log(`Device disconnected: ${device?.name || 'Unknown'} (${clientId})`);
+
         if (device) {
+          await storage.setDeviceOffline(device.socketId);
+        }
+
+        connectedClients.delete(clientId);
+        clientNameMap.delete(clientId);
+
+        // Notify P2P peers about updated client list
+        broadcastRelayDevicesToPeers();
+
+        if (device) {
+          const onlineDevices = await storage.getOnlineDevices();
           const disconnectMessage: WebSocketMessage = {
             type: 'device-disconnected',
-            data: { device, totalDevices: connectedClients.size }
+            data: { device, onlineDevices, totalDevices: connectedClients.size }
           };
-          
+
           broadcast(disconnectMessage, clientId);
         }
       });
@@ -506,8 +779,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // API Routes
   app.get('/api/devices', async (req, res) => {
     try {
-      const devices = await storage.getAllDevices();
-      res.json(devices);
+      const allDevices = await storage.getOnlineDevices();
+      res.json(allDevices);
     } catch (error) {
       console.error('Error fetching devices:', error);
       res.status(500).json({ error: 'Internal server error' });
@@ -516,8 +789,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/files', async (req, res) => {
     try {
-      const files = await storage.getAllFiles();
-      res.json(files);
+      const allFiles = await storage.getAllFiles();
+      res.json(allFiles);
     } catch (error) {
       console.error('Error fetching files:', error);
       res.status(500).json({ error: 'Internal server error' });
@@ -527,8 +800,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/connections/:deviceId', async (req, res) => {
     try {
       const deviceId = parseInt(req.params.deviceId);
-      const connections = await storage.getConnectionsByDevice(deviceId);
-      res.json(connections);
+      const deviceConnections = await storage.getConnectionsByDevice(deviceId);
+      res.json(deviceConnections);
     } catch (error) {
       console.error('Error fetching connections:', error);
       res.status(500).json({ error: 'Internal server error' });
@@ -538,8 +811,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/files/:deviceId', async (req, res) => {
     try {
       const deviceId = parseInt(req.params.deviceId);
-      const files = await storage.getFilesByDevice(deviceId);
-      res.json(files);
+      const deviceFiles = await storage.getFilesByDevice(deviceId);
+      res.json(deviceFiles);
     } catch (error) {
       console.error('Error fetching device files:', error);
       res.status(500).json({ error: 'Internal server error' });
@@ -560,8 +833,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Device ID is required' });
       }
 
-      // Save file to uploads directory
-      const uploadsDir = path.join(process.cwd(), 'uploads');
+      const uploadsDir = (process.env.SNAPSEND_UPLOADS_DIR || path.join(process.cwd(), 'uploads'));
       if (!fs.existsSync(uploadsDir)) {
         fs.mkdirSync(uploadsDir, { recursive: true });
       }
@@ -570,7 +842,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const filePath = path.join(uploadsDir, filename);
       fs.writeFileSync(filePath, file.buffer);
 
-      // Save file record to database
       const savedFile = await storage.createFile({
         filename: filename,
         originalName: file.originalname,
@@ -593,20 +864,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/files/:id/download', async (req, res) => {
     try {
       const fileIdStr = req.params.id;
-      console.log('Download request for file ID:', fileIdStr);
-      
-      // Handle both numeric IDs and filename-based IDs
+
       let file;
       if (fileIdStr.match(/^\d+$/)) {
         const fileId = parseInt(fileIdStr);
-        if (fileId > 2147483647) { // PostgreSQL integer limit
-          console.log('File ID too large for integer, treating as filename');
-          file = await storage.getFileByFilename(fileIdStr);
-        } else {
-          file = await storage.getFile(fileId);
-        }
+        file = await storage.getFile(fileId);
       } else {
-        // Treat as filename
         file = await storage.getFileByFilename(fileIdStr);
       }
 
@@ -614,8 +877,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'File not found' });
       }
 
-      const filePath = path.join(process.cwd(), 'uploads', file.filename);
-      
+      const filePath = path.join(process.env.SNAPSEND_UPLOADS_DIR || path.join(process.cwd(), 'uploads'), file.filename);
+
       if (fs.existsSync(filePath)) {
         res.download(filePath, file.originalName);
       } else {
@@ -623,6 +886,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       console.error('Error downloading file:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // File rename endpoint
+  app.patch('/api/files/:id', async (req, res) => {
+    try {
+      const fileId = parseInt(req.params.id);
+      const { originalName } = req.body;
+
+      if (!originalName || typeof originalName !== 'string' || !originalName.trim()) {
+        return res.status(400).json({ error: 'A non-empty originalName is required' });
+      }
+
+      const file = await storage.getFile(fileId);
+      if (!file) {
+        return res.status(404).json({ error: 'File not found' });
+      }
+
+      const updated = await storage.renameFile(fileId, originalName.trim());
+      res.json(updated);
+    } catch (error) {
+      console.error('Error renaming file:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   });
@@ -637,13 +923,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'File not found' });
       }
 
-      // Delete file from disk
-      const filePath = path.join(process.cwd(), 'uploads', file.filename);
+      const filePath = path.join(process.env.SNAPSEND_UPLOADS_DIR || path.join(process.cwd(), 'uploads'), file.filename);
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
       }
 
-      // Delete file record from database
       await storage.deleteFile(fileId);
 
       res.json({ success: true });

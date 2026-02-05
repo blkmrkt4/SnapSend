@@ -1,0 +1,55 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.snapsend.app",
+  "productName": "SnapSend",
+  "npmRebuild": true,
+  "buildDependenciesFromSource": true,
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "dist/**/*",
+    "electron-dist/**/*",
+    "node_modules/**/*",
+    "package.json"
+  ],
+  "extraMetadata": {
+    "main": "electron-dist/main.js"
+  },
+  "mac": {
+    "target": ["dmg"],
+    "category": "public.app-category.utilities",
+    "icon": "assets/icon.png",
+    "darkModeSupport": true,
+    "hardenedRuntime": false,
+    "entitlements": null,
+    "entitlementsInherit": null,
+    "extendInfo": {
+      "NSLocalNetworkUsageDescription": "SnapSend uses the local network to discover and transfer files to other devices.",
+      "NSBonjourServices": ["_snapsend._tcp"]
+    }
+  },
+  "dmg": {
+    "artifactName": "SS-Mac-Arm-18.${ext}",
+    "contents": [
+      { "x": 130, "y": 220 },
+      { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+    ]
+  },
+  "win": {
+    "target": ["nsis"],
+    "icon": "assets/icon.png"
+  },
+  "nsis": {
+    "artifactName": "SnapSendSetup3.${ext}",
+    "oneClick": false,
+    "perMachine": true,
+    "deleteAppDataOnUninstall": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true
+  },
+  "linux": {
+    "target": ["AppImage"],
+    "category": "Utility"
+  }
+}

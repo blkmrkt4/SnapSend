@@ -1,168 +1,62 @@
-import { useState } from 'react';
-import { useAuth } from '@/hooks/use-auth';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { 
-  User, 
-  Lock, 
-  CreditCard, 
-  Settings, 
-  Save,
-  Eye,
-  EyeOff
-} from 'lucide-react';
+import { Settings, Monitor, KeyRound, Wifi, Pencil, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import type { LicenseStatus } from '@/types/electron';
 
 interface SettingsPageProps {
   currentDevice: any;
-  onDeviceNicknameUpdate?: (nickname: string) => void;
+  onDeviceNameUpdate?: (name: string) => void;
 }
 
-export function SettingsPage({ currentDevice, onDeviceNicknameUpdate }: SettingsPageProps) {
-  const { user } = useAuth();
+export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPageProps) {
   const { toast } = useToast();
-  
-  // Account settings state
-  const [accountForm, setAccountForm] = useState({
-    name: user?.name || '',
-    email: user?.email || '',
-    nickname: user?.nickname || '',
-  });
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [licenseStatus, setLicenseStatus] = useState<LicenseStatus | null>(null);
+  const [isDeactivating, setIsDeactivating] = useState(false);
+  const [portSetting, setPortSetting] = useState('');
+  const [isSavingPort, setIsSavingPort] = useState(false);
+  const [connectionMode, setConnectionMode] = useState<'server' | 'client'>('server');
+  const [remoteServerUrl, setRemoteServerUrl] = useState('');
+  const [isSavingMode, setIsSavingMode] = useState(false);
+  const [lanAddresses, setLanAddresses] = useState<string[]>([]);
 
-  // Password change state
-  const [passwordForm, setPasswordForm] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: '',
-  });
+  const isElectronProd = window.electronAPI?.isElectron && !window.electronAPI?.isDev;
 
-  // Device settings state
-  const [deviceNickname, setDeviceNickname] = useState(currentDevice?.nickname || '');
-
-  // UI state
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [isUpdatingAccount, setIsUpdatingAccount] = useState(false);
-  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
-  const [isUpdatingDevice, setIsUpdatingDevice] = useState(false);
-
-  const handleAccountUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsUpdatingAccount(true);
-    
-    try {
-      const response = await fetch('/api/user/update', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(accountForm),
-      });
-
-      if (response.ok) {
-        toast({
-          title: "Account updated",
-          description: "Your account details have been saved successfully.",
-        });
-      } else {
-        throw new Error('Failed to update account');
-      }
-    } catch (error) {
-      toast({
-        title: "Update failed",
-        description: "Could not update account details. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsUpdatingAccount(false);
+  useEffect(() => {
+    if (isElectronProd) {
+      window.electronAPI!.getLicenseStatus().then(setLicenseStatus).catch(() => {});
+      window.electronAPI!.getPortSetting().then((port) => setPortSetting(String(port))).catch(() => {});
+      window.electronAPI!.getConnectionMode().then((mode) => setConnectionMode(mode as 'server' | 'client')).catch(() => {});
+      window.electronAPI!.getRemoteServerUrl().then(setRemoteServerUrl).catch(() => {});
+      window.electronAPI!.getLanAddresses().then(setLanAddresses).catch(() => {});
+    } else {
+      // DEV PREVIEW: mock data so all sections are visible
+      setPortSetting('53000');
+      setLanAddresses(['192.168.1.5']);
+      setLicenseStatus({ isActivated: false, key: 'XXXX-XXXX-XXXX-XXXX', customerName: 'Test User' });
     }
+  }, [isElectronProd]);
+
+  const handleStartEdit = () => {
+    setEditName(currentDevice?.name || '');
+    setIsEditingName(true);
   };
 
-  const handlePasswordUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      toast({
-        title: "Password mismatch",
-        description: "New password and confirmation do not match.",
-        variant: "destructive",
-      });
-      return;
+  const handleSaveEdit = () => {
+    const trimmed = editName.trim();
+    if (trimmed && trimmed !== currentDevice?.name) {
+      onDeviceNameUpdate?.(trimmed);
     }
-
-    if (passwordForm.newPassword.length < 4) {
-      toast({
-        title: "Password too short",
-        description: "Password must be at least 4 characters long.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsUpdatingPassword(true);
-    
-    try {
-      const response = await fetch('/api/user/change-password', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          currentPassword: passwordForm.currentPassword,
-          newPassword: passwordForm.newPassword,
-        }),
-      });
-
-      if (response.ok) {
-        toast({
-          title: "Password updated",
-          description: "Your password has been changed successfully.",
-        });
-        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      } else {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to update password');
-      }
-    } catch (error) {
-      toast({
-        title: "Password update failed",
-        description: error instanceof Error ? error.message : "Could not update password. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsUpdatingPassword(false);
-    }
+    setIsEditingName(false);
   };
 
-  const handleDeviceUpdate = async () => {
-    if (!deviceNickname.trim()) {
-      toast({
-        title: "Invalid nickname",
-        description: "Device nickname cannot be empty.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsUpdatingDevice(true);
-    
-    try {
-      if (onDeviceNicknameUpdate) {
-        onDeviceNicknameUpdate(deviceNickname);
-        toast({
-          title: "Device updated",
-          description: "Your device nickname has been updated.",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Update failed",
-        description: "Could not update device nickname. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsUpdatingDevice(false);
-    }
+  const handleEditKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleSaveEdit();
+    if (e.key === 'Escape') setIsEditingName(false);
   };
 
   return (
@@ -171,214 +65,295 @@ export function SettingsPage({ currentDevice, onDeviceNicknameUpdate }: Settings
         <Settings className="h-6 w-6 text-primary" />
         <div>
           <h1 className="text-2xl font-bold">Settings</h1>
-          <p className="text-muted-foreground">Manage your account and preferences</p>
+          <p className="text-muted-foreground">Device preferences</p>
         </div>
       </div>
 
-      {/* Account Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
-            Account Information
-          </CardTitle>
-          <CardDescription>
-            Update your personal details and account preferences
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleAccountUpdate} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  value={accountForm.name}
-                  onChange={(e) => setAccountForm(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="Your full name"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={accountForm.email}
-                  onChange={(e) => setAccountForm(prev => ({ ...prev, email: e.target.value }))}
-                  placeholder="your@email.com"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="nickname">Display Nickname</Label>
-                <Input
-                  id="nickname"
-                  value={accountForm.nickname}
-                  onChange={(e) => setAccountForm(prev => ({ ...prev, nickname: e.target.value }))}
-                  placeholder="Your display name"
-                />
-              </div>
-            </div>
-            <Button type="submit" disabled={isUpdatingAccount}>
-              <Save className="h-4 w-4 mr-2" />
-              {isUpdatingAccount ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+      {/* Device Settings */}
+      <div className="flex items-center gap-3 px-4 py-3 rounded-lg border bg-card shadow-sm">
+        <Monitor className="h-5 w-5 text-primary flex-shrink-0" />
 
-      {/* Password Change */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Lock className="h-5 w-5" />
-            Change Password
-          </CardTitle>
-          <CardDescription>
-            Update your account password for enhanced security
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handlePasswordUpdate} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="current-password">Current Password</Label>
-              <div className="relative">
-                <Input
-                  id="current-password"
-                  type={showCurrentPassword ? "text" : "password"}
-                  value={passwordForm.currentPassword}
-                  onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
-                  placeholder="Enter your current password"
-                />
+        {isEditingName ? (
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <input
+              type="text"
+              value={editName}
+              onChange={e => setEditName(e.target.value)}
+              onKeyDown={handleEditKeyDown}
+              autoFocus
+              className="flex-1 min-w-0 text-sm font-semibold bg-transparent border-b-2 border-primary outline-none py-0.5"
+            />
+            <button
+              onClick={handleSaveEdit}
+              className="text-primary hover:text-primary/80 p-0.5"
+            >
+              <Check className="h-4 w-4" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 flex-1 min-w-0">
+            <span className="text-xs text-muted-foreground flex-shrink-0">Your Device:</span>
+            <span className="text-sm font-semibold text-foreground truncate">
+              {currentDevice?.name || 'Not Set'}
+            </span>
+            {onDeviceNameUpdate && (
+              <button
+                onClick={handleStartEdit}
+                className="text-muted-foreground hover:text-foreground p-0.5 flex-shrink-0"
+                title="Rename device"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        )}
+
+        {currentDevice?.isOnline !== false ? (
+          <Badge className="flex-shrink-0 bg-green-600 text-xs">
+            Online
+          </Badge>
+        ) : (
+          <Badge variant="secondary" className="flex-shrink-0 text-xs">
+            Offline
+          </Badge>
+        )}
+      </div>
+
+      {/* Connection Mode */}
+      <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+        <div className="flex items-center gap-2 px-4 py-3 border-b bg-muted/30">
+          <Wifi className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-semibold text-foreground">Connection Mode</span>
+          <Badge variant="secondary" className="ml-auto text-xs">
+            {connectionMode === 'server' ? 'Server' : 'Client'}
+          </Badge>
+        </div>
+
+        <div className="divide-y">
+          <label className="flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-muted/20">
+            <input
+              type="radio"
+              name="connectionMode"
+              value="server"
+              checked={connectionMode === 'server'}
+              onChange={() => setConnectionMode('server')}
+              className="accent-primary mt-1"
+            />
+            <div className="flex-1 min-w-0">
+              <span className="text-sm font-medium text-foreground">Server Mode (Recommended)</span>
+              <span className="text-xs text-muted-foreground ml-2">Automatically finds nearby devices. Use this unless devices can't see each other.</span>
+
+              {connectionMode === 'server' && (
+                <div className="mt-3 space-y-2">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs text-muted-foreground">Your address:</span>
+                    {window.electronAPI?.isElectron ? (
+                      lanAddresses.length > 0 ? (
+                        lanAddresses.map((ip) => (
+                          <code key={ip} className="text-xs font-semibold font-mono text-foreground">
+                            http://{ip}:{portSetting || '53000'}
+                          </code>
+                        ))
+                      ) : (
+                        <span className="text-xs text-muted-foreground italic">No network addresses detected</span>
+                      )
+                    ) : (
+                      <code className="text-xs font-semibold font-mono text-foreground">
+                        {window.location.origin}
+                      </code>
+                    )}
+                    {(lanAddresses.length > 0 || !window.electronAPI?.isElectron) && (
+                      <span className="text-xs text-muted-foreground">— share with other devices to connect in Client Mode</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground flex-shrink-0">Port:</span>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={65535}
+                      value={portSetting}
+                      onChange={(e) => setPortSetting(e.target.value)}
+                      placeholder="53000"
+                      className="w-28 h-7 text-sm"
+                    />
+                    <Button
+                      size="sm"
+                      className="h-7 text-xs px-2.5"
+                      disabled={isSavingPort || !portSetting.trim()}
+                      onClick={async () => {
+                        if (!isElectronProd) return;
+                        const port = parseInt(portSetting, 10);
+                        if (isNaN(port) || port < 1 || port > 65535) {
+                          toast({
+                            title: 'Invalid port',
+                            description: 'Port must be between 1 and 65535.',
+                            variant: 'destructive',
+                          });
+                          return;
+                        }
+                        setIsSavingPort(true);
+                        try {
+                          await window.electronAPI!.setPortSetting(port);
+                          toast({
+                            title: 'Port saved',
+                            description: `SnapSend will use port ${port} after restart.`,
+                          });
+                        } catch {
+                          toast({
+                            title: 'Failed to save port',
+                            description: 'Could not save port setting.',
+                            variant: 'destructive',
+                          });
+                        } finally {
+                          setIsSavingPort(false);
+                        }
+                      }}
+                    >
+                      {isSavingPort ? 'Saving...' : 'Save'}
+                    </Button>
+                    <span className="text-xs text-muted-foreground">Restart SnapSend to apply</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Change if the default port is already in use by another app
+                  </div>
+                </div>
+              )}
+            </div>
+          </label>
+
+          <label className="flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-muted/20">
+            <input
+              type="radio"
+              name="connectionMode"
+              value="client"
+              checked={connectionMode === 'client'}
+              onChange={() => setConnectionMode('client')}
+              className="accent-primary mt-1"
+            />
+            <div className="flex-1 min-w-0">
+              <span className="text-sm font-medium text-foreground">Client Mode</span>
+              <span className="text-xs text-muted-foreground ml-2">Connect by entering the address of a device running in Server Mode. Use this if automatic discovery isn't working.</span>
+
+              {connectionMode === 'client' && (
+                <div className="mt-3 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground flex-shrink-0">Connect to:</span>
+                    <Input
+                      value={remoteServerUrl}
+                      onChange={(e) => setRemoteServerUrl(e.target.value)}
+                      placeholder="192.168.1.10:53000"
+                      className="flex-1 h-7 text-sm"
+                    />
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Enter the IP address shown on the other device's Settings page
+                  </div>
+                </div>
+              )}
+            </div>
+          </label>
+
+          <div className="flex items-center gap-2 px-4 py-3">
+            <Button
+              size="sm"
+              className="h-7 text-xs px-2.5"
+              disabled={isSavingMode || (connectionMode === 'client' && !remoteServerUrl.trim())}
+              onClick={async () => {
+                if (!isElectronProd) return;
+                setIsSavingMode(true);
+                try {
+                  await window.electronAPI!.setConnectionMode(connectionMode);
+                  if (connectionMode === 'client') {
+                    await window.electronAPI!.setRemoteServerUrl(remoteServerUrl.trim());
+                  }
+                  toast({
+                    title: 'Connection mode saved',
+                    description: 'Restart the app for changes to take effect.',
+                  });
+                } catch {
+                  toast({
+                    title: 'Failed to save',
+                    description: 'Could not save connection mode.',
+                    variant: 'destructive',
+                  });
+                } finally {
+                  setIsSavingMode(false);
+                }
+              }}
+            >
+              {isSavingMode ? 'Saving...' : 'Save'}
+            </Button>
+            <span className="text-xs text-muted-foreground">Restart SnapSend for changes to take effect</span>
+          </div>
+        </div>
+      </div>
+
+      {/* License */}
+      {licenseStatus && (
+        <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-3 border-b bg-muted/30">
+            <KeyRound className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-semibold text-foreground">License</span>
+            {licenseStatus.isActivated ? (
+              <Badge className="ml-auto bg-green-600 text-xs">Active</Badge>
+            ) : (
+              <Badge variant="destructive" className="ml-auto text-xs">Inactive</Badge>
+            )}
+          </div>
+
+          <div className="divide-y">
+            <div className="flex items-center gap-3 px-4 py-3">
+              <span className="text-xs text-muted-foreground flex-shrink-0">Key:</span>
+              <code className="text-sm font-mono text-foreground truncate">
+                {licenseStatus.key
+                  ? licenseStatus.key.slice(0, 8) + '...' + licenseStatus.key.slice(-4)
+                  : 'N/A'}
+              </code>
+            </div>
+
+            {licenseStatus.customerName && (
+              <div className="flex items-center gap-3 px-4 py-3">
+                <span className="text-xs text-muted-foreground flex-shrink-0">Customer:</span>
+                <span className="text-sm font-medium text-foreground">{licenseStatus.customerName}</span>
+              </div>
+            )}
+
+            {licenseStatus.isActivated && (
+              <div className="px-4 py-3">
                 <Button
-                  type="button"
-                  variant="ghost"
                   size="sm"
-                  className="absolute right-0 top-0 h-full px-3"
-                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  variant="destructive"
+                  className="h-7 text-xs"
+                  disabled={isDeactivating}
+                  onClick={async () => {
+                    if (!isElectronProd) return;
+                    setIsDeactivating(true);
+                    try {
+                      await window.electronAPI!.deactivateLicense();
+                      toast({
+                        title: 'License deactivated',
+                        description: 'This seat has been freed. The app will close.',
+                      });
+                      setTimeout(() => window.location.reload(), 1500);
+                    } catch {
+                      toast({
+                        title: 'Deactivation failed',
+                        description: 'Could not deactivate license. Try again.',
+                        variant: 'destructive',
+                      });
+                    } finally {
+                      setIsDeactivating(false);
+                    }
+                  }}
                 >
-                  {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {isDeactivating ? 'Deactivating...' : 'Deactivate License'}
                 </Button>
               </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="new-password">New Password</Label>
-                <div className="relative">
-                  <Input
-                    id="new-password"
-                    type={showNewPassword ? "text" : "password"}
-                    value={passwordForm.newPassword}
-                    onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
-                    placeholder="Enter new password"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3"
-                    onClick={() => setShowNewPassword(!showNewPassword)}
-                  >
-                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirm-password">Confirm New Password</Label>
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  value={passwordForm.confirmPassword}
-                  onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                  placeholder="Confirm new password"
-                />
-              </div>
-            </div>
-            <Button type="submit" disabled={isUpdatingPassword}>
-              <Lock className="h-4 w-4 mr-2" />
-              {isUpdatingPassword ? 'Updating...' : 'Update Password'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* Device Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Current Device</CardTitle>
-          <CardDescription>
-            Manage settings for this device
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div>
-                <p className="font-medium">Device Nickname</p>
-                <p className="text-sm text-muted-foreground">
-                  This name will be visible to other connected devices
-                </p>
-              </div>
-              <Badge variant="secondary">
-                {currentDevice?.isOnline ? 'Online' : 'Offline'}
-              </Badge>
-            </div>
-            <div className="flex gap-2">
-              <Input
-                value={deviceNickname}
-                onChange={(e) => setDeviceNickname(e.target.value)}
-                placeholder="Device nickname"
-                className="flex-1"
-              />
-              <Button 
-                onClick={handleDeviceUpdate}
-                disabled={isUpdatingDevice || !deviceNickname.trim()}
-              >
-                {isUpdatingDevice ? 'Updating...' : 'Update'}
-              </Button>
-            </div>
+            )}
           </div>
-        </CardContent>
-      </Card>
-
-      <Separator />
-
-      {/* Subscription Management */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
-            Subscription
-          </CardTitle>
-          <CardDescription>
-            Manage your subscription and billing
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div>
-                <p className="font-medium">Current Plan</p>
-                <p className="text-sm text-muted-foreground">Premium Access</p>
-              </div>
-              <Badge variant="default">Active</Badge>
-            </div>
-            
-            <div className="text-sm text-muted-foreground">
-              <p>Your account has premium access to all file sharing features.</p>
-              <p className="mt-2">Subscription management will be available soon.</p>
-            </div>
-            
-            <div className="flex gap-2">
-              <Button variant="outline" disabled>
-                Manage Subscription
-              </Button>
-              <Button variant="outline" disabled>
-                Billing History
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      )}
     </div>
   );
 }
