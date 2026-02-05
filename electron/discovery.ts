@@ -299,10 +299,20 @@ export class DiscoveryManager {
         const peerId = txt?.id;
         const peerName = txt?.deviceName || service.name;
         if (!peerId || peerId === this.localId || this.peers.has(peerId)) return;
-        const peer: PeerInfo = { id: peerId, name: peerName, host: service.host, port: service.port };
-        this.peers.set(peerId, peer);
-        console.log(`[Discovery] Peer discovered: ${peerName} at ${service.host}:${service.port}`);
-        this.onPeerDiscovered?.(peer);
+
+        // Resolve hostname to IP — Windows doesn't reliably resolve .local hostnames
+        const rawHost = service.host;
+        dnsLookup(rawHost, { family: 4 }, (err, ip) => {
+          if (this.peers.has(peerId)) return;
+          const host = (!err && ip) ? ip : rawHost;
+          if (!err && ip) {
+            console.log(`[Discovery] Resolved ${rawHost} → ${ip}`);
+          }
+          const peer: PeerInfo = { id: peerId, name: peerName, host, port: service.port };
+          this.peers.set(peerId, peer);
+          console.log(`[Discovery] Peer discovered: ${peerName} at ${host}:${service.port}`);
+          this.onPeerDiscovered?.(peer);
+        });
       });
 
       this.browser.on('down', (service: any) => {
@@ -333,9 +343,15 @@ export class DiscoveryManager {
             const peerId = txt?.id;
             const peerName = txt?.deviceName || service.name;
             if (!peerId || peerId === this.localId || this.peers.has(peerId)) return;
-            const peer: PeerInfo = { id: peerId, name: peerName, host: service.host, port: service.port };
-            this.peers.set(peerId, peer);
-            this.onPeerDiscovered?.(peer);
+
+            const rawHost = service.host;
+            dnsLookup(rawHost, { family: 4 }, (err, ip) => {
+              if (this.peers.has(peerId)) return;
+              const host = (!err && ip) ? ip : rawHost;
+              const peer: PeerInfo = { id: peerId, name: peerName, host, port: service.port };
+              this.peers.set(peerId, peer);
+              this.onPeerDiscovered?.(peer);
+            });
           });
         }
       }, 10000);
