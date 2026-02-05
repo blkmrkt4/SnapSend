@@ -739,8 +739,8 @@ export function useConnectionSystem() {
 
       if (targetConn) {
         // Send directly to the targeted connection
-        if (isElectron) {
-          window.electronAPI!.sendFile?.(targetConn.peerId, fileData).then((sent) => {
+        if (window.electronAPI?.sendFile) {
+          window.electronAPI.sendFile(targetConn.peerId, fileData).then((sent) => {
             if (sent) {
               setState(prev => ({
                 ...prev,
@@ -849,10 +849,10 @@ export function useConnectionSystem() {
       return;
     }
 
-    if (isElectron) {
+    if (window.electronAPI?.sendFile) {
       let sentCount = 0;
       const sendPromises = state.connections.map(conn =>
-        window.electronAPI!.sendFile?.(conn.peerId, fileData).then(sent => {
+        window.electronAPI!.sendFile!(conn.peerId, fileData).then(sent => {
           if (sent) sentCount++;
         })
       );
@@ -1046,8 +1046,8 @@ export function useConnectionSystem() {
 
       // Send each queued file
       for (const pending of filesToSend) {
-        if (isElectron) {
-          window.electronAPI!.sendFile?.(targetConn.peerId, pending.fileData);
+        if (window.electronAPI?.sendFile) {
+          window.electronAPI.sendFile(targetConn.peerId, pending.fileData);
         } else if (wsRef.current?.readyState === WebSocket.OPEN) {
           wsRef.current.send(JSON.stringify({
             type: 'file-transfer',
@@ -1069,9 +1069,9 @@ export function useConnectionSystem() {
     }));
 
     for (const pending of filesToSend) {
-      if (isElectron) {
+      if (window.electronAPI?.sendFile) {
         for (const conn of state.connections) {
-          window.electronAPI!.sendFile?.(conn.peerId, pending.fileData);
+          window.electronAPI.sendFile(conn.peerId, pending.fileData);
         }
       } else if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({
