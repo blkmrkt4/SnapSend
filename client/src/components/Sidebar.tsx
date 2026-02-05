@@ -45,12 +45,16 @@ export function Sidebar({
   ];
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm border-b">
-      <div className="max-w-7xl mx-auto flex items-center justify-between h-12 px-4">
-        {/* Left: Logo / Home link */}
+    <header
+      className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm border-b"
+      style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+    >
+      <div className="max-w-7xl mx-auto flex items-center justify-between h-12 px-4 pl-20">
+        {/* Left: Logo / Home link (pl-20 leaves room for macOS traffic lights) */}
         <button
           onClick={() => onSectionChange('home')}
           className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
           title="SnapSend Home"
         >
           <Home className="h-5 w-5" />
@@ -58,7 +62,7 @@ export function Sidebar({
         </button>
 
         {/* Center: Nav icons */}
-        <nav className="flex items-center gap-1">
+        <nav className="flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeSection === item.id;
@@ -90,7 +94,7 @@ export function Sidebar({
         </nav>
 
         {/* Right: Device name + connection status */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           {connectionCount > 0 ? (
             <div className="flex items-center gap-1 bg-green-500/10 border border-green-500/20 rounded-full px-2 py-0.5">
               <Wifi className="h-3.5 w-3.5 text-green-500" />
