@@ -10,7 +10,7 @@
     "start": "cross-env NODE_ENV=production node dist/index.js",
     "check": "tsc",
     "db:push": "drizzle-kit push",
-    "electron:compile": "tsc -p electron/tsconfig.json && echo {\\\"type\\\":\\\"commonjs\\\"} > electron-dist/package.json",
+    "electron:compile": "tsc -p electron/tsconfig.json && node -e \"require('fs').writeFileSync('electron-dist/package.json', JSON.stringify({type:'commonjs'}))\"",
     "electron:dev": "concurrently --kill-others \"npm run dev\" \"wait-on http://localhost:5000 && npm run electron:compile && electron .\"",
     "electron:build": "npm run build && npm run electron:compile && electron-builder"
   },
