@@ -137,12 +137,12 @@ export function useConnectionSystem() {
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // ────────────────────────────────────────────
-  // Electron mDNS peer discovery
+  // Electron mDNS peer discovery and IPC events
+  // Set up listeners whenever electronAPI exists (even in dev mode)
   // ────────────────────────────────────────────
   useEffect(() => {
-    if (!isElectron) return;
-
-    const api = window.electronAPI!;
+    const api = window.electronAPI;
+    if (!api) return;
 
     // Listen for mDNS peer events
     api.onPeerDiscovered?.((peer) => {
@@ -279,7 +279,7 @@ export function useConnectionSystem() {
       }));
       setState(prev => ({ ...prev, onlineDevices: peerDevices }));
     });
-  }, [isElectron]);
+  }, []);
 
   // ────────────────────────────────────────────
   // WebSocket connection (browser mode)
