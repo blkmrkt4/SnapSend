@@ -55,10 +55,10 @@ export function Sidebar({
           onClick={() => onSectionChange('home')}
           className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-          title="SnapSend Home"
+          title="Liquid Relay Home"
         >
           <Home className="h-5 w-5" />
-          <span className="font-bold text-sm hidden sm:inline">SnapSend</span>
+          <span className="font-bold text-sm hidden sm:inline">Liquid <em>Relay</em></span>
         </button>
 
         {/* Center: Nav icons */}

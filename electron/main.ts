@@ -159,7 +159,7 @@ async function createWindow() {
     height: 800,
     minWidth: 800,
     minHeight: 600,
-    title: 'SnapSend',
+    title: 'Liquid Relay',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -204,7 +204,7 @@ async function startApp() {
       serverPort = 5000;
     } else if (isClientMode && remoteUrl) {
       // Client mode: skip server startup entirely
-      console.log(`SnapSend starting in client mode, connecting to: ${remoteUrl}`);
+      console.log(`Liquid Relay starting in client mode, connecting to: ${remoteUrl}`);
     } else {
       // Server mode (default): start local Express server
       if (isClientMode && !remoteUrl) {
@@ -242,7 +242,7 @@ async function startApp() {
       });
       serverPort = result.port;
       serverInstance = result.server;
-      console.log(`SnapSend server started on port ${serverPort}`);
+      console.log(`Liquid Relay server started on port ${serverPort}`);
     }
 
     await createWindow();
@@ -258,19 +258,19 @@ async function startApp() {
         registerP2PIPC(mainWindow, discovery, deviceId, deviceName, serverPort);
       }
 
-      console.log(`SnapSend ready: device="${deviceName}" id=${deviceId} port=${serverPort}`);
+      console.log(`Liquid Relay ready: device="${deviceName}" id=${deviceId} port=${serverPort}`);
     } else {
-      console.log('SnapSend ready in client mode');
+      console.log('Liquid Relay ready in client mode');
     }
   } catch (error) {
-    console.error('Failed to start SnapSend:', error);
+    console.error('Failed to start Liquid Relay:', error);
     app.quit();
   }
 }
 
 // Graceful shutdown
 function gracefulShutdown() {
-  console.log('SnapSend shutting down...');
+  console.log('Liquid Relay shutting down...');
 
   // Stop P2P connections
   const peerMgr = getPeerManager();

@@ -47,7 +47,7 @@ export function ActivationScreen({ onActivated }: ActivationScreenProps) {
               <Smartphone className="h-8 w-8 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-2xl">Activate SnapSend</CardTitle>
+          <CardTitle className="text-2xl">Activate Liquid <em>Relay</em></CardTitle>
           <CardDescription>
             Enter your license key to get started. Don't have one yet?{' '}
             <a

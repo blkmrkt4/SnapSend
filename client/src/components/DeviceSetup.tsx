@@ -32,7 +32,7 @@ export function DeviceSetup({ onSetupComplete, isConnecting }: DeviceSetupProps)
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-primary/20">
       <Card className="w-full max-w-md border-primary/30 shadow-2xl">
         <CardHeader className="text-center bg-gradient-to-r from-primary/10 to-secondary/10 rounded-t-lg">
-          <CardTitle className="text-3xl font-bold text-foreground">SnapSend</CardTitle>
+          <CardTitle className="text-3xl font-bold text-foreground">Liquid <em>Relay</em></CardTitle>
           <CardDescription className="text-muted-foreground text-lg">
             Name this device to start sharing files
           </CardDescription>

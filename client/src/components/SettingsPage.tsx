@@ -197,7 +197,7 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
                           await window.electronAPI!.setPortSetting(port);
                           toast({
                             title: 'Port saved',
-                            description: `SnapSend will use port ${port} after restart.`,
+                            description: `Liquid Relay will use port ${port} after restart.`,
                           });
                         } catch {
                           toast({
@@ -212,7 +212,7 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
                     >
                       {isSavingPort ? 'Saving...' : 'Save'}
                     </Button>
-                    <span className="text-xs text-muted-foreground">Restart SnapSend to apply</span>
+                    <span className="text-xs text-muted-foreground">Restart Liquid Relay to apply</span>
                   </div>
                   <div className="text-xs text-muted-foreground">
                     Change if the default port is already in use by another app
@@ -284,7 +284,7 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
             >
               {isSavingMode ? 'Saving...' : 'Save'}
             </Button>
-            <span className="text-xs text-muted-foreground">Restart SnapSend for changes to take effect</span>
+            <span className="text-xs text-muted-foreground">Restart Liquid Relay for changes to take effect</span>
           </div>
         </div>
       </div>

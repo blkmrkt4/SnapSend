@@ -2,6 +2,7 @@ import {
   devices,
   files,
   connections,
+  tags,
   type Device,
   type File,
   type Connection,
@@ -10,7 +11,7 @@ import {
   type InsertConnection
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, like, or, desc, and, ne } from "drizzle-orm";
+import { eq, like, or, desc, and, ne, isNotNull } from "drizzle-orm";
 
 export interface IStorage {
   // Device management
@@ -43,6 +44,14 @@ export interface IStorage {
   deleteFile(id: number): Promise<void>;
   renameFile(id: number, newOriginalName: string): Promise<File | undefined>;
   searchFiles(query: string): Promise<File[]>;
+
+  // Tag & metadata management
+  updateFileTags(id: number, tags: string[]): Promise<File | undefined>;
+  updateFileMetadata(id: number, metadata: Record<string, unknown>): Promise<File | undefined>;
+  getAllTags(): Promise<string[]>;
+  getFilesByTag(tag: string): Promise<File[]>;
+  addTag(name: string): Promise<boolean>; // Add tag to vocabulary
+  deleteTag(tag: string): Promise<number>; // Remove from vocabulary AND all files
 }
 
 export class DatabaseStorage implements IStorage {
@@ -241,6 +250,112 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(desc(files.transferredAt));
+  }
+
+  // Tag & metadata management
+  async updateFileTags(id: number, tags: string[]): Promise<File | undefined> {
+    const [file] = await db
+      .update(files)
+      .set({ tags: JSON.stringify(tags) })
+      .where(eq(files.id, id))
+      .returning();
+    return file || undefined;
+  }
+
+  async updateFileMetadata(id: number, metadata: Record<string, unknown>): Promise<File | undefined> {
+    const [file] = await db
+      .update(files)
+      .set({ metadata: JSON.stringify(metadata) })
+      .where(eq(files.id, id))
+      .returning();
+    return file || undefined;
+  }
+
+  async getAllTags(): Promise<string[]> {
+    // Get tags from the tags vocabulary table
+    const vocabularyTags = await db.select({ name: tags.name }).from(tags);
+    const tagSet = new Set<string>(vocabularyTags.map(t => t.name));
+
+    // Also include any tags from files (for backwards compatibility)
+    const allFiles = await db.select({ tags: files.tags }).from(files).where(
+      isNotNull(files.tags)
+    );
+
+    for (const file of allFiles) {
+      if (file.tags) {
+        try {
+          const parsed = JSON.parse(file.tags);
+          if (Array.isArray(parsed)) {
+            for (const tag of parsed) {
+              if (typeof tag === 'string' && tag.trim()) {
+                tagSet.add(tag.trim().toLowerCase());
+              }
+            }
+          }
+        } catch {
+          // Ignore malformed JSON
+        }
+      }
+    }
+
+    return Array.from(tagSet).sort();
+  }
+
+  async getFilesByTag(tag: string): Promise<File[]> {
+    // SQLite JSON search: tags column contains the tag string
+    const searchPattern = `%"${tag}"%`;
+    return await db
+      .select()
+      .from(files)
+      .where(like(files.tags, searchPattern))
+      .orderBy(desc(files.transferredAt));
+  }
+
+  async addTag(name: string): Promise<boolean> {
+    const cleanName = name.trim().toLowerCase();
+    if (!cleanName) return false;
+
+    try {
+      // Check if tag already exists
+      const [existing] = await db.select().from(tags).where(eq(tags.name, cleanName));
+      if (existing) return true; // Already exists
+
+      await db.insert(tags).values({ name: cleanName });
+      return true;
+    } catch (error) {
+      console.error('Error adding tag:', error);
+      return false;
+    }
+  }
+
+  async deleteTag(tag: string): Promise<number> {
+    // Remove from vocabulary
+    await db.delete(tags).where(eq(tags.name, tag));
+
+    // Remove from all files
+    const searchPattern = `%"${tag}"%`;
+    const filesWithTag = await db
+      .select()
+      .from(files)
+      .where(like(files.tags, searchPattern));
+
+    let updatedCount = 0;
+    for (const file of filesWithTag) {
+      if (file.tags) {
+        try {
+          const currentTags: string[] = JSON.parse(file.tags);
+          const newTags = currentTags.filter(t => t !== tag);
+          await db
+            .update(files)
+            .set({ tags: newTags.length > 0 ? JSON.stringify(newTags) : null })
+            .where(eq(files.id, file.id));
+          updatedCount++;
+        } catch {
+          // Skip files with malformed tags
+        }
+      }
+    }
+    return updatedCount;
   }
 }
 

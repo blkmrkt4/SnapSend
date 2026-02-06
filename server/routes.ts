@@ -789,10 +789,61 @@ export async function registerRoutes(app: Express, options?: RouteOptions): Prom
 
   app.get('/api/files', async (req, res) => {
     try {
-      const allFiles = await storage.getAllFiles();
+      const tag = req.query.tag as string | undefined;
+      let allFiles;
+      if (tag) {
+        allFiles = await storage.getFilesByTag(tag);
+      } else {
+        allFiles = await storage.getAllFiles();
+      }
       res.json(allFiles);
     } catch (error) {
       console.error('Error fetching files:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Get all unique tags
+  app.get('/api/tags', async (req, res) => {
+    try {
+      const tags = await storage.getAllTags();
+      res.json(tags);
+    } catch (error) {
+      console.error('Error fetching tags:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Create a new tag in the vocabulary
+  app.post('/api/tags', async (req, res) => {
+    try {
+      const { name } = req.body;
+      if (!name || typeof name !== 'string' || !name.trim()) {
+        return res.status(400).json({ error: 'Tag name is required' });
+      }
+
+      const success = await storage.addTag(name.trim());
+      if (success) {
+        const allTags = await storage.getAllTags();
+        res.json({ success: true, tags: allTags });
+      } else {
+        res.status(500).json({ error: 'Failed to add tag' });
+      }
+    } catch (error) {
+      console.error('Error adding tag:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Delete a tag from vocabulary and all files
+  app.delete('/api/tags/:tag', async (req, res) => {
+    try {
+      const tag = decodeURIComponent(req.params.tag);
+      const updatedCount = await storage.deleteTag(tag);
+      const allTags = await storage.getAllTags();
+      res.json({ success: true, filesUpdated: updatedCount, tags: allTags });
+    } catch (error) {
+      console.error('Error deleting tag:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   });
@@ -815,6 +866,57 @@ export async function registerRoutes(app: Express, options?: RouteOptions): Prom
       res.json(deviceFiles);
     } catch (error) {
       console.error('Error fetching device files:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Record a sent file (for P2P mode where sender needs to persist to their own DB)
+  app.post('/api/files/record-sent', async (req, res) => {
+    try {
+      const { filename, originalName, mimeType, size, content, isClipboard, toDeviceName } = req.body;
+
+      if (!originalName || !mimeType) {
+        return res.status(400).json({ error: 'Missing required fields' });
+      }
+
+      // Save file to disk if it has content and isn't clipboard
+      let savedFilename = filename || `${Date.now()}_${originalName}`;
+      if (content && !isClipboard) {
+        const uploadsDir = process.env.SNAPSEND_UPLOADS_DIR || path.join(process.cwd(), 'uploads');
+        if (!fs.existsSync(uploadsDir)) {
+          fs.mkdirSync(uploadsDir, { recursive: true });
+        }
+        const filePath = path.join(uploadsDir, savedFilename);
+        try {
+          if (content.startsWith('data:')) {
+            const base64Data = content.split(',')[1];
+            const buffer = Buffer.from(base64Data, 'base64');
+            fs.writeFileSync(filePath, buffer);
+          } else {
+            fs.writeFileSync(filePath, content);
+          }
+        } catch (error) {
+          console.error('Error saving sent file to disk:', error);
+        }
+      }
+
+      const savedFile = await storage.createFile({
+        filename: savedFilename,
+        originalName,
+        mimeType,
+        size: size || 0,
+        content: isClipboard ? content : null,
+        fromDeviceId: null,
+        toDeviceId: null,
+        connectionId: null,
+        isClipboard: isClipboard ? 1 : 0,
+        fromDeviceName: 'local',
+        toDeviceName: toDeviceName || null,
+      });
+
+      res.json(savedFile);
+    } catch (error) {
+      console.error('Error recording sent file:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   });
@@ -909,6 +1011,58 @@ export async function registerRoutes(app: Express, options?: RouteOptions): Prom
       res.json(updated);
     } catch (error) {
       console.error('Error renaming file:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Update file tags
+  app.patch('/api/files/:id/tags', async (req, res) => {
+    try {
+      const fileId = parseInt(req.params.id);
+      const { tags } = req.body;
+
+      if (!Array.isArray(tags)) {
+        return res.status(400).json({ error: 'tags must be an array of strings' });
+      }
+
+      // Validate and clean tags
+      const cleanedTags = tags
+        .filter((t): t is string => typeof t === 'string')
+        .map(t => t.trim().toLowerCase())
+        .filter(t => t.length > 0);
+
+      const file = await storage.getFile(fileId);
+      if (!file) {
+        return res.status(404).json({ error: 'File not found' });
+      }
+
+      const updated = await storage.updateFileTags(fileId, cleanedTags);
+      res.json(updated);
+    } catch (error) {
+      console.error('Error updating file tags:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Update file metadata
+  app.patch('/api/files/:id/metadata', async (req, res) => {
+    try {
+      const fileId = parseInt(req.params.id);
+      const { metadata } = req.body;
+
+      if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+        return res.status(400).json({ error: 'metadata must be an object' });
+      }
+
+      const file = await storage.getFile(fileId);
+      if (!file) {
+        return res.status(404).json({ error: 'File not found' });
+      }
+
+      const updated = await storage.updateFileMetadata(fileId, metadata);
+      res.json(updated);
+    } catch (error) {
+      console.error('Error updating file metadata:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   });

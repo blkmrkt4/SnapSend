@@ -72,8 +72,8 @@ export class DiscoveryManager {
     // dns-sd -R <name> <type> <domain> <port> [key=value ...]
     const args = [
       '-R',
-      `snapsend-${this.localId}`,
-      '_snapsend._tcp',
+      `liquidrelay-${this.localId}`,
+      '_liquidrelay._tcp',
       '.',
       String(this.localPort),
       `id=${this.localId}`,
@@ -113,8 +113,8 @@ export class DiscoveryManager {
       this.browseProc = null;
     }
 
-    console.log('[Discovery] Browsing: dns-sd -B _snapsend._tcp');
-    this.browseProc = spawn('/usr/bin/dns-sd', ['-B', '_snapsend._tcp'], { stdio: ['ignore', 'pipe', 'pipe'] });
+    console.log('[Discovery] Browsing: dns-sd -B _liquidrelay._tcp');
+    this.browseProc = spawn('/usr/bin/dns-sd', ['-B', '_liquidrelay._tcp'], { stdio: ['ignore', 'pipe', 'pipe'] });
 
     let buffer = '';
     this.browseProc.stdout?.on('data', (data: Buffer) => {
@@ -147,8 +147,8 @@ export class DiscoveryManager {
    *
    * Example output:
    *   Timestamp     A/R    Flags  if Domain     Service Type         Instance Name
-   *   10:30:15.456  Add        3   4 local.     _snapsend._tcp.      snapsend-abc123
-   *   10:35:20.789  Rmv        1   4 local.     _snapsend._tcp.      snapsend-abc123
+   *   10:30:15.456  Add        3   4 local.     _liquidrelay._tcp.      liquidrelay-abc123
+   *   10:35:20.789  Rmv        1   4 local.     _liquidrelay._tcp.      liquidrelay-abc123
    */
   private parseBrowseLine(line: string) {
     const trimmed = line.trim();
@@ -165,12 +165,12 @@ export class DiscoveryManager {
     if (trimmed.includes('Add')) {
       console.log(`[Discovery] Browse: Add ${instanceName}`);
       // Skip self
-      if (instanceName === `snapsend-${this.localId}`) return;
+      if (instanceName === `liquidrelay-${this.localId}`) return;
       this.lookupService(instanceName);
     } else if (trimmed.includes('Rmv')) {
       console.log(`[Discovery] Browse: Rmv ${instanceName}`);
       // Find peer by instance name and remove
-      const peerId = instanceName.replace(/^snapsend-/, '');
+      const peerId = instanceName.replace(/^liquidrelay-/, '');
       if (peerId !== this.localId && this.peers.has(peerId)) {
         const peer = this.peers.get(peerId)!;
         console.log(`[Discovery] Peer lost: ${peer.name}`);
@@ -182,10 +182,10 @@ export class DiscoveryManager {
 
   /**
    * Resolve a discovered service instance to get host, port, and TXT record.
-   * Spawns `dns-sd -L <name> _snapsend._tcp` and parses the output.
+   * Spawns `dns-sd -L <name> _liquidrelay._tcp` and parses the output.
    *
    * Example output:
-   *   10:30:15.456  snapsend-abc._snapsend._tcp.local. can be reached at MyMac.local.:53000 (interface 4)
+   *   10:30:15.456  liquidrelay-abc._liquidrelay._tcp.local. can be reached at MyMac.local.:53000 (interface 4)
    *    id=abc deviceName=MyMac
    */
   private lookupService(instanceName: string) {
@@ -196,7 +196,7 @@ export class DiscoveryManager {
       this.lookupProcs.delete(instanceName);
     }
 
-    const proc = spawn('/usr/bin/dns-sd', ['-L', instanceName, '_snapsend._tcp'], { stdio: ['ignore', 'pipe', 'pipe'] });
+    const proc = spawn('/usr/bin/dns-sd', ['-L', instanceName, '_liquidrelay._tcp'], { stdio: ['ignore', 'pipe', 'pipe'] });
     this.lookupProcs.set(instanceName, proc);
 
     let output = '';
@@ -232,7 +232,7 @@ export class DiscoveryManager {
         txt[m[1]] = m[2];
       }
 
-      const peerId = txt.id || instanceName.replace(/^snapsend-/, '');
+      const peerId = txt.id || instanceName.replace(/^liquidrelay-/, '');
       const peerName = txt.deviceName || instanceName;
 
       if (peerId === this.localId) return;
@@ -327,13 +327,13 @@ export class DiscoveryManager {
       });
 
       this.bonjour.publish({
-        name: `snapsend-${this.localId}`,
+        name: `liquidrelay-${this.localId}`,
         type: 'snapsend',
         port: this.localPort,
         txt: { id: this.localId, deviceName: this.localName },
       });
 
-      console.log(`[Discovery] Fallback: publishing _snapsend._tcp on port ${this.localPort}`);
+      console.log(`[Discovery] Fallback: publishing _liquidrelay._tcp on port ${this.localPort}`);
 
       this.refreshTimer = setInterval(() => {
         if (this.started && this.bonjour) {

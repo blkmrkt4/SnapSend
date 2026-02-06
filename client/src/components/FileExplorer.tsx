@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Separator } from '@/components/ui/separator';
+// Using simple state-based expand/collapse instead of Radix Collapsible for compatibility
 import { cn } from '@/lib/utils';
 import { format, startOfDay, endOfDay, subDays, startOfMonth } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
@@ -29,9 +30,13 @@ import {
   X,
   CalendarDays,
   ChevronDown,
-  Pencil
+  ChevronUp,
+  Pencil,
+  Tag
 } from 'lucide-react';
 import { type File as FileType } from '@shared/schema';
+import { MetadataPanel } from './MetadataPanel';
+import { TagEditor } from './TagEditor';
 
 interface ExtendedFile extends FileType {
   transferType?: 'sent' | 'received' | 'queued';
@@ -45,6 +50,10 @@ interface FileExplorerProps {
   onClearAll: () => void;
   onDeleteFile: (fileId: number) => void;
   onRenameFile: (fileId: number, newName: string) => void;
+  onUpdateTags: (fileId: number, tags: string[]) => void;
+  onAddTag: (tag: string) => void;
+  onDeleteTag: (tag: string) => void;
+  allTags: string[];
   currentDevice: any;
 }
 
@@ -58,16 +67,22 @@ export function FileExplorer({
   onClearAll,
   onDeleteFile,
   onRenameFile,
+  onUpdateTags,
+  onAddTag,
+  onDeleteTag,
+  allTags,
   currentDevice
 }: FileExplorerProps) {
   const [sortBy, setSortBy] = useState<'date' | 'name' | 'type'>('date');
   const [directionFilter, setDirectionFilter] = useState<DirectionFilter>('all');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [tagFilter, setTagFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
   const [datePopoverOpen, setDatePopoverOpen] = useState(false);
   const [editingFileId, setEditingFileId] = useState<number | null>(null);
   const [editingName, setEditingName] = useState('');
+  const [expandedFileIds, setExpandedFileIds] = useState<Set<number>>(new Set());
   const editInputRef = useRef<HTMLInputElement>(null);
   const editingNameRef = useRef('');
 
@@ -102,6 +117,28 @@ export function FileExplorer({
     setEditingFileId(null);
   };
 
+  const toggleExpanded = (fileId: number) => {
+    setExpandedFileIds(prev => {
+      const next = new Set(prev);
+      if (next.has(fileId)) {
+        next.delete(fileId);
+      } else {
+        next.add(fileId);
+      }
+      return next;
+    });
+  };
+
+  const parseFileTags = (file: ExtendedFile): string[] => {
+    if (!file.tags) return [];
+    try {
+      const parsed = JSON.parse(file.tags);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
   useEffect(() => {
     if (editingFileId !== null && editInputRef.current) {
       editInputRef.current.focus();
@@ -109,11 +146,12 @@ export function FileExplorer({
     }
   }, [editingFileId]);
 
-  const hasActiveFilters = directionFilter !== 'all' || typeFilter !== 'all' || searchQuery.trim() !== '' || dateRange.from !== undefined;
+  const hasActiveFilters = directionFilter !== 'all' || typeFilter !== 'all' || tagFilter !== '' || searchQuery.trim() !== '' || dateRange.from !== undefined;
 
   const clearAllFilters = () => {
     setDirectionFilter('all');
     setTypeFilter('all');
+    setTagFilter('');
     setSearchQuery('');
     setDateRange({ from: undefined, to: undefined });
   };
@@ -312,6 +350,12 @@ export function FileExplorer({
     .filter(file => {
       if (!searchQuery.trim()) return true;
       return file.originalName.toLowerCase().includes(searchQuery.trim().toLowerCase());
+    })
+    // Tag filter
+    .filter(file => {
+      if (!tagFilter) return true;
+      const fileTags = parseFileTags(file);
+      return fileTags.includes(tagFilter);
     })
     // Date filter
     .filter(file => {
@@ -542,6 +586,64 @@ export function FileExplorer({
             })}
           </div>
         </div>
+
+        {/* Row 5: Tag filter */}
+        {allTags.length > 0 && (
+          <div className="flex items-center gap-3 mt-2">
+            <span className="text-xs font-medium text-secondary-foreground/70 w-16 shrink-0">Tag:</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => setTagFilter('')}
+                className={`px-3 py-1 text-xs font-semibold rounded-md border transition-colors ${
+                  tagFilter === ''
+                    ? 'bg-white text-secondary border-white'
+                    : 'bg-white/10 text-secondary-foreground/80 border-secondary-foreground/30 hover:bg-white/20'
+                }`}
+              >
+                All
+              </button>
+              {allTags.slice(0, 8).map(tag => (
+                <button
+                  key={tag}
+                  onClick={() => setTagFilter(tag)}
+                  className={`px-3 py-1 text-xs font-semibold rounded-md border transition-colors ${
+                    tagFilter === tag
+                      ? 'bg-white text-secondary border-white'
+                      : 'bg-white/10 text-secondary-foreground/80 border-secondary-foreground/30 hover:bg-white/20'
+                  }`}
+                >
+                  {tag}
+                </button>
+              ))}
+              {allTags.length > 8 && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className="px-3 py-1 text-xs font-semibold rounded-md border border-dashed border-secondary-foreground/30 bg-white/5 text-secondary-foreground/70 hover:bg-white/10 transition-colors">
+                      +{allTags.length - 8} more
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-48 p-2" align="start">
+                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                      {allTags.slice(8).map(tag => (
+                        <button
+                          key={tag}
+                          onClick={() => {
+                            setTagFilter(tag);
+                          }}
+                          className={`w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent transition-colors ${
+                            tagFilter === tag ? 'bg-accent font-medium' : ''
+                          }`}
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
+          </div>
+        )}
       </CardHeader>
 
       <CardContent>
@@ -557,154 +659,218 @@ export function FileExplorer({
               </p>
             </div>
           ) : (
-            filteredFiles.map((file) => (
-              <div
-                key={file.id}
-                className={`p-3 rounded-lg border cursor-pointer hover:shadow-md transition-all ${getFileBorderColor(file)}`}
-                onDoubleClick={() => handleOpenInNewTab(file)}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className={getFileTypeColor(file)}>
-                      {getFileIcon(file)}
-                    </div>
+            filteredFiles.map((file) => {
+              const isExpanded = expandedFileIds.has(file.id);
+              const fileTags = parseFileTags(file);
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        {editingFileId === file.id ? (
-                          <span className="flex items-center gap-0 min-w-0">
-                            <input
-                              ref={editInputRef}
-                              value={editingName}
-                              onChange={(e) => setEditingNameTracked(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') commitRename(file);
-                                if (e.key === 'Escape') cancelEditing();
-                              }}
-                              onBlur={() => commitRename(file)}
-                              className="font-medium bg-background border border-input rounded px-1 py-0 text-sm min-w-[60px] max-w-[200px] focus:outline-none focus:ring-1 focus:ring-ring"
-                            />
-                            {splitFilename(file.originalName).ext && (
-                              <span className="text-sm text-muted-foreground">{splitFilename(file.originalName).ext}</span>
-                            )}
-                          </span>
-                        ) : (
-                          <h4
-                            className="font-medium truncate cursor-text hover:underline decoration-dotted"
-                            onClick={(e) => { e.stopPropagation(); startEditing(file); }}
+              return (
+                <div
+                  key={file.id}
+                  className={`rounded-lg border transition-all ${getFileBorderColor(file)} ${isExpanded ? 'shadow-md' : 'hover:shadow-md'}`}
+                >
+                  {/* Main row content */}
+                  <div
+                    className="p-3 cursor-pointer"
+                    onDoubleClick={() => handleOpenInNewTab(file)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+
+                          <div className={getFileTypeColor(file)}>
+                            {getFileIcon(file)}
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              {editingFileId === file.id ? (
+                                <span className="flex items-center gap-0 min-w-0">
+                                  <input
+                                    ref={editInputRef}
+                                    value={editingName}
+                                    onChange={(e) => setEditingNameTracked(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') commitRename(file);
+                                      if (e.key === 'Escape') cancelEditing();
+                                    }}
+                                    onBlur={() => commitRename(file)}
+                                    className="font-medium bg-background border border-input rounded px-1 py-0 text-sm min-w-[60px] max-w-[200px] focus:outline-none focus:ring-1 focus:ring-ring"
+                                  />
+                                  {splitFilename(file.originalName).ext && (
+                                    <span className="text-sm text-muted-foreground">{splitFilename(file.originalName).ext}</span>
+                                  )}
+                                </span>
+                              ) : (
+                                <h4
+                                  className="font-medium truncate cursor-text hover:underline decoration-dotted"
+                                  onClick={(e) => { e.stopPropagation(); startEditing(file); }}
+                                >
+                                  {file.originalName}
+                                </h4>
+                              )}
+                              <Badge
+                                variant={file.transferType === 'queued' ? 'outline' : file.transferType === 'sent' ? 'destructive' : 'secondary'}
+                                className={`text-xs ${file.transferType === 'queued' ? 'border-amber-400 text-amber-700 bg-amber-50' : ''}`}
+                              >
+                                {file.transferType === 'queued' ? 'Queued' : file.transferType === 'sent' ? 'Sent' : 'Received'}
+                              </Badge>
+                              {file.isClipboard === 1 && (
+                                <Badge variant="outline" className="text-xs">
+                                  Clipboard
+                                </Badge>
+                              )}
+                              {/* Inline tag badges */}
+                              {fileTags.slice(0, 3).map(tag => (
+                                <Badge
+                                  key={tag}
+                                  variant="outline"
+                                  className="text-xs bg-primary/5 border-primary/20 text-primary"
+                                >
+                                  <Tag className="h-2.5 w-2.5 mr-1" />
+                                  {tag}
+                                </Badge>
+                              ))}
+                              {fileTags.length > 3 && (
+                                <Badge variant="outline" className="text-xs text-muted-foreground">
+                                  +{fileTags.length - 3} more
+                                </Badge>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {formatDate(file.transferredAt || new Date())}
+                              </span>
+
+                              <span>{formatFileSize(file.size)}</span>
+
+                              <span>{getFileLabel(file)}</span>
+
+                              {file.transferType === 'received' && file.fromDevice && (
+                                <span className="flex items-center gap-1">
+                                  <User className="h-3 w-3" />
+                                  from {file.fromDevice}
+                                </span>
+                              )}
+
+                              {file.transferType === 'queued' && (
+                                <span className="flex items-center gap-1 text-amber-600">
+                                  <User className="h-3 w-3" />
+                                  {file.toDeviceName ? `for ${file.toDeviceName}` : 'waiting for connection'}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 ml-4">
+                          {/* Expand/collapse toggle - next to eye icon */}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleExpanded(file.id);
+                            }}
+                            title={isExpanded ? "Hide details" : "Show details & tags"}
+                            className={isExpanded ? "bg-primary/10" : ""}
                           >
-                            {file.originalName}
-                          </h4>
-                        )}
-                        <Badge
-                          variant={file.transferType === 'queued' ? 'outline' : file.transferType === 'sent' ? 'destructive' : 'secondary'}
-                          className={`text-xs ${file.transferType === 'queued' ? 'border-amber-400 text-amber-700 bg-amber-50' : ''}`}
-                        >
-                          {file.transferType === 'queued' ? 'Queued' : file.transferType === 'sent' ? 'Sent' : 'Received'}
-                        </Badge>
-                        {file.isClipboard === 1 && (
-                          <Badge variant="outline" className="text-xs">
-                            Clipboard
-                          </Badge>
-                        )}
-                      </div>
+                            {isExpanded ? (
+                              <ChevronUp className="h-4 w-4" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4" />
+                            )}
+                          </Button>
 
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {formatDate(file.transferredAt || new Date())}
-                        </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onPreviewFile(file);
+                            }}
+                            title={isPreviewable(file) ? "Preview file" : "No preview available"}
+                          >
+                            {isPreviewable(file) ? (
+                              <Eye className="h-4 w-4" />
+                            ) : (
+                              <EyeOff className="h-4 w-4 text-red-400" />
+                            )}
+                          </Button>
 
-                        <span>{formatFileSize(file.size)}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDownload(file);
+                            }}
+                            title="Download file"
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
 
-                        <span>{getFileLabel(file)}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenInNewTab(file);
+                            }}
+                            title="Open in new tab"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
 
-                        {file.transferType === 'received' && file.fromDevice && (
-                          <span className="flex items-center gap-1">
-                            <User className="h-3 w-3" />
-                            from {file.fromDevice}
-                          </span>
-                        )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              startEditing(file);
+                            }}
+                            title="Rename file"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
 
-                        {file.transferType === 'queued' && (
-                          <span className="flex items-center gap-1 text-amber-600">
-                            <User className="h-3 w-3" />
-                            {file.toDeviceName ? `for ${file.toDeviceName}` : 'waiting for connection'}
-                          </span>
-                        )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteFile(file.id);
+                            }}
+                            title="Delete file permanently"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex items-center gap-2 ml-4">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onPreviewFile(file);
-                      }}
-                      title={isPreviewable(file) ? "Preview file" : "No preview available"}
-                    >
-                      {isPreviewable(file) ? (
-                        <Eye className="h-4 w-4" />
-                      ) : (
-                        <EyeOff className="h-4 w-4 text-red-400" />
-                      )}
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDownload(file);
-                      }}
-                      title="Download file"
-                    >
-                      <Download className="h-4 w-4" />
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenInNewTab(file);
-                      }}
-                      title="Open in new tab"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        startEditing(file);
-                      }}
-                      title="Rename file"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteFile(file.id);
-                      }}
-                      title="Delete file permanently"
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  {/* Expanded content: Tags first (prominent), then additional metadata */}
+                  {isExpanded && (
+                    <div className="px-3 pb-3 pt-0">
+                      <Separator className="mb-3" />
+                      <div className="bg-muted/30 rounded-lg p-4 space-y-4">
+                        {/* Tags section - prominent at top */}
+                        <TagEditor
+                          tags={fileTags}
+                          allTags={allTags}
+                          onTagsChange={(newTags) => onUpdateTags(file.id, newTags)}
+                          onAddTag={onAddTag}
+                          onDeleteTag={onDeleteTag}
+                        />
+                        {/* Additional metadata - only show info not already visible in row */}
+                        <MetadataPanel file={file} compact />
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </CardContent>

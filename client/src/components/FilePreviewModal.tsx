@@ -1,17 +1,35 @@
-import { X, Download, FileImage, FileText, Clipboard, EyeOff } from 'lucide-react';
+import { useState } from 'react';
+import { X, Download, FileImage, FileText, Clipboard, EyeOff, ChevronDown, ChevronRight } from 'lucide-react';
 import { type File } from '@shared/schema';
 import { useFileTransfer } from '@/hooks/useFileTransfer';
+import { MetadataPanel } from './MetadataPanel';
+import { TagEditor } from './TagEditor';
 
 interface FilePreviewModalProps {
-  file: File | null;
+  file: (File & { fromDevice?: string }) | null;
   isOpen: boolean;
   onClose: () => void;
+  onUpdateTags?: (fileId: number, tags: string[]) => void;
+  onAddTag?: (tag: string) => void;
+  onDeleteTag?: (tag: string) => void;
+  allTags?: string[];
 }
 
-export function FilePreviewModal({ file, isOpen, onClose }: FilePreviewModalProps) {
+export function FilePreviewModal({ file, isOpen, onClose, onUpdateTags, onAddTag, onDeleteTag, allTags = [] }: FilePreviewModalProps) {
   const { downloadFile } = useFileTransfer();
+  const [showDetails, setShowDetails] = useState(false);
 
   if (!isOpen || !file) return null;
+
+  // Parse tags from JSON string
+  const fileTags: string[] = file.tags ? (() => {
+    try {
+      const parsed = JSON.parse(file.tags);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  })() : [];
 
   const handleDownload = async () => {
     try {
@@ -158,6 +176,56 @@ export function FilePreviewModal({ file, isOpen, onClose }: FilePreviewModalProp
               </div>
             </div>
           )}
+
+          {/* Collapsible Details Section */}
+          <div className="mt-4 border-t pt-4">
+            <button
+              onClick={() => setShowDetails(!showDetails)}
+              className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors w-full"
+            >
+              {showDetails ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
+              File Details & Tags
+            </button>
+
+            {showDetails && (
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 rounded-lg p-4">
+                <MetadataPanel file={file} />
+                {onUpdateTags ? (
+                  <TagEditor
+                    tags={fileTags}
+                    allTags={allTags}
+                    onTagsChange={(newTags) => onUpdateTags(file.id, newTags)}
+                    onAddTag={onAddTag}
+                    onDeleteTag={onDeleteTag}
+                  />
+                ) : (
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-xs uppercase tracking-wide text-gray-500">
+                      Tags
+                    </h4>
+                    {fileTags.length === 0 ? (
+                      <p className="text-sm text-gray-400 italic">No tags</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {fileTags.map(tag => (
+                          <span
+                            key={tag}
+                            className="px-2 py-0.5 text-xs rounded bg-gray-200 text-gray-700"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -32,6 +32,7 @@ export interface ConnectionSystemState {
   pendingFiles: PendingFile[];
   selectedTargetId: string | null;
   knownDevices: KnownDevice[];
+  allTags: string[];
 }
 
 function loadKnownDevices(): KnownDevice[] {
@@ -131,6 +132,7 @@ export function useConnectionSystem() {
     pendingFiles: [],
     selectedTargetId: null,
     knownDevices: loadKnownDevices(),
+    allTags: [],
   });
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -685,35 +687,57 @@ export function useConnectionSystem() {
     if (targetId && targetId.startsWith('relay:') && isElectron) {
       const clientId = targetId.replace('relay:', '');
       const targetName = state.onlineDevices.find(d => d.socketId === targetId)?.name || 'device';
-      window.electronAPI!.sendRelayFile?.(clientId, fileData).then((sent) => {
+      window.electronAPI!.sendRelayFile?.(clientId, fileData).then(async (sent) => {
         if (sent) {
-          setState(prev => ({
-            ...prev,
-            files: [{
-              id: Date.now() + Math.random(),
-              filename: fileData.filename,
-              originalName: fileData.originalName,
-              mimeType: fileData.mimeType,
-              size: fileData.size,
-              isClipboard: fileData.isClipboard ? 1 : 0,
-              transferredAt: new Date().toISOString(),
-              transferType: 'sent' as const,
-              fromDevice: undefined,
-              fromDeviceId: null,
-              toDeviceId: null,
-              connectionId: null,
-              fromDeviceName: null,
-              toDeviceName: targetName,
-              content: null,
-            } as ExtendedFile, ...prev.files],
-            notifications: [...prev.notifications, {
-              id: Date.now(),
-              type: 'file-sent',
-              title: fileData.isClipboard ? 'Clipboard shared' : 'File sent',
-              message: `${fileData.originalName} sent to ${targetName}`,
-              timestamp: new Date(),
-            }],
-          }));
+          // Persist sent file to database
+          try {
+            const response = await fetch('/api/files/record-sent', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                filename: fileData.filename,
+                originalName: fileData.originalName,
+                mimeType: fileData.mimeType,
+                size: fileData.size,
+                content: fileData.content,
+                isClipboard: fileData.isClipboard,
+                toDeviceName: targetName,
+              }),
+            });
+            const savedFile = response.ok ? await response.json() : null;
+
+            setState(prev => ({
+              ...prev,
+              files: [{
+                ...(savedFile || {
+                  id: Date.now() + Math.random(),
+                  filename: fileData.filename,
+                  originalName: fileData.originalName,
+                  mimeType: fileData.mimeType,
+                  size: fileData.size,
+                  isClipboard: fileData.isClipboard ? 1 : 0,
+                  transferredAt: new Date().toISOString(),
+                  fromDeviceId: null,
+                  toDeviceId: null,
+                  connectionId: null,
+                  fromDeviceName: null,
+                  toDeviceName: targetName,
+                  content: null,
+                }),
+                transferType: 'sent' as const,
+                fromDevice: undefined,
+              } as ExtendedFile, ...prev.files],
+              notifications: [...prev.notifications, {
+                id: Date.now(),
+                type: 'file-sent',
+                title: fileData.isClipboard ? 'Clipboard shared' : 'File sent',
+                message: `${fileData.originalName} sent to ${targetName}`,
+                timestamp: new Date(),
+              }],
+            }));
+          } catch (error) {
+            console.error('Error persisting sent file:', error);
+          }
         }
       });
       return;
@@ -740,35 +764,57 @@ export function useConnectionSystem() {
       if (targetConn) {
         // Send directly to the targeted connection
         if (window.electronAPI?.sendFile) {
-          window.electronAPI.sendFile(targetConn.peerId, fileData).then((sent) => {
+          window.electronAPI.sendFile(targetConn.peerId, fileData).then(async (sent) => {
             if (sent) {
-              setState(prev => ({
-                ...prev,
-                files: [{
-                  id: Date.now() + Math.random(),
-                  filename: fileData.filename,
-                  originalName: fileData.originalName,
-                  mimeType: fileData.mimeType,
-                  size: fileData.size,
-                  isClipboard: fileData.isClipboard ? 1 : 0,
-                  transferredAt: new Date().toISOString(),
-                  transferType: 'sent' as const,
-                  fromDevice: undefined,
-                  fromDeviceId: null,
-                  toDeviceId: null,
-                  connectionId: null,
-                  fromDeviceName: null,
-                  toDeviceName: targetConn.partnerName || null,
-                  content: null,
-                } as ExtendedFile, ...prev.files],
-                notifications: [...prev.notifications, {
-                  id: Date.now(),
-                  type: 'file-sent',
-                  title: fileData.isClipboard ? 'Clipboard shared' : 'File sent',
-                  message: `${fileData.originalName} sent to ${targetConn.partnerName || 'device'}`,
-                  timestamp: new Date(),
-                }],
-              }));
+              // Persist sent file to database
+              try {
+                const response = await fetch('/api/files/record-sent', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    filename: fileData.filename,
+                    originalName: fileData.originalName,
+                    mimeType: fileData.mimeType,
+                    size: fileData.size,
+                    content: fileData.content,
+                    isClipboard: fileData.isClipboard,
+                    toDeviceName: targetConn.partnerName,
+                  }),
+                });
+                const savedFile = response.ok ? await response.json() : null;
+
+                setState(prev => ({
+                  ...prev,
+                  files: [{
+                    ...(savedFile || {
+                      id: Date.now() + Math.random(),
+                      filename: fileData.filename,
+                      originalName: fileData.originalName,
+                      mimeType: fileData.mimeType,
+                      size: fileData.size,
+                      isClipboard: fileData.isClipboard ? 1 : 0,
+                      transferredAt: new Date().toISOString(),
+                      fromDeviceId: null,
+                      toDeviceId: null,
+                      connectionId: null,
+                      fromDeviceName: null,
+                      toDeviceName: targetConn.partnerName || null,
+                      content: null,
+                    }),
+                    transferType: 'sent' as const,
+                    fromDevice: undefined,
+                  } as ExtendedFile, ...prev.files],
+                  notifications: [...prev.notifications, {
+                    id: Date.now(),
+                    type: 'file-sent',
+                    title: fileData.isClipboard ? 'Clipboard shared' : 'File sent',
+                    message: `${fileData.originalName} sent to ${targetConn.partnerName || 'device'}`,
+                    timestamp: new Date(),
+                  }],
+                }));
+              } catch (error) {
+                console.error('Error persisting sent file:', error);
+              }
             }
           });
         } else if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -780,72 +826,146 @@ export function useConnectionSystem() {
         return;
       }
 
-      // No active connection to selected target — queue the file
-      const pendingId = Date.now() + Math.random();
+      // No active connection to selected target — save locally and queue for later
       const targetName = state.onlineDevices.find(d => d.socketId === targetId)?.name || 'selected device';
-      setState(prev => ({
-        ...prev,
-        pendingFiles: [...prev.pendingFiles, { id: pendingId, fileData, queuedAt: new Date() }],
-        files: [{
-          id: pendingId,
-          filename: fileData.filename,
-          originalName: fileData.originalName,
-          mimeType: fileData.mimeType,
-          size: fileData.size,
-          content: fileData.content,
-          isClipboard: fileData.isClipboard ? 1 : 0,
-          transferredAt: new Date().toISOString(),
-          transferType: 'queued' as const,
-          fromDevice: undefined,
-          fromDeviceId: null,
-          toDeviceId: null,
-          connectionId: null,
-          fromDeviceName: null,
-          toDeviceName: targetName,
-        } as ExtendedFile, ...prev.files],
-        notifications: [...prev.notifications, {
-          id: Date.now(),
-          type: 'file-queued',
-          title: 'File queued',
-          message: `${fileData.originalName} queued for delivery`,
-          timestamp: new Date(),
-        }],
-      }));
+      (async () => {
+        try {
+          const response = await fetch('/api/files/record-sent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              filename: fileData.filename,
+              originalName: fileData.originalName,
+              mimeType: fileData.mimeType,
+              size: fileData.size,
+              content: fileData.content,
+              isClipboard: fileData.isClipboard,
+              toDeviceName: targetName,
+            }),
+          });
+          const savedFile = response.ok ? await response.json() : null;
+          const fileId = savedFile?.id || (Date.now() + Math.random());
+
+          setState(prev => ({
+            ...prev,
+            pendingFiles: [...prev.pendingFiles, { id: fileId, fileData, queuedAt: new Date() }],
+            files: [{
+              ...(savedFile || {
+                id: fileId,
+                filename: fileData.filename,
+                originalName: fileData.originalName,
+                mimeType: fileData.mimeType,
+                size: fileData.size,
+                content: fileData.content,
+                isClipboard: fileData.isClipboard ? 1 : 0,
+                transferredAt: new Date().toISOString(),
+                fromDeviceId: null,
+                toDeviceId: null,
+                connectionId: null,
+                fromDeviceName: null,
+                toDeviceName: targetName,
+              }),
+              transferType: 'queued' as const,
+              fromDevice: undefined,
+            } as ExtendedFile, ...prev.files],
+            notifications: [...prev.notifications, {
+              id: Date.now(),
+              type: 'file-queued',
+              title: 'File queued',
+              message: `${fileData.originalName} queued for delivery`,
+              timestamp: new Date(),
+            }],
+          }));
+        } catch (error) {
+          console.error('Error saving queued file:', error);
+        }
+      })();
       return;
     }
 
     // No target selected — broadcast to all (original behavior)
     if (state.connections.length === 0) {
-      // No connections at all — queue it
-      const pendingId = Date.now() + Math.random();
-      setState(prev => ({
-        ...prev,
-        pendingFiles: [...prev.pendingFiles, { id: pendingId, fileData, queuedAt: new Date() }],
-        files: [{
-          id: pendingId,
-          filename: fileData.filename,
-          originalName: fileData.originalName,
-          mimeType: fileData.mimeType,
-          size: fileData.size,
-          content: fileData.content,
-          isClipboard: fileData.isClipboard ? 1 : 0,
-          transferredAt: new Date().toISOString(),
-          transferType: 'queued' as const,
-          fromDevice: undefined,
-          fromDeviceId: null,
-          toDeviceId: null,
-          connectionId: null,
-          fromDeviceName: null,
-          toDeviceName: null,
-        } as ExtendedFile, ...prev.files],
-        notifications: [...prev.notifications, {
-          id: Date.now(),
-          type: 'file-queued',
-          title: 'File queued',
-          message: `${fileData.originalName} queued — connect to a device to send`,
-          timestamp: new Date(),
-        }],
-      }));
+      // No connections — save locally to database for persistence
+      (async () => {
+        try {
+          const response = await fetch('/api/files/record-sent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              filename: fileData.filename,
+              originalName: fileData.originalName,
+              mimeType: fileData.mimeType,
+              size: fileData.size,
+              content: fileData.content,
+              isClipboard: fileData.isClipboard,
+              toDeviceName: null,
+            }),
+          });
+          const savedFile = response.ok ? await response.json() : null;
+
+          setState(prev => ({
+            ...prev,
+            files: [{
+              ...(savedFile || {
+                id: Date.now() + Math.random(),
+                filename: fileData.filename,
+                originalName: fileData.originalName,
+                mimeType: fileData.mimeType,
+                size: fileData.size,
+                content: fileData.content,
+                isClipboard: fileData.isClipboard ? 1 : 0,
+                transferredAt: new Date().toISOString(),
+                fromDeviceId: null,
+                toDeviceId: null,
+                connectionId: null,
+                fromDeviceName: null,
+                toDeviceName: null,
+              }),
+              transferType: 'sent' as const,
+              fromDevice: undefined,
+            } as ExtendedFile, ...prev.files],
+            notifications: [...prev.notifications, {
+              id: Date.now(),
+              type: 'file-sent',
+              title: fileData.isClipboard ? 'Clipboard saved' : 'File saved',
+              message: `${fileData.originalName} saved locally`,
+              timestamp: new Date(),
+            }],
+          }));
+        } catch (error) {
+          console.error('Error saving file locally:', error);
+          // Fallback to old queued behavior
+          const pendingId = Date.now() + Math.random();
+          setState(prev => ({
+            ...prev,
+            pendingFiles: [...prev.pendingFiles, { id: pendingId, fileData, queuedAt: new Date() }],
+            files: [{
+              id: pendingId,
+              filename: fileData.filename,
+              originalName: fileData.originalName,
+              mimeType: fileData.mimeType,
+              size: fileData.size,
+              content: fileData.content,
+              isClipboard: fileData.isClipboard ? 1 : 0,
+              transferredAt: new Date().toISOString(),
+              transferType: 'queued' as const,
+              fromDevice: undefined,
+              fromDeviceId: null,
+              toDeviceId: null,
+              connectionId: null,
+              fromDeviceName: null,
+              toDeviceName: null,
+            } as ExtendedFile, ...prev.files],
+            notifications: [...prev.notifications, {
+              id: Date.now(),
+              type: 'file-queued',
+              title: 'File queued',
+              message: `${fileData.originalName} queued — connect to a device to send`,
+              timestamp: new Date(),
+            }],
+          }));
+        }
+      })();
       return;
     }
 
@@ -856,35 +976,57 @@ export function useConnectionSystem() {
           if (sent) sentCount++;
         })
       );
-      Promise.all(sendPromises).then(() => {
+      Promise.all(sendPromises).then(async () => {
         if (sentCount > 0) {
-          setState(prev => ({
-            ...prev,
-            files: [{
-              id: Date.now() + Math.random(),
-              filename: fileData.filename,
-              originalName: fileData.originalName,
-              mimeType: fileData.mimeType,
-              size: fileData.size,
-              isClipboard: fileData.isClipboard ? 1 : 0,
-              transferredAt: new Date().toISOString(),
-              transferType: 'sent' as const,
-              fromDevice: undefined,
-              fromDeviceId: null,
-              toDeviceId: null,
-              connectionId: null,
-              fromDeviceName: null,
-              toDeviceName: null,
-              content: null,
-            } as ExtendedFile, ...prev.files],
-            notifications: [...prev.notifications, {
-              id: Date.now(),
-              type: 'file-sent',
-              title: fileData.isClipboard ? 'Clipboard shared' : 'File sent',
-              message: `${fileData.originalName} sent to ${sentCount} device${sentCount > 1 ? 's' : ''}`,
-              timestamp: new Date(),
-            }],
-          }));
+          // Persist sent file to database
+          try {
+            const response = await fetch('/api/files/record-sent', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                filename: fileData.filename,
+                originalName: fileData.originalName,
+                mimeType: fileData.mimeType,
+                size: fileData.size,
+                content: fileData.content,
+                isClipboard: fileData.isClipboard,
+                toDeviceName: `${sentCount} device${sentCount > 1 ? 's' : ''}`,
+              }),
+            });
+            const savedFile = response.ok ? await response.json() : null;
+
+            setState(prev => ({
+              ...prev,
+              files: [{
+                ...(savedFile || {
+                  id: Date.now() + Math.random(),
+                  filename: fileData.filename,
+                  originalName: fileData.originalName,
+                  mimeType: fileData.mimeType,
+                  size: fileData.size,
+                  isClipboard: fileData.isClipboard ? 1 : 0,
+                  transferredAt: new Date().toISOString(),
+                  fromDeviceId: null,
+                  toDeviceId: null,
+                  connectionId: null,
+                  fromDeviceName: null,
+                  toDeviceName: null,
+                  content: null,
+                }),
+                transferType: 'sent' as const,
+                fromDevice: undefined,
+              } as ExtendedFile, ...prev.files],
+              notifications: [...prev.notifications, {
+                id: Date.now(),
+                type: 'file-sent',
+                title: fileData.isClipboard ? 'Clipboard shared' : 'File sent',
+                message: `${fileData.originalName} sent to ${sentCount} device${sentCount > 1 ? 's' : ''}`,
+                timestamp: new Date(),
+              }],
+            }));
+          } catch (error) {
+            console.error('Error persisting sent file:', error);
+          }
         }
       });
       return;
@@ -954,12 +1096,25 @@ export function useConnectionSystem() {
     }
   }, []);
 
-  // Load persisted files from the database once setup completes
+  const refreshTags = useCallback(async () => {
+    try {
+      const response = await fetch('/api/tags');
+      if (response.ok) {
+        const tags = await response.json();
+        setState(prev => ({ ...prev, allTags: tags }));
+      }
+    } catch (error) {
+      console.error('Error fetching tags:', error);
+    }
+  }, []);
+
+  // Load persisted files and tags from the database once setup completes
   useEffect(() => {
     if (state.isSetup) {
       refreshFiles();
+      refreshTags();
     }
-  }, [state.isSetup, refreshFiles]);
+  }, [state.isSetup, refreshFiles, refreshTags]);
 
   const deleteFile = useCallback(async (fileId: number) => {
     try {
@@ -1001,6 +1156,89 @@ export function useConnectionSystem() {
       refreshFiles();
     }
   }, [refreshFiles]);
+
+  const updateFileTags = useCallback(async (fileId: number, tags: string[]) => {
+    // Optimistically update state immediately
+    setState(prev => ({
+      ...prev,
+      files: prev.files.map(f =>
+        f.id === fileId ? { ...f, tags: JSON.stringify(tags) } : f
+      ),
+    }));
+
+    try {
+      await fetch(`/api/files/${fileId}/tags`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tags }),
+      });
+      // Refresh all tags list to include any new tags
+      refreshTags();
+    } catch (error) {
+      console.error('Error updating file tags:', error);
+      // Revert on failure by refreshing from DB
+      refreshFiles();
+    }
+  }, [refreshFiles, refreshTags]);
+
+  const addTag = useCallback(async (name: string) => {
+    const cleanName = name.trim().toLowerCase();
+    if (!cleanName) return;
+
+    // Optimistically add to state
+    setState(prev => ({
+      ...prev,
+      allTags: prev.allTags.includes(cleanName)
+        ? prev.allTags
+        : [...prev.allTags, cleanName].sort(),
+    }));
+
+    try {
+      const response = await fetch('/api/tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: cleanName }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setState(prev => ({ ...prev, allTags: data.tags }));
+      }
+    } catch (error) {
+      console.error('Error adding tag:', error);
+      refreshTags();
+    }
+  }, [refreshTags]);
+
+  const deleteTag = useCallback(async (tag: string) => {
+    // Optimistically update state - remove tag from allTags and from all files
+    setState(prev => ({
+      ...prev,
+      allTags: prev.allTags.filter(t => t !== tag),
+      files: prev.files.map(f => {
+        if (!f.tags) return f;
+        try {
+          const fileTags: string[] = JSON.parse(f.tags);
+          const newTags = fileTags.filter(t => t !== tag);
+          return { ...f, tags: newTags.length > 0 ? JSON.stringify(newTags) : null };
+        } catch {
+          return f;
+        }
+      }),
+    }));
+
+    try {
+      const response = await fetch(`/api/tags/${encodeURIComponent(tag)}`, { method: 'DELETE' });
+      if (response.ok) {
+        const data = await response.json();
+        setState(prev => ({ ...prev, allTags: data.tags }));
+      }
+    } catch (error) {
+      console.error('Error deleting tag:', error);
+      // Revert on failure
+      refreshFiles();
+      refreshTags();
+    }
+  }, [refreshFiles, refreshTags]);
 
   const setSelectedTarget = useCallback((id: string | null) => {
     setState(prev => ({ ...prev, selectedTargetId: id }));
@@ -1095,6 +1333,10 @@ export function useConnectionSystem() {
     refreshFiles,
     deleteFile,
     renameFile,
+    updateFileTags,
+    addTag,
+    deleteTag,
+    refreshTags,
     refreshDiscovery,
   };
 }

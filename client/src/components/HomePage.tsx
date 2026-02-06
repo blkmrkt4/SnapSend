@@ -30,17 +30,17 @@ const heroSlides = [
   {
     headline: 'Two Computers. One Desk. Zero Friction.',
     subtitle:
-      'Build on your Mac, deliver from your PC — or the other way around. SnapSend moves files and clipboard between machines instantly over your local network. No cloud, no cables, no hassle.',
+      'Build on your Mac, deliver from your PC — or the other way around. Liquid Relay moves files and clipboard between machines instantly over your local network. No cloud, no cables, no hassle.',
   },
   {
     headline: 'Stop Emailing Files to Yourself',
     subtitle:
-      'Whether you\'re moving code output from your Mac to your work PC or pulling docs between a locked-down laptop and your personal machine — SnapSend transfers files across your desk in seconds. Nothing leaves your network.',
+      'Whether you\'re moving code output from your Mac to your work PC or pulling docs between a locked-down laptop and your personal machine — Liquid Relay transfers files across your desk in seconds. Nothing leaves your network.',
   },
   {
     headline: 'Bridge the Gap Between Your Machines',
     subtitle:
-      'Dev tools on one computer, work on another. SnapSend lets you move files and clipboard between them instantly — direct transfer over your local network, no accounts, no cloud, nothing to configure.',
+      'Dev tools on one computer, work on another. Liquid Relay lets you move files and clipboard between them instantly — direct transfer over your local network, no accounts, no cloud, nothing to configure.',
   },
   {
     headline: 'Work on Any Machine. Move Files Between All of Them.',
@@ -254,7 +254,7 @@ export function HomePage() {
 
       {/* Tutorial Carousel */}
       <section className="space-y-4">
-        <h2 className="text-xl font-semibold text-center">How to Use SnapSend</h2>
+        <h2 className="text-xl font-semibold text-center">How to Use Liquid <em>Relay</em></h2>
         <div className="px-12">
           <Carousel setApi={setTutorialApi} opts={{ loop: true, align: 'center' }}>
             <CarouselContent>

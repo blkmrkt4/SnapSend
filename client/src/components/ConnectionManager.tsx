@@ -158,7 +158,7 @@ export function ConnectionManager({
         <div className="divide-y">
           {otherDevices.length === 0 ? (
             <p className="text-sm text-muted-foreground py-8 text-center">
-              No other devices online. Open SnapSend on another machine to get started.
+              No other devices online. Open Liquid Relay on another machine to get started.
             </p>
           ) : (
             otherDevices.map((device) => {

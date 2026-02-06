@@ -22,6 +22,13 @@ export const connections = sqliteTable("connections", {
   terminatedAt: text("terminated_at"),
 });
 
+// User's tag vocabulary - tags that exist independently of files
+export const tags = sqliteTable("tags", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull().unique(),
+  createdAt: text("created_at").default(sql`(datetime('now'))`),
+});
+
 export const files = sqliteTable("files", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   filename: text("filename").notNull(),
@@ -37,6 +44,9 @@ export const files = sqliteTable("files", {
   // P2P fields (used when devices are identified by name instead of DB ID)
   fromDeviceName: text("from_device_name"),
   toDeviceName: text("to_device_name"),
+  // Metadata & tagging fields
+  tags: text("tags"), // JSON array: '["work", "urgent", "q1-reports"]'
+  metadata: text("metadata"), // JSON object: '{"width": 1920, "height": 1080}'
 });
 
 export const insertDeviceSchema = createInsertSchema(devices).omit({
@@ -101,6 +111,15 @@ export type InsertConnection = z.infer<typeof insertConnectionSchema>;
 export type Connection = typeof connections.$inferSelect;
 export type InsertFile = z.infer<typeof insertFileSchema>;
 export type File = typeof files.$inferSelect;
+
+// File metadata structure for images, documents, etc.
+export interface FileMetadata {
+  width?: number;
+  height?: number;
+  duration?: number; // For video/audio in seconds
+  pageCount?: number; // For PDFs
+  [key: string]: unknown; // Allow additional metadata
+}
 
 // WebSocket message types
 export interface WebSocketMessage {

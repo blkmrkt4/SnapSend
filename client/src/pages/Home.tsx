@@ -23,6 +23,7 @@ export default function Home() {
     pendingFiles,
     selectedTargetId,
     knownDevices,
+    allTags,
     setupDevice,
     pairWithDevice,
     terminateConnection,
@@ -32,6 +33,9 @@ export default function Home() {
     refreshFiles,
     deleteFile,
     renameFile,
+    updateFileTags,
+    addTag,
+    deleteTag,
     refreshDiscovery,
   } = useConnectionSystem();
 
@@ -93,6 +97,10 @@ export default function Home() {
                   onClearAll={clearAllFiles}
                   onDeleteFile={deleteFile}
                   onRenameFile={renameFile}
+                  onUpdateTags={updateFileTags}
+                  onAddTag={addTag}
+                  onDeleteTag={deleteTag}
+                  allTags={allTags}
                   currentDevice={currentDevice}
                 />
               </div>
@@ -133,10 +141,14 @@ export default function Home() {
         file={previewFile}
         isOpen={!!previewFile}
         onClose={() => setPreviewFile(null)}
+        onUpdateTags={updateFileTags}
+        onAddTag={addTag}
+        onDeleteTag={deleteTag}
+        allTags={allTags}
       />
 
       <div className="fixed bottom-2 right-3 text-[10px] text-muted-foreground/50 select-none pointer-events-none">
-        SnapSend v{__APP_VERSION__}
+        Liquid <em>Relay</em> v{__APP_VERSION__}
       </div>
     </div>
   );

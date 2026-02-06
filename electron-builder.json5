@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
-  "appId": "com.snapsend.app",
-  "productName": "SnapSend",
+  "appId": "com.liquidrelay.app",
+  "productName": "Liquid Relay",
   "npmRebuild": true,
   "buildDependenciesFromSource": true,
   "directories": {
@@ -25,12 +25,12 @@
     "entitlements": null,
     "entitlementsInherit": null,
     "extendInfo": {
-      "NSLocalNetworkUsageDescription": "SnapSend uses the local network to discover and transfer files to other devices.",
-      "NSBonjourServices": ["_snapsend._tcp"]
+      "NSLocalNetworkUsageDescription": "Liquid Relay uses the local network to discover and transfer files to other devices.",
+      "NSBonjourServices": ["_liquidrelay._tcp"]
     }
   },
   "dmg": {
-    "artifactName": "SS-Mac-Arm-18.${ext}",
+    "artifactName": "LiquidRelay-Mac-${arch}-1.${ext}",
     "contents": [
       { "x": 130, "y": 220 },
       { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
@@ -41,7 +41,7 @@
     "icon": "assets/icon.png"
   },
   "nsis": {
-    "artifactName": "SnapSendSetup3.${ext}",
+    "artifactName": "LiquidRelaySetup-1.${ext}",
     "oneClick": false,
     "perMachine": true,
     "deleteAppDataOnUninstall": true,
