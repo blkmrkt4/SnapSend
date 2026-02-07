@@ -1,0 +1,276 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1100" width="1500" height="1100">
+  <defs>
+    <filter id="pencil" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="5" seed="2" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.5" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <filter id="pencilHeavy" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="4" seed="7" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.2" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <marker id="arr" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto" markerUnits="strokeWidth">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#3a3a3a" filter="url(#pencil)"/>
+    </marker>
+    <marker id="arrG" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto" markerUnits="strokeWidth">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#2a7a3a" filter="url(#pencil)"/>
+    </marker>
+    <marker id="arrB" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto" markerUnits="strokeWidth">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#2a5a8a" filter="url(#pencil)"/>
+    </marker>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&amp;family=Architects+Daughter&amp;display=swap');
+      .title{font-family:'Caveat',cursive;font-weight:700;font-size:38px;fill:#1a1a1a}
+      .sub{font-family:'Caveat',cursive;font-weight:500;font-size:20px;fill:#555}
+      .sec{font-family:'Caveat',cursive;font-weight:700;font-size:24px}
+      .n{font-family:'Architects Daughter',cursive;font-size:14px;fill:#2a2a2a}
+      .ns{font-family:'Architects Daughter',cursive;font-size:12px;fill:#3a3a3a}
+      .nw{font-family:'Architects Daughter',cursive;font-size:12px;fill:#fff}
+      .el{font-family:'Architects Daughter',cursive;font-size:12.5px;fill:#555}
+      .eb{font-family:'Architects Daughter',cursive;font-size:14px;fill:#2a2a2a;font-weight:600}
+      .gt{font-family:'Architects Daughter',cursive;font-size:13px;fill:#1a6a2a}
+      .bt{font-family:'Architects Daughter',cursive;font-size:13px;fill:#1a4a7a}
+      .result{font-family:'Architects Daughter',cursive;font-size:13.5px;fill:#2a2a2a}
+    </style>
+  </defs>
+
+  <!-- ============ TITLE ============ -->
+  <g filter="url(#pencil)">
+    <text x="750" y="48" class="title" text-anchor="middle">SnapSend — How Two Devices Connect</text>
+    <text x="750" y="76" class="sub" text-anchor="middle">One device runs as the Server, the other connects as a Client</text>
+    <line x1="150" y1="92" x2="1350" y2="92" stroke="#3a3a3a" stroke-width="0.8" stroke-dasharray="6,4" opacity="0.3"/>
+  </g>
+
+  <!-- ============================================================ -->
+  <!-- USER A — Left column -->
+  <!-- ============================================================ -->
+  <g filter="url(#pencilHeavy)">
+    <rect x="60" y="115" width="640" height="52" rx="26" fill="#2a7a3a" stroke="#1a5a2a" stroke-width="1.5"/>
+    <text x="380" y="148" class="nw" text-anchor="middle" font-size="18" fill="#fff" font-family="Caveat, cursive" font-weight="700">User A</text>
+  </g>
+
+  <!-- A opens settings -->
+  <g filter="url(#pencil)">
+    <line x1="380" y1="167" x2="380" y2="200" stroke="#2a7a3a" stroke-width="1.2" marker-end="url(#arrG)"/>
+    <rect x="260" y="200" width="240" height="36" rx="4" fill="#e8f0e8" stroke="#2a7a3a" stroke-width="1.2"/>
+    <text x="380" y="223" class="n" text-anchor="middle">Opens Settings</text>
+  </g>
+
+  <!-- A decision diamond -->
+  <g filter="url(#pencil)">
+    <line x1="380" y1="236" x2="380" y2="272" stroke="#2a7a3a" stroke-width="1.2" marker-end="url(#arrG)"/>
+    <polygon points="380,272 490,322 380,372 270,322" fill="#f0f5f0" stroke="#2a7a3a" stroke-width="1.3"/>
+    <text x="380" y="318" class="n" text-anchor="middle" font-size="13">Selects</text>
+    <text x="380" y="334" class="n" text-anchor="middle" font-size="13">mode?</text>
+  </g>
+
+  <!-- A → SERVER MODE (left) -->
+  <g filter="url(#pencil)">
+    <line x1="270" y1="322" x2="145" y2="322" stroke="#2a7a3a" stroke-width="1.3" marker-end="url(#arrG)"/>
+    <text x="205" y="310" class="eb" fill="#2a7a3a">Server</text>
+
+    <rect x="70" y="295" width="175" height="56" rx="4" fill="#e8f0e8" stroke="#2a7a3a" stroke-width="1.2"/>
+    <text x="158" y="315" class="gt" text-anchor="middle" font-size="14">Server Mode</text>
+    <text x="158" y="331" class="ns" text-anchor="middle">SnapSend starts a</text>
+    <text x="158" y="345" class="ns" text-anchor="middle">server on this device</text>
+
+    <!-- What happens -->
+    <line x1="158" y1="351" x2="158" y2="388" stroke="#2a7a3a" stroke-width="1" marker-end="url(#arrG)"/>
+
+    <rect x="58" y="388" width="200" height="72" rx="4" fill="#e8f0e8" stroke="#2a7a3a" stroke-width="1"/>
+    <text x="158" y="406" class="result" text-anchor="middle">Settings will show:</text>
+    <text x="158" y="424" class="gt" text-anchor="middle" font-size="14">Your address:</text>
+    <text x="158" y="442" class="gt" text-anchor="middle" font-size="14">http://192.168.1.5:53000</text>
+    <text x="158" y="456" class="ns" text-anchor="middle">↑ share this with User B</text>
+
+    <line x1="158" y1="460" x2="158" y2="496" stroke="#2a7a3a" stroke-width="1" marker-end="url(#arrG)"/>
+
+    <rect x="58" y="496" width="200" height="55" rx="4" fill="#e8f0e8" stroke="#2a7a3a" stroke-width="1"/>
+    <text x="158" y="514" class="result" text-anchor="middle">Optionally change</text>
+    <text x="158" y="530" class="result" text-anchor="middle">the port number</text>
+    <text x="158" y="546" class="ns" text-anchor="middle">(default is 53000)</text>
+  </g>
+
+  <!-- A → CLIENT MODE (right) -->
+  <g filter="url(#pencil)">
+    <line x1="490" y1="322" x2="555" y2="322" stroke="#2a7a3a" stroke-width="1.3" marker-end="url(#arrG)"/>
+    <text x="520" y="310" class="eb" fill="#2a7a3a">Client</text>
+
+    <rect x="455" y="295" width="185" height="56" rx="4" fill="#e8f0e8" stroke="#2a7a3a" stroke-width="1.2"/>
+    <text x="548" y="315" class="gt" text-anchor="middle" font-size="14">Client Mode</text>
+    <text x="548" y="331" class="ns" text-anchor="middle">Connects to another</text>
+    <text x="548" y="345" class="ns" text-anchor="middle">device's server</text>
+
+    <!-- What happens -->
+    <line x1="548" y1="351" x2="548" y2="388" stroke="#2a7a3a" stroke-width="1" marker-end="url(#arrG)"/>
+
+    <rect x="440" y="388" width="216" height="72" rx="4" fill="#e8f0e8" stroke="#2a7a3a" stroke-width="1"/>
+    <text x="548" y="406" class="result" text-anchor="middle">Enter the address of</text>
+    <text x="548" y="424" class="result" text-anchor="middle">User B's server, e.g.:</text>
+    <text x="548" y="442" class="gt" text-anchor="middle" font-size="14">192.168.1.10:53000</text>
+    <text x="548" y="456" class="ns" text-anchor="middle">↑ get this from User B</text>
+
+    <line x1="548" y1="460" x2="548" y2="496" stroke="#2a7a3a" stroke-width="1" marker-end="url(#arrG)"/>
+
+    <rect x="440" y="496" width="216" height="55" rx="4" fill="#e8f0e8" stroke="#2a7a3a" stroke-width="1"/>
+    <text x="548" y="514" class="result" text-anchor="middle">Click Save, then</text>
+    <text x="548" y="530" class="result" text-anchor="middle">restart SnapSend</text>
+    <text x="548" y="546" class="ns" text-anchor="middle">to connect</text>
+  </g>
+
+  <!-- ============================================================ -->
+  <!-- USER B — Right column -->
+  <!-- ============================================================ -->
+  <g filter="url(#pencilHeavy)">
+    <rect x="800" y="115" width="640" height="52" rx="26" fill="#2a5a8a" stroke="#1a3a6a" stroke-width="1.5"/>
+    <text x="1120" y="148" class="nw" text-anchor="middle" font-size="18" fill="#fff" font-family="Caveat, cursive" font-weight="700">User B</text>
+  </g>
+
+  <!-- B opens settings -->
+  <g filter="url(#pencil)">
+    <line x1="1120" y1="167" x2="1120" y2="200" stroke="#2a5a8a" stroke-width="1.2" marker-end="url(#arrB)"/>
+    <rect x="1000" y="200" width="240" height="36" rx="4" fill="#e4ecf4" stroke="#2a5a8a" stroke-width="1.2"/>
+    <text x="1120" y="223" class="n" text-anchor="middle">Opens Settings</text>
+  </g>
+
+  <!-- B decision diamond -->
+  <g filter="url(#pencil)">
+    <line x1="1120" y1="236" x2="1120" y2="272" stroke="#2a5a8a" stroke-width="1.2" marker-end="url(#arrB)"/>
+    <polygon points="1120,272 1230,322 1120,372 1010,322" fill="#eef3f8" stroke="#2a5a8a" stroke-width="1.3"/>
+    <text x="1120" y="318" class="n" text-anchor="middle" font-size="13">Selects</text>
+    <text x="1120" y="334" class="n" text-anchor="middle" font-size="13">mode?</text>
+  </g>
+
+  <!-- B → SERVER MODE (left) -->
+  <g filter="url(#pencil)">
+    <line x1="1010" y1="322" x2="888" y2="322" stroke="#2a5a8a" stroke-width="1.3" marker-end="url(#arrB)"/>
+    <text x="945" y="310" class="eb" fill="#2a5a8a">Server</text>
+
+    <rect x="810" y="295" width="178" height="56" rx="4" fill="#e4ecf4" stroke="#2a5a8a" stroke-width="1.2"/>
+    <text x="899" y="315" class="bt" text-anchor="middle" font-size="14">Server Mode</text>
+    <text x="899" y="331" class="ns" text-anchor="middle">SnapSend starts a</text>
+    <text x="899" y="345" class="ns" text-anchor="middle">server on this device</text>
+
+    <line x1="899" y1="351" x2="899" y2="388" stroke="#2a5a8a" stroke-width="1" marker-end="url(#arrB)"/>
+
+    <rect x="799" y="388" width="200" height="72" rx="4" fill="#e4ecf4" stroke="#2a5a8a" stroke-width="1"/>
+    <text x="899" y="406" class="result" text-anchor="middle">Settings will show:</text>
+    <text x="899" y="424" class="bt" text-anchor="middle" font-size="14">Your address:</text>
+    <text x="899" y="442" class="bt" text-anchor="middle" font-size="14">http://192.168.1.10:53000</text>
+    <text x="899" y="456" class="ns" text-anchor="middle">↑ share this with User A</text>
+
+    <line x1="899" y1="460" x2="899" y2="496" stroke="#2a5a8a" stroke-width="1" marker-end="url(#arrB)"/>
+
+    <rect x="799" y="496" width="200" height="55" rx="4" fill="#e4ecf4" stroke="#2a5a8a" stroke-width="1"/>
+    <text x="899" y="514" class="result" text-anchor="middle">Optionally change</text>
+    <text x="899" y="530" class="result" text-anchor="middle">the port number</text>
+    <text x="899" y="546" class="ns" text-anchor="middle">(default is 53000)</text>
+  </g>
+
+  <!-- B → CLIENT MODE (right) -->
+  <g filter="url(#pencil)">
+    <line x1="1230" y1="322" x2="1299" y2="322" stroke="#2a5a8a" stroke-width="1.3" marker-end="url(#arrB)"/>
+    <text x="1262" y="310" class="eb" fill="#2a5a8a">Client</text>
+
+    <rect x="1199" y="295" width="200" height="56" rx="4" fill="#e4ecf4" stroke="#2a5a8a" stroke-width="1.2"/>
+    <text x="1299" y="315" class="bt" text-anchor="middle" font-size="14">Client Mode</text>
+    <text x="1299" y="331" class="ns" text-anchor="middle">Connects to another</text>
+    <text x="1299" y="345" class="ns" text-anchor="middle">device's server</text>
+
+    <line x1="1299" y1="351" x2="1299" y2="388" stroke="#2a5a8a" stroke-width="1" marker-end="url(#arrB)"/>
+
+    <rect x="1191" y="388" width="216" height="72" rx="4" fill="#e4ecf4" stroke="#2a5a8a" stroke-width="1"/>
+    <text x="1299" y="406" class="result" text-anchor="middle">Enter the address of</text>
+    <text x="1299" y="424" class="result" text-anchor="middle">User A's server, e.g.:</text>
+    <text x="1299" y="442" class="bt" text-anchor="middle" font-size="14">192.168.1.5:53000</text>
+    <text x="1299" y="456" class="ns" text-anchor="middle">↑ get this from User A</text>
+
+    <line x1="1299" y1="460" x2="1299" y2="496" stroke="#2a5a8a" stroke-width="1" marker-end="url(#arrB)"/>
+
+    <rect x="1191" y="496" width="216" height="55" rx="4" fill="#e4ecf4" stroke="#2a5a8a" stroke-width="1"/>
+    <text x="1299" y="514" class="result" text-anchor="middle">Click Save, then</text>
+    <text x="1299" y="530" class="result" text-anchor="middle">restart SnapSend</text>
+    <text x="1299" y="546" class="ns" text-anchor="middle">to connect</text>
+  </g>
+
+  <!-- ============================================================ -->
+  <!-- MIDDLE DIVIDER -->
+  <!-- ============================================================ -->
+  <g filter="url(#pencil)">
+    <line x1="750" y1="130" x2="750" y2="560" stroke="#3a3a3a" stroke-width="0.8" stroke-dasharray="8,5" opacity="0.2"/>
+  </g>
+
+  <!-- ============================================================ -->
+  <!-- THE 4 PAIRING SCENARIOS -->
+  <!-- ============================================================ -->
+  <g filter="url(#pencil)">
+    <line x1="100" y1="600" x2="1400" y2="600" stroke="#3a3a3a" stroke-width="0.8" stroke-dasharray="6,4" opacity="0.3"/>
+    <text x="750" y="636" class="title" text-anchor="middle" font-size="30">What Happens When They Pair?</text>
+    <text x="750" y="660" class="sub" text-anchor="middle" font-size="16">There are four possible combinations</text>
+  </g>
+
+  <!-- Scenario 1: A=Server, B=Client ✓ -->
+  <g filter="url(#pencil)">
+    <rect x="70" y="690" width="310" height="160" rx="6" fill="#e8f5eb" stroke="#2a7a3a" stroke-width="1.5"/>
+    <text x="225" y="715" font-family="Caveat, cursive" font-weight="700" font-size="18" fill="#2a7a3a" text-anchor="middle">✓  A = Server, B = Client</text>
+    <line x1="100" y1="725" x2="350" y2="725" stroke="#2a7a3a" stroke-width="0.6" opacity="0.3"/>
+    <text x="225" y="748" class="result" text-anchor="middle">User A runs the server.</text>
+    <text x="225" y="766" class="result" text-anchor="middle">User B types A's address</text>
+    <text x="225" y="784" class="result" text-anchor="middle">into Client Mode and connects.</text>
+    <text x="225" y="808" class="gt" text-anchor="middle" font-size="15">Both devices can transfer</text>
+    <text x="225" y="826" class="gt" text-anchor="middle" font-size="15">files to each other.</text>
+    <text x="225" y="845" class="ns" text-anchor="middle" fill="#2a7a3a" font-size="12">← This is the main use case</text>
+  </g>
+
+  <!-- Scenario 2: A=Client, B=Server ✓ -->
+  <g filter="url(#pencil)">
+    <rect x="410" y="690" width="310" height="160" rx="6" fill="#e8f5eb" stroke="#2a7a3a" stroke-width="1.5"/>
+    <text x="565" y="715" font-family="Caveat, cursive" font-weight="700" font-size="18" fill="#2a7a3a" text-anchor="middle">✓  A = Client, B = Server</text>
+    <line x1="440" y1="725" x2="690" y2="725" stroke="#2a7a3a" stroke-width="0.6" opacity="0.3"/>
+    <text x="565" y="748" class="result" text-anchor="middle">User B runs the server.</text>
+    <text x="565" y="766" class="result" text-anchor="middle">User A types B's address</text>
+    <text x="565" y="784" class="result" text-anchor="middle">into Client Mode and connects.</text>
+    <text x="565" y="808" class="gt" text-anchor="middle" font-size="15">Both devices can transfer</text>
+    <text x="565" y="826" class="gt" text-anchor="middle" font-size="15">files to each other.</text>
+    <text x="565" y="845" class="ns" text-anchor="middle" fill="#2a7a3a" font-size="12">Same result — just reversed roles</text>
+  </g>
+
+  <!-- Scenario 3: Both Server ✗ -->
+  <g filter="url(#pencil)">
+    <rect x="780" y="690" width="310" height="160" rx="6" fill="#fde8e8" stroke="#a03030" stroke-width="1.5"/>
+    <text x="935" y="715" font-family="Caveat, cursive" font-weight="700" font-size="18" fill="#a03030" text-anchor="middle">✗  Both are Servers</text>
+    <line x1="810" y1="725" x2="1060" y2="725" stroke="#a03030" stroke-width="0.6" opacity="0.3"/>
+    <text x="935" y="748" class="result" text-anchor="middle">Both devices start their</text>
+    <text x="935" y="766" class="result" text-anchor="middle">own server and wait for</text>
+    <text x="935" y="784" class="result" text-anchor="middle">a client to connect.</text>
+    <text x="935" y="808" font-family="Architects Daughter, cursive" font-size="15" fill="#a03030" text-anchor="middle">Nobody connects.</text>
+    <text x="935" y="826" font-family="Architects Daughter, cursive" font-size="15" fill="#a03030" text-anchor="middle">No file transfers.</text>
+    <text x="935" y="845" class="ns" text-anchor="middle" fill="#a03030" font-size="12">One device must switch to Client</text>
+  </g>
+
+  <!-- Scenario 4: Both Client ✗ -->
+  <g filter="url(#pencil)">
+    <rect x="1120" y="690" width="310" height="160" rx="6" fill="#fde8e8" stroke="#a03030" stroke-width="1.5"/>
+    <text x="1275" y="715" font-family="Caveat, cursive" font-weight="700" font-size="18" fill="#a03030" text-anchor="middle">✗  Both are Clients</text>
+    <line x1="1150" y1="725" x2="1400" y2="725" stroke="#a03030" stroke-width="0.6" opacity="0.3"/>
+    <text x="1275" y="748" class="result" text-anchor="middle">Both devices try to connect</text>
+    <text x="1275" y="766" class="result" text-anchor="middle">to the other — but neither</text>
+    <text x="1275" y="784" class="result" text-anchor="middle">is running a server.</text>
+    <text x="1275" y="808" font-family="Architects Daughter, cursive" font-size="15" fill="#a03030" text-anchor="middle">Nobody is listening.</text>
+    <text x="1275" y="826" font-family="Architects Daughter, cursive" font-size="15" fill="#a03030" text-anchor="middle">No file transfers.</text>
+    <text x="1275" y="845" class="ns" text-anchor="middle" fill="#a03030" font-size="12">One device must switch to Server</text>
+  </g>
+
+  <!-- ============================================================ -->
+  <!-- KEY TAKEAWAY -->
+  <!-- ============================================================ -->
+  <g filter="url(#pencil)">
+    <line x1="100" y1="890" x2="1400" y2="890" stroke="#3a3a3a" stroke-width="0.8" stroke-dasharray="6,4" opacity="0.3"/>
+
+    <rect x="350" y="920" width="800" height="130" rx="8" fill="#f8f8f4" stroke="#3a3a3a" stroke-width="1.3"/>
+    <text x="750" y="952" font-family="Caveat, cursive" font-weight="700" font-size="24" fill="#2a2a2a" text-anchor="middle">The Rule</text>
+    <line x1="400" y1="962" x2="1100" y2="962" stroke="#3a3a3a" stroke-width="0.5" opacity="0.2"/>
+    <text x="750" y="990" class="result" text-anchor="middle" font-size="15">One device must be the Server and the other must be the Client.</text>
+    <text x="750" y="1012" class="result" text-anchor="middle" font-size="15">It doesn't matter which is which — just pick one of each.</text>
+    <text x="750" y="1038" class="ns" text-anchor="middle" font-size="13">Both devices must be on the same WiFi network.</text>
+  </g>
+</svg>

@@ -70,6 +70,23 @@ export function initializeDatabase() {
     sqlite.exec(`ALTER TABLE devices ADD COLUMN uuid TEXT`);
   } catch {}
 
+  // Migrate: add tags and metadata columns to files if they don't exist
+  try {
+    sqlite.exec(`ALTER TABLE files ADD COLUMN tags TEXT`);
+  } catch {}
+  try {
+    sqlite.exec(`ALTER TABLE files ADD COLUMN metadata TEXT`);
+  } catch {}
+
+  // Migrate: create tags vocabulary table if it doesn't exist
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS tags (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
+
   // Mark all devices as offline on startup (clean slate)
   sqlite.exec(`UPDATE devices SET is_online = 0, socket_id = NULL`);
 

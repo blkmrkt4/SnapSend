@@ -1,5 +1,21 @@
 import { spawn, type ChildProcess } from 'child_process';
 import { lookup as dnsLookup } from 'dns';
+import { networkInterfaces } from 'os';
+
+/**
+ * Get the local IPv4 address (non-internal, first match)
+ */
+function getLocalIPv4(): string | null {
+  const nets = networkInterfaces();
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name] || []) {
+      if (net.family === 'IPv4' && !net.internal) {
+        return net.address;
+      }
+    }
+  }
+  return null;
+}
 
 export interface PeerInfo {
   id: string;
@@ -70,6 +86,7 @@ export class DiscoveryManager {
     }
 
     // dns-sd -R <name> <type> <domain> <port> [key=value ...]
+    const localIP = getLocalIPv4();
     const args = [
       '-R',
       `liquidrelay-${this.localId}`,
@@ -78,6 +95,7 @@ export class DiscoveryManager {
       String(this.localPort),
       `id=${this.localId}`,
       `deviceName=${this.localName}`,
+      `ip=${localIP || ''}`,
     ];
 
     console.log(`[Discovery] Registering: dns-sd ${args.join(' ')}`);
@@ -234,9 +252,20 @@ export class DiscoveryManager {
 
       const peerId = txt.id || instanceName.replace(/^liquidrelay-/, '');
       const peerName = txt.deviceName || instanceName;
+      const txtIP = txt.ip; // IP address from TXT record (Windows advertises this)
 
       if (peerId === this.localId) return;
       if (this.peers.has(peerId)) return;
+
+      // If TXT record contains an IP, use it directly (Windows peers)
+      if (txtIP && /^\d+\.\d+\.\d+\.\d+$/.test(txtIP)) {
+        console.log(`[Discovery] Using IP from TXT record: ${txtIP}`);
+        const peer: PeerInfo = { id: peerId, name: peerName, host: txtIP, port };
+        this.peers.set(peerId, peer);
+        console.log(`[Discovery] Peer discovered: ${peerName} at ${txtIP}:${port}`);
+        this.onPeerDiscovered?.(peer);
+        return;
+      }
 
       // Resolve .local hostname to IP address — Node's ws/http client
       // doesn't reliably resolve mDNS hostnames on all machines.
@@ -298,9 +327,20 @@ export class DiscoveryManager {
         const txt = service.txt as Record<string, string> | undefined;
         const peerId = txt?.id;
         const peerName = txt?.deviceName || service.name;
+        const txtIP = txt?.ip; // IP from TXT record
         if (!peerId || peerId === this.localId || this.peers.has(peerId)) return;
 
-        // Resolve hostname to IP — Windows doesn't reliably resolve .local hostnames
+        // Prefer IP from TXT record (cross-platform compatibility)
+        if (txtIP && /^\d+\.\d+\.\d+\.\d+$/.test(txtIP)) {
+          console.log(`[Discovery] Using IP from TXT record: ${txtIP}`);
+          const peer: PeerInfo = { id: peerId, name: peerName, host: txtIP, port: service.port };
+          this.peers.set(peerId, peer);
+          console.log(`[Discovery] Peer discovered: ${peerName} at ${txtIP}:${service.port}`);
+          this.onPeerDiscovered?.(peer);
+          return;
+        }
+
+        // Fallback: resolve hostname to IP
         const rawHost = service.host;
         dnsLookup(rawHost, { family: 4 }, (err, ip) => {
           if (this.peers.has(peerId)) return;
@@ -326,14 +366,15 @@ export class DiscoveryManager {
         }
       });
 
+      const localIP = getLocalIPv4();
       this.bonjour.publish({
         name: `liquidrelay-${this.localId}`,
         type: 'liquidrelay',
         port: this.localPort,
-        txt: { id: this.localId, deviceName: this.localName },
+        txt: { id: this.localId, deviceName: this.localName, ip: localIP || '' },
       });
 
-      console.log(`[Discovery] Fallback: publishing _liquidrelay._tcp on port ${this.localPort}`);
+      console.log(`[Discovery] Fallback: publishing _liquidrelay._tcp on port ${this.localPort} (IP: ${localIP || 'unknown'})`);
 
       this.refreshTimer = setInterval(() => {
         if (this.started && this.bonjour) {
@@ -342,7 +383,16 @@ export class DiscoveryManager {
             const txt = service.txt as Record<string, string> | undefined;
             const peerId = txt?.id;
             const peerName = txt?.deviceName || service.name;
+            const txtIP = txt?.ip;
             if (!peerId || peerId === this.localId || this.peers.has(peerId)) return;
+
+            // Prefer IP from TXT record
+            if (txtIP && /^\d+\.\d+\.\d+\.\d+$/.test(txtIP)) {
+              const peer: PeerInfo = { id: peerId, name: peerName, host: txtIP, port: service.port };
+              this.peers.set(peerId, peer);
+              this.onPeerDiscovered?.(peer);
+              return;
+            }
 
             const rawHost = service.host;
             dnsLookup(rawHost, { family: 4 }, (err, ip) => {
