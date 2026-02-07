@@ -428,6 +428,22 @@ export class DiscoveryManager {
     }
   }
 
+  /**
+   * Add a peer that connected to us (reverse discovery).
+   * When a remote peer initiates a connection to our server, we learn about
+   * them through the handshake. This adds them to the discovered peers list.
+   */
+  addIncomingPeer(peerId: string, peerName: string): void {
+    if (peerId === this.localId || this.peers.has(peerId)) return;
+
+    // We don't know their host/port since they connected to us, but we can
+    // still add them to the list so the UI shows them.
+    const peer: PeerInfo = { id: peerId, name: peerName, host: '', port: 0 };
+    this.peers.set(peerId, peer);
+    console.log(`[Discovery] Added incoming peer: ${peerName} (${peerId})`);
+    this.onPeerDiscovered?.(peer);
+  }
+
   restart() {
     console.log('[Discovery] Manual restart requested');
     this.peers.clear();

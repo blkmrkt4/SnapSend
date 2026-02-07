@@ -238,6 +238,10 @@ async function startApp() {
           if (pm) {
             pm.handleIncomingHandshake(ws, peerId, peerName);
           }
+          // Also add to discovery so the UI shows this peer
+          if (discovery) {
+            discovery.addIncomingPeer(peerId, peerName);
+          }
         },
       });
       serverPort = result.port;
