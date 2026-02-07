@@ -158,7 +158,7 @@ export class DiscoveryManager {
     }
 
     // Extract instance name: everything after the service type column
-    const match = trimmed.match(/_snapsend\._tcp\.\s+(.+)/);
+    const match = trimmed.match(/_liquidrelay\._tcp\.\s+(.+)/);
     if (!match) return;
     const instanceName = match[1].trim();
 
@@ -294,7 +294,7 @@ export class DiscoveryManager {
       const Bonjour = require('bonjour-service').default || require('bonjour-service');
       this.bonjour = new Bonjour();
 
-      this.browser = this.bonjour.find({ type: 'snapsend' }, (service: any) => {
+      this.browser = this.bonjour.find({ type: 'liquidrelay' }, (service: any) => {
         const txt = service.txt as Record<string, string> | undefined;
         const peerId = txt?.id;
         const peerName = txt?.deviceName || service.name;
@@ -328,7 +328,7 @@ export class DiscoveryManager {
 
       this.bonjour.publish({
         name: `liquidrelay-${this.localId}`,
-        type: 'snapsend',
+        type: 'liquidrelay',
         port: this.localPort,
         txt: { id: this.localId, deviceName: this.localName },
       });
@@ -338,7 +338,7 @@ export class DiscoveryManager {
       this.refreshTimer = setInterval(() => {
         if (this.started && this.bonjour) {
           if (this.browser) { try { this.browser.stop(); } catch {} }
-          this.browser = this.bonjour.find({ type: 'snapsend' }, (service: any) => {
+          this.browser = this.bonjour.find({ type: 'liquidrelay' }, (service: any) => {
             const txt = service.txt as Record<string, string> | undefined;
             const peerId = txt?.id;
             const peerName = txt?.deviceName || service.name;
