@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Search, RefreshCw, Trash2, Download, Eye, FileImage, FileText, Clipboard } from 'lucide-react';
+import { Search, RefreshCw, Trash2, Download, Eye, FileImage, FileText, Clipboard, Check } from 'lucide-react';
 import { type File } from '@shared/schema';
 import { useFileTransfer } from '@/hooks/useFileTransfer';
 
@@ -21,6 +21,7 @@ export function ExpandedFileManager({
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [deviceFilter, setDeviceFilter] = useState('all');
+  const [copiedFileId, setCopiedFileId] = useState<number | null>(null);
   const { downloadFile } = useFileTransfer();
 
   const filteredFiles = useMemo(() => {
@@ -61,11 +62,13 @@ export function ExpandedFileManager({
     }
   };
 
-  const copyToClipboard = async (content: string, e: React.MouseEvent) => {
+  const copyToClipboard = async (content: string, fileId: number, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
       if (navigator.clipboard) {
         await navigator.clipboard.writeText(content);
+        setCopiedFileId(fileId);
+        setTimeout(() => setCopiedFileId(null), 2000);
       }
     } catch (error) {
       console.error('Error copying to clipboard:', error);
@@ -212,10 +215,21 @@ export function ExpandedFileManager({
 
                   {file.isClipboard && file.content && (
                     <button
-                      className="mt-2 w-full bg-green-100 text-green-800 py-1.5 px-3 rounded text-xs font-medium hover:bg-green-200 transition-colors"
-                      onClick={(e) => copyToClipboard(file.content!, e)}
+                      className={`mt-2 w-full py-1.5 px-3 rounded text-xs font-medium transition-all duration-200 flex items-center justify-center gap-1 ${
+                        copiedFileId === file.id
+                          ? 'bg-green-500 text-white'
+                          : 'bg-green-100 text-green-800 hover:bg-green-200'
+                      }`}
+                      onClick={(e) => copyToClipboard(file.content!, file.id, e)}
                     >
-                      Copy to Clipboard
+                      {copiedFileId === file.id ? (
+                        <>
+                          <Check className="w-3 h-3" />
+                          Copied!
+                        </>
+                      ) : (
+                        'Copy to Clipboard'
+                      )}
                     </button>
                   )}
                 </div>

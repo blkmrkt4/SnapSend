@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Download, FileImage, FileText, Clipboard, EyeOff, ChevronDown, ChevronRight } from 'lucide-react';
+import { X, Download, FileImage, FileText, Clipboard, EyeOff, ChevronDown, ChevronRight, Check } from 'lucide-react';
 import { type File } from '@shared/schema';
 import { useFileTransfer } from '@/hooks/useFileTransfer';
 import { MetadataPanel } from './MetadataPanel';
@@ -18,6 +18,7 @@ interface FilePreviewModalProps {
 export function FilePreviewModal({ file, isOpen, onClose, onUpdateTags, onAddTag, onDeleteTag, allTags = [] }: FilePreviewModalProps) {
   const { downloadFile } = useFileTransfer();
   const [showDetails, setShowDetails] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   if (!isOpen || !file) return null;
 
@@ -123,18 +124,31 @@ export function FilePreviewModal({ file, isOpen, onClose, onUpdateTags, onAddTag
               </div>
               <div className="mt-4 flex space-x-2">
                 <button
-                  className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+                  className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    copied
+                      ? 'bg-green-500 text-white'
+                      : 'bg-primary text-white hover:bg-primary/90'
+                  }`}
                   onClick={async () => {
                     try {
                       if (navigator.clipboard) {
                         await navigator.clipboard.writeText(file.content!);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
                       }
                     } catch (error) {
                       console.error('Error copying to clipboard:', error);
                     }
                   }}
                 >
-                  Copy to Clipboard
+                  {copied ? (
+                    <>
+                      <Check className="w-4 h-4" />
+                      Copied!
+                    </>
+                  ) : (
+                    'Copy to Clipboard'
+                  )}
                 </button>
               </div>
             </div>
