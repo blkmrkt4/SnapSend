@@ -2,8 +2,11 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { type Device, type Connection, type File } from '@shared/schema';
 import '@/types/electron.d.ts';
 
+// Special ID representing "this device" (local save only, no send)
+export const LOCAL_DEVICE_ID = '__local__';
+
 interface ExtendedFile extends File {
-  transferType?: 'sent' | 'received' | 'queued';
+  transferType?: 'sent' | 'received' | 'queued' | 'saved';
   fromDevice?: string;
 }
 
@@ -130,7 +133,7 @@ export function useConnectionSystem() {
     notifications: [],
     isElectronMode: isElectron,
     pendingFiles: [],
-    selectedTargetId: null,
+    selectedTargetId: LOCAL_DEVICE_ID, // Default to "This Device" (local save only)
     knownDevices: loadKnownDevices(),
     allTags: [],
   });
@@ -683,6 +686,61 @@ export function useConnectionSystem() {
   const sendFile = useCallback((fileData: any) => {
     const targetId = state.selectedTargetId;
 
+    // ─── LOCAL DEVICE (save locally only, no send, no queue) ───
+    if (targetId === LOCAL_DEVICE_ID) {
+      (async () => {
+        try {
+          const response = await fetch('/api/files/record-sent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              filename: fileData.filename,
+              originalName: fileData.originalName,
+              mimeType: fileData.mimeType,
+              size: fileData.size,
+              content: fileData.content,
+              isClipboard: fileData.isClipboard,
+              toDeviceName: 'local',
+            }),
+          });
+          const savedFile = response.ok ? await response.json() : null;
+
+          setState(prev => ({
+            ...prev,
+            files: [{
+              ...(savedFile || {
+                id: Date.now() + Math.random(),
+                filename: fileData.filename,
+                originalName: fileData.originalName,
+                mimeType: fileData.mimeType,
+                size: fileData.size,
+                content: fileData.content,
+                isClipboard: fileData.isClipboard ? 1 : 0,
+                transferredAt: new Date().toISOString(),
+                fromDeviceId: null,
+                toDeviceId: null,
+                connectionId: null,
+                fromDeviceName: null,
+                toDeviceName: 'local',
+              }),
+              transferType: 'saved' as const,
+              fromDevice: undefined,
+            } as ExtendedFile, ...prev.files],
+            notifications: [...prev.notifications, {
+              id: Date.now(),
+              type: 'file-saved',
+              title: fileData.isClipboard ? 'Clipboard saved' : 'File saved',
+              message: `${fileData.originalName} saved to this device`,
+              timestamp: new Date(),
+            }],
+          }));
+        } catch (error) {
+          console.error('Error saving file locally:', error);
+        }
+      })();
+      return;
+    }
+
     // ─── RELAY PATH (Electron P2P): target is a browser client on a peer's server ───
     if (targetId && targetId.startsWith('relay:') && isElectron) {
       const clientId = targetId.replace('relay:', '');
@@ -883,9 +941,9 @@ export function useConnectionSystem() {
       return;
     }
 
-    // No target selected — broadcast to all (original behavior)
+    // No target selected (All Connected Devices) — broadcast to all
     if (state.connections.length === 0) {
-      // No connections — save locally to database for persistence
+      // No connections — save locally (security: no queuing for "All Devices" mode)
       (async () => {
         try {
           const response = await fetch('/api/files/record-sent', {
@@ -898,7 +956,7 @@ export function useConnectionSystem() {
               size: fileData.size,
               content: fileData.content,
               isClipboard: fileData.isClipboard,
-              toDeviceName: null,
+              toDeviceName: 'local',
             }),
           });
           const savedFile = response.ok ? await response.json() : null;
@@ -919,7 +977,7 @@ export function useConnectionSystem() {
                 toDeviceId: null,
                 connectionId: null,
                 fromDeviceName: null,
-                toDeviceName: null,
+                toDeviceName: 'local',
               }),
               transferType: 'sent' as const,
               fromDevice: undefined,
@@ -928,42 +986,12 @@ export function useConnectionSystem() {
               id: Date.now(),
               type: 'file-sent',
               title: fileData.isClipboard ? 'Clipboard saved' : 'File saved',
-              message: `${fileData.originalName} saved locally`,
+              message: `No devices connected — ${fileData.originalName} saved locally`,
               timestamp: new Date(),
             }],
           }));
         } catch (error) {
           console.error('Error saving file locally:', error);
-          // Fallback to old queued behavior
-          const pendingId = Date.now() + Math.random();
-          setState(prev => ({
-            ...prev,
-            pendingFiles: [...prev.pendingFiles, { id: pendingId, fileData, queuedAt: new Date() }],
-            files: [{
-              id: pendingId,
-              filename: fileData.filename,
-              originalName: fileData.originalName,
-              mimeType: fileData.mimeType,
-              size: fileData.size,
-              content: fileData.content,
-              isClipboard: fileData.isClipboard ? 1 : 0,
-              transferredAt: new Date().toISOString(),
-              transferType: 'queued' as const,
-              fromDevice: undefined,
-              fromDeviceId: null,
-              toDeviceId: null,
-              connectionId: null,
-              fromDeviceName: null,
-              toDeviceName: null,
-            } as ExtendedFile, ...prev.files],
-            notifications: [...prev.notifications, {
-              id: Date.now(),
-              type: 'file-queued',
-              title: 'File queued',
-              message: `${fileData.originalName} queued — connect to a device to send`,
-              timestamp: new Date(),
-            }],
-          }));
         }
       })();
       return;
@@ -1258,63 +1286,44 @@ export function useConnectionSystem() {
   }, [isElectron, connect]);
 
   // Auto-flush pending files when a matching connection appears
+  // NOTE: Only flushes for specific device targets, NOT for "All Devices" (security)
   useEffect(() => {
     if (state.pendingFiles.length === 0 || state.connections.length === 0) return;
 
     const targetId = state.selectedTargetId;
 
-    // If a target is selected, check if it's now connected
-    if (targetId) {
-      const targetConn = state.connections.find(
-        (c: any) => c.peerId === targetId || c.id === targetId || String(c.id) === targetId
-      );
-      if (!targetConn) return; // Target not yet connected
+    // Never auto-flush for LOCAL_DEVICE_ID or null (All Devices)
+    // - LOCAL_DEVICE_ID files are saved locally, never queued
+    // - null (All Devices) files are saved locally when no connections; we don't want
+    //   files to auto-send to whoever connects later (security protection)
+    if (!targetId || targetId === LOCAL_DEVICE_ID) return;
 
-      // Flush all pending files to this target
-      const filesToSend = [...state.pendingFiles];
-      const pendingIds = filesToSend.map(p => p.id);
+    // A specific target is selected — check if it's now connected
+    const targetConn = state.connections.find(
+      (c: any) => c.peerId === targetId || c.id === targetId || String(c.id) === targetId
+    );
+    if (!targetConn) return; // Target not yet connected
 
-      // Clear pending files from state first
-      setState(prev => ({
-        ...prev,
-        pendingFiles: prev.pendingFiles.filter(p => !pendingIds.includes(p.id)),
-        // Remove the "pending" file entries — they'll be re-added by the send confirmation
-        files: prev.files.filter(f => !pendingIds.includes(f.id)),
-      }));
-
-      // Send each queued file
-      for (const pending of filesToSend) {
-        if (window.electronAPI?.sendFile) {
-          window.electronAPI.sendFile(targetConn.peerId, pending.fileData);
-        } else if (wsRef.current?.readyState === WebSocket.OPEN) {
-          wsRef.current.send(JSON.stringify({
-            type: 'file-transfer',
-            data: { ...pending.fileData, targetConnectionId: targetConn.id }
-          }));
-        }
-      }
-      return;
-    }
-
-    // No target selected — flush to first available connection (broadcast)
+    // Flush all pending files to this target
     const filesToSend = [...state.pendingFiles];
     const pendingIds = filesToSend.map(p => p.id);
 
+    // Clear pending files from state first
     setState(prev => ({
       ...prev,
-      pendingFiles: [],
+      pendingFiles: prev.pendingFiles.filter(p => !pendingIds.includes(p.id)),
+      // Remove the "pending" file entries — they'll be re-added by the send confirmation
       files: prev.files.filter(f => !pendingIds.includes(f.id)),
     }));
 
+    // Send each queued file
     for (const pending of filesToSend) {
       if (window.electronAPI?.sendFile) {
-        for (const conn of state.connections) {
-          window.electronAPI.sendFile(conn.peerId, pending.fileData);
-        }
+        window.electronAPI.sendFile(targetConn.peerId, pending.fileData);
       } else if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({
           type: 'file-transfer',
-          data: pending.fileData
+          data: { ...pending.fileData, targetConnectionId: targetConn.id }
         }));
       }
     }

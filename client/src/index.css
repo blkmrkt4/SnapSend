@@ -48,43 +48,60 @@
   --radius: 0.5rem;
 }
 
-/* Colorful Swirling Mist Animation */
-@keyframes swirl1 {
-  0% { transform: translateX(-50%) translateY(50%) rotate(0deg) scale(0); opacity: 0; }
-  20% { opacity: 0.8; transform: translateX(-30%) translateY(30%) rotate(90deg) scale(0.5); }
-  50% { opacity: 1; transform: translateX(10%) translateY(-10%) rotate(180deg) scale(1); }
-  80% { opacity: 0.6; transform: translateX(30%) translateY(-30%) rotate(270deg) scale(0.8); }
-  100% { opacity: 0; transform: translateX(50%) translateY(-50%) rotate(360deg) scale(0); }
+/* ============================================
+   Liquid Whirlpool Animation
+   ============================================ */
+
+/* Spiral inward animation for droplets */
+@keyframes spiral-in {
+  0% {
+    transform: rotate(0deg) translateX(80px) rotate(0deg) scale(1);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: rotate(720deg) translateX(0px) rotate(-720deg) scale(0);
+    opacity: 0;
+  }
 }
 
-@keyframes swirl2 {
-  0% { transform: translateX(50%) translateY(50%) rotate(0deg) scale(0); opacity: 0; }
-  20% { opacity: 0.7; transform: translateX(30%) translateY(20%) rotate(-90deg) scale(0.6); }
-  50% { opacity: 1; transform: translateX(-10%) translateY(-20%) rotate(-180deg) scale(1.2); }
-  80% { opacity: 0.5; transform: translateX(-40%) translateY(-40%) rotate(-270deg) scale(0.7); }
-  100% { opacity: 0; transform: translateX(-50%) translateY(-50%) rotate(-360deg) scale(0); }
+/* Central vortex spin */
+@keyframes vortex-spin {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg) scale(0.5);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(180deg) scale(1);
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(720deg) scale(0);
+    opacity: 0;
+  }
 }
 
-@keyframes swirl3 {
-  0% { transform: translateX(0%) translateY(60%) rotate(45deg) scale(0); opacity: 0; }
-  25% { opacity: 0.9; transform: translateX(20%) translateY(40%) rotate(135deg) scale(0.8); }
-  60% { opacity: 1; transform: translateX(-20%) translateY(10%) rotate(225deg) scale(1.1); }
-  85% { opacity: 0.4; transform: translateX(-30%) translateY(-20%) rotate(315deg) scale(0.6); }
-  100% { opacity: 0; transform: translateX(0%) translateY(-60%) rotate(405deg) scale(0); }
+/* Ripple ring expansion */
+@keyframes ring-expand {
+  0% {
+    transform: translate(-50%, -50%) scale(0.2);
+    opacity: 0.8;
+    border-width: 3px;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0;
+    border-width: 1px;
+  }
 }
 
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
-}
-
-@keyframes fadeInOut {
-  0% { opacity: 0; }
-  50% { opacity: 1; }
-  100% { opacity: 0; }
-}
-
-.mist-animation {
+/* Container */
+.whirlpool-animation {
   position: absolute;
   top: 0;
   left: 0;
@@ -95,75 +112,100 @@
   border-radius: inherit;
 }
 
-.mist-particle {
+/* Central vortex spiral */
+.whirlpool-vortex {
   position: absolute;
-  border-radius: 50%;
-  filter: blur(8px);
-  opacity: 0.7;
-}
-
-.mist-particle:nth-child(1) {
-  width: 120px;
-  height: 80px;
-  background: radial-gradient(ellipse at center, rgba(255, 0, 128, 0.6), rgba(128, 0, 255, 0.3), transparent 70%);
-  top: 15%;
-  left: 10%;
-  animation: swirl1 2s ease-in-out forwards;
-  border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
-}
-
-.mist-particle:nth-child(2) {
-  width: 100px;
-  height: 70px;
-  background: radial-gradient(ellipse at center, rgba(0, 255, 128, 0.6), rgba(0, 128, 255, 0.3), transparent 70%);
   top: 50%;
-  left: 65%;
-  animation: swirl2 2.5s ease-in-out 0.3s forwards;
-  border-radius: 40% 60% 70% 30% / 40% 70% 30% 60%;
-}
-
-.mist-particle:nth-child(3) {
-  width: 90px;
+  left: 50%;
+  width: 60px;
   height: 60px;
-  background: radial-gradient(ellipse at center, rgba(255, 128, 0, 0.6), rgba(255, 255, 0, 0.3), transparent 70%);
-  top: 35%;
-  left: 45%;
-  animation: swirl3 2.2s ease-in-out 0.6s forwards;
-  border-radius: 70% 30% 60% 40% / 30% 60% 40% 70%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0%,
+    var(--liquid-teal) 25%,
+    var(--liquid-teal-dark) 50%,
+    var(--liquid-teal) 75%,
+    transparent 100%
+  );
+  border-radius: 50%;
+  animation: vortex-spin 1.8s ease-in-out forwards;
+  filter: blur(2px);
 }
 
-.mist-particle:nth-child(4) {
-  width: 80px;
-  height: 50px;
-  background: radial-gradient(ellipse at center, rgba(128, 255, 0, 0.6), rgba(0, 255, 255, 0.3), transparent 70%);
-  top: 65%;
-  left: 25%;
-  animation: swirl1 2.8s ease-in-out 0.2s forwards;
-  border-radius: 50% 50% 80% 20% / 60% 40% 60% 40%;
+/* Liquid droplets */
+.whirlpool-droplet {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 16px;
+  background: linear-gradient(180deg, var(--liquid-teal) 0%, var(--liquid-teal-dark) 100%);
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  transform-origin: center center;
+  animation: spiral-in 1.6s ease-in forwards;
+  box-shadow: 0 0 8px rgba(79, 209, 197, 0.6);
 }
 
-.mist-particle:nth-child(5) {
-  width: 110px;
-  height: 75px;
-  background: radial-gradient(ellipse at center, rgba(255, 0, 255, 0.6), rgba(255, 128, 128, 0.3), transparent 70%);
-  top: 25%;
-  left: 75%;
-  animation: swirl2 2.3s ease-in-out 0.5s forwards;
-  border-radius: 30% 70% 40% 60% / 70% 30% 60% 40%;
+.whirlpool-droplet-1 {
+  animation-delay: 0s;
 }
 
-.mist-particle:nth-child(6) {
-  width: 95px;
-  height: 65px;
-  background: radial-gradient(ellipse at center, rgba(0, 128, 255, 0.6), rgba(128, 0, 255, 0.3), transparent 70%);
-  top: 75%;
-  left: 55%;
-  animation: swirl3 2.6s ease-in-out 0.1s forwards;
-  border-radius: 60% 40% 50% 50% / 40% 60% 70% 30%;
+.whirlpool-droplet-2 {
+  animation-delay: 0.1s;
+  width: 10px;
+  height: 14px;
 }
 
-.mist-container {
-  animation: fadeInOut 3s ease-in-out forwards;
+.whirlpool-droplet-3 {
+  animation-delay: 0.2s;
+  width: 14px;
+  height: 18px;
+}
+
+.whirlpool-droplet-4 {
+  animation-delay: 0.3s;
+  width: 8px;
+  height: 12px;
+}
+
+.whirlpool-droplet-5 {
+  animation-delay: 0.4s;
+  width: 11px;
+  height: 15px;
+}
+
+.whirlpool-droplet-6 {
+  animation-delay: 0.5s;
+  width: 9px;
+  height: 13px;
+}
+
+/* Concentric ripple rings */
+.whirlpool-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  border: 2px solid var(--liquid-teal);
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  animation: ring-expand 1.2s ease-out forwards;
+}
+
+.whirlpool-ring-1 {
+  animation-delay: 0s;
+  border-color: var(--liquid-teal);
+}
+
+.whirlpool-ring-2 {
+  animation-delay: 0.2s;
+  border-color: rgba(79, 209, 197, 0.7);
+}
+
+.whirlpool-ring-3 {
+  animation-delay: 0.4s;
+  border-color: rgba(79, 209, 197, 0.4);
 }
 
 @layer base {
@@ -185,11 +227,293 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
-  
+
   .line-clamp-4 {
     display: -webkit-box;
     -webkit-line-clamp: 4;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+}
+
+/* ============================================
+   Liquid Vortex Drop Zone
+   ============================================ */
+
+:root {
+  --liquid-teal: #4fd1c5;
+  --liquid-teal-dark: #38b2ac;
+  --liquid-pale: #e6fffa;
+  --liquid-mint: #9ae6b4;
+  --liquid-white-alpha: rgba(255, 255, 255, 0.4);
+}
+
+/* Vortex spinning animation */
+@keyframes spin-vortex {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+/* Ripple animation for drop feedback */
+@keyframes ripple-out {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0.6;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.5);
+    opacity: 0;
+  }
+}
+
+/* Icon bounce animation */
+@keyframes icon-pulse {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(4px);
+  }
+}
+
+/* Base vortex zone styles */
+.vortex-zone {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--liquid-pale) 0%, rgba(79, 209, 197, 0.1) 100%);
+  border: 2px solid rgba(79, 209, 197, 0.3);
+  border-radius: 48% 52% 50% 50% / 50% 48% 52% 50%;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+/* Organic morphing border on hover */
+.vortex-zone:hover {
+  border-radius: 52% 48% 48% 52% / 48% 52% 48% 52%;
+  border-color: var(--liquid-teal);
+  background: linear-gradient(135deg, var(--liquid-pale) 0%, rgba(79, 209, 197, 0.15) 100%);
+}
+
+/* Spinning conic gradient vortex (pseudo-element) */
+.vortex-zone::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 200%;
+  height: 200%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0%,
+    rgba(79, 209, 197, 0.03) 15%,
+    rgba(79, 209, 197, 0.08) 35%,
+    rgba(79, 209, 197, 0.03) 55%,
+    transparent 70%,
+    transparent 100%
+  );
+  transform: translate(-50%, -50%) rotate(0deg);
+  animation: spin-vortex 8s linear infinite;
+  pointer-events: none;
+  opacity: 0.5;
+  transition: opacity 0.3s ease;
+}
+
+/* Intensify vortex on hover */
+.vortex-zone:hover::before {
+  opacity: 1;
+  animation-duration: 4s;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0%,
+    rgba(79, 209, 197, 0.05) 15%,
+    rgba(79, 209, 197, 0.15) 35%,
+    rgba(79, 209, 197, 0.05) 55%,
+    transparent 70%,
+    transparent 100%
+  );
+}
+
+/* Active drag state - full suction effect */
+.vortex-zone.is-dragging {
+  transform: scale(0.97);
+  border-color: var(--liquid-teal-dark);
+  border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%;
+  box-shadow:
+    inset 0 0 30px rgba(56, 178, 172, 0.25),
+    0 0 20px rgba(79, 209, 197, 0.3);
+  background: linear-gradient(135deg, var(--liquid-pale) 0%, rgba(79, 209, 197, 0.2) 100%);
+}
+
+.vortex-zone.is-dragging::before {
+  opacity: 1;
+  animation-duration: 1.5s;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0%,
+    rgba(79, 209, 197, 0.1) 10%,
+    rgba(79, 209, 197, 0.35) 30%,
+    rgba(56, 178, 172, 0.4) 50%,
+    rgba(79, 209, 197, 0.35) 70%,
+    rgba(79, 209, 197, 0.1) 90%,
+    transparent 100%
+  );
+}
+
+/* Window-level drag active (before entering zone) */
+.vortex-zone.window-drag-active {
+  border-color: rgba(79, 209, 197, 0.6);
+  background: linear-gradient(135deg, var(--liquid-pale) 0%, rgba(79, 209, 197, 0.12) 100%);
+}
+
+.vortex-zone.window-drag-active::before {
+  opacity: 0.8;
+  animation-duration: 3s;
+}
+
+/* Vortex content container */
+.vortex-content {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Full height variant for liquid-bg */
+.vortex-zone.liquid-bg .vortex-content {
+  min-height: 200px;
+  justify-content: space-between;
+  gap: 0;
+}
+
+/* Icon container */
+.vortex-icon-wrapper {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(79, 209, 197, 0.15);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.vortex-zone:hover .vortex-icon-wrapper {
+  background: rgba(79, 209, 197, 0.25);
+}
+
+.vortex-zone.is-dragging .vortex-icon-wrapper {
+  background: rgba(56, 178, 172, 0.3);
+  transform: scale(1.1);
+}
+
+/* Icon itself */
+.vortex-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: var(--liquid-teal-dark);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.vortex-zone:hover .vortex-icon {
+  animation: icon-pulse 1s ease-in-out infinite;
+}
+
+.vortex-zone.is-dragging .vortex-icon {
+  transform: translateY(3px) scale(1.15);
+  color: var(--liquid-teal-dark);
+  animation: none;
+}
+
+/* Ripple effect container */
+.vortex-ripple {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--liquid-mint) 0%, transparent 70%);
+  transform: translate(-50%, -50%) scale(0);
+  pointer-events: none;
+  opacity: 0;
+}
+
+.vortex-ripple.active {
+  animation: ripple-out 0.6s ease-out forwards;
+}
+
+/* Mint flash overlay */
+.vortex-flash {
+  position: absolute;
+  inset: 0;
+  background: var(--liquid-mint);
+  opacity: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  transition: opacity 0.15s ease;
+}
+
+.vortex-flash.active {
+  opacity: 0.4;
+}
+
+/* ============================================
+   PREVIEW: Liquid Drops Background Variant
+   Add class "liquid-bg" to vortex-zone to enable
+   ============================================ */
+
+.vortex-zone.liquid-bg {
+  background: url('/liquid-drops-bg.jpg') center center / cover no-repeat;
+  border: 2px solid rgba(56, 178, 220, 0.5);
+}
+
+.vortex-zone.liquid-bg::before {
+  /* Reduce or remove the conic gradient overlay */
+  opacity: 0.2;
+}
+
+.vortex-zone.liquid-bg:hover {
+  border-color: rgba(100, 200, 255, 0.8);
+  background: url('/liquid-drops-bg.jpg') center center / cover no-repeat;
+}
+
+.vortex-zone.liquid-bg .vortex-content {
+  /* Make text more visible on dark background */
+  color: white;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.vortex-zone.liquid-bg .vortex-content p {
+  color: white;
+}
+
+.vortex-zone.liquid-bg .vortex-content .text-muted-foreground {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.vortex-zone.liquid-bg .vortex-icon-wrapper {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(4px);
+}
+
+.vortex-zone.liquid-bg .vortex-icon {
+  color: white;
+}
+
+.vortex-zone.liquid-bg .vortex-content button {
+  color: rgba(150, 220, 255, 1);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.vortex-zone.liquid-bg.is-dragging {
+  border-color: rgba(100, 200, 255, 1);
+  box-shadow:
+    inset 0 0 30px rgba(56, 178, 220, 0.3),
+    0 0 25px rgba(79, 209, 255, 0.4);
 }

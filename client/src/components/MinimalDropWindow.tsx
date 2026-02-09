@@ -1,16 +1,57 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { CloudUpload, Clipboard, Camera, Minus, Expand, FileImage, Check, ChevronDown, Monitor, Maximize, Crop } from 'lucide-react';
+import { ArrowDown, Clipboard, Camera, Minus, PanelRightOpen, PanelRightClose, FileImage, ChevronDown, Monitor, Maximize, Crop } from 'lucide-react';
+
+// Stylized liquid droplet icon for branding
+function LiquidDropletIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {/* Droplet outline */}
+      <path
+        d="M12 2.5C12 2.5 5 10.5 5 15C5 18.866 8.134 22 12 22C15.866 22 19 18.866 19 15C19 10.5 12 2.5 12 2.5Z"
+        fill="currentColor"
+        fillOpacity="0.2"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Liquid wave inside */}
+      <path
+        d="M7 15.5C7.5 14 9 13 12 13.5C15 14 16.5 13 17 12"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        opacity="0.7"
+      />
+      {/* Highlight reflection */}
+      <ellipse
+        cx="9"
+        cy="12"
+        rx="1.5"
+        ry="2"
+        fill="currentColor"
+        fillOpacity="0.4"
+      />
+    </svg>
+  );
+}
 import { useFileTransfer } from '@/hooks/useFileTransfer';
 import { MistAnimation } from './MistAnimation';
 import { ScreenshotCropper } from './ScreenshotCropper';
 import { type File, type Device } from '@shared/schema';
-import { type KnownDevice } from '@/hooks/useConnectionSystem';
+import { type KnownDevice, LOCAL_DEVICE_ID } from '@/hooks/useConnectionSystem';
 
 interface MinimalDropWindowProps {
   onSendFile: (fileData: any) => void;
   recentFiles: File[];
   onToggleExpanded: () => void;
   onMinimize: () => void;
+  isExpanded: boolean;
   connections: any[];
   onlineDevices: Device[];
   knownDevices: KnownDevice[];
@@ -25,6 +66,7 @@ export function MinimalDropWindow({
   recentFiles,
   onToggleExpanded,
   onMinimize,
+  isExpanded,
   connections,
   onlineDevices,
   knownDevices,
@@ -34,10 +76,14 @@ export function MinimalDropWindow({
   pendingFileCount,
 }: MinimalDropWindowProps) {
   const [isDragOver, setIsDragOver] = useState(false);
+  const [windowDragActive, setWindowDragActive] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [showMist, setShowMist] = useState(false);
+  const [showRipple, setShowRipple] = useState(false);
+  const [showFlash, setShowFlash] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const dragCounterRef = useRef(0);
   const [screenshotData, setScreenshotData] = useState<{
     dataURL: string;
     width: number;
@@ -46,11 +92,13 @@ export function MinimalDropWindow({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { readFileAsText, readFileAsDataURL } = useFileTransfer();
 
-  const selectedTargetName = selectedTargetId
-    ? knownDevices.find(d => d.id === selectedTargetId)?.name
-      || onlineDevices.find(d => d.socketId === selectedTargetId)?.name
-      || 'device'
-    : null;
+  const selectedTargetName = selectedTargetId === LOCAL_DEVICE_ID
+    ? `${currentDevice?.name || 'This Device'} (This Device)`
+    : selectedTargetId
+      ? knownDevices.find(d => d.id === selectedTargetId)?.name
+        || onlineDevices.find(d => d.socketId === selectedTargetId)?.name
+        || 'device'
+      : null;
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -63,6 +111,46 @@ export function MinimalDropWindow({
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [dropdownOpen]);
+
+  // Window-level drag detection for vortex activation
+  useEffect(() => {
+    const handleWindowDragEnter = (e: DragEvent) => {
+      e.preventDefault();
+      dragCounterRef.current++;
+      if (dragCounterRef.current === 1) {
+        setWindowDragActive(true);
+      }
+    };
+
+    const handleWindowDragLeave = (e: DragEvent) => {
+      e.preventDefault();
+      dragCounterRef.current--;
+      if (dragCounterRef.current === 0) {
+        setWindowDragActive(false);
+      }
+    };
+
+    const handleWindowDragOver = (e: DragEvent) => {
+      e.preventDefault();
+    };
+
+    const handleWindowDrop = (e: DragEvent) => {
+      dragCounterRef.current = 0;
+      setWindowDragActive(false);
+    };
+
+    window.addEventListener('dragenter', handleWindowDragEnter);
+    window.addEventListener('dragleave', handleWindowDragLeave);
+    window.addEventListener('dragover', handleWindowDragOver);
+    window.addEventListener('drop', handleWindowDrop);
+
+    return () => {
+      window.removeEventListener('dragenter', handleWindowDragEnter);
+      window.removeEventListener('dragleave', handleWindowDragLeave);
+      window.removeEventListener('dragover', handleWindowDragOver);
+      window.removeEventListener('drop', handleWindowDrop);
+    };
+  }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -77,14 +165,22 @@ export function MinimalDropWindow({
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
+    setWindowDragActive(false);
+    dragCounterRef.current = 0;
     setIsUploading(true);
+
+    // Trigger ripple and flash animations
+    setShowRipple(true);
+    setShowFlash(true);
+    setTimeout(() => setShowFlash(false), 150);
+    setTimeout(() => setShowRipple(false), 600);
 
     try {
       const files = Array.from(e.dataTransfer.files);
-      
+
       for (const file of files) {
         let content: string | undefined;
-        
+
         if (file.type.startsWith('text/')) {
           content = await readFileAsText(file);
         } else if (file.type.startsWith('image/') || file.size < 5 * 1024 * 1024) { // Under 5MB
@@ -100,7 +196,7 @@ export function MinimalDropWindow({
           isClipboard: false,
         });
       }
-      
+
       // Trigger mist animation after successful file transfer
       setShowMist(true);
     } catch (error) {
@@ -293,8 +389,8 @@ export function MinimalDropWindow({
     <div className="w-80 bg-white rounded-xl shadow-2xl border border-primary/30 overflow-hidden">
       <div className="bg-gradient-to-r from-primary to-secondary px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-2">
-          <CloudUpload className="text-primary-foreground w-5 h-5" />
-          <h2 className="text-primary-foreground font-bold">Snap Send</h2>
+          <LiquidDropletIcon className="text-primary-foreground w-5 h-5" />
+          <h2 className="text-primary-foreground font-bold">Liquid <em>Relay</em></h2>
         </div>
         <div className="flex items-center space-x-2">
           <button 
@@ -303,11 +399,16 @@ export function MinimalDropWindow({
           >
             <Minus className="w-4 h-4" />
           </button>
-          <button 
+          <button
             className="text-primary-foreground/80 hover:text-primary-foreground p-1 rounded hover:bg-white/20 transition-colors"
             onClick={onToggleExpanded}
+            title={isExpanded ? 'Hide shared files' : 'Show shared files'}
           >
-            <Expand className="w-4 h-4" />
+            {isExpanded ? (
+              <PanelRightClose className="w-4 h-4" />
+            ) : (
+              <PanelRightOpen className="w-4 h-4" />
+            )}
           </button>
         </div>
       </div>
@@ -320,9 +421,11 @@ export function MinimalDropWindow({
             className="w-full flex items-center justify-between bg-background border border-primary/20 rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:border-primary transition-colors"
           >
             <span className="truncate">
-              {selectedTargetId
-                ? selectedTargetName
-                : 'All connected devices'}
+              {selectedTargetId === LOCAL_DEVICE_ID
+                ? `${currentDevice?.name || 'This Device'} (This Device)`
+                : selectedTargetId
+                  ? selectedTargetName
+                  : 'All Connected Devices'}
             </span>
             <ChevronDown className={`w-4 h-4 text-muted-foreground flex-shrink-0 ml-2 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
           </button>
@@ -338,14 +441,25 @@ export function MinimalDropWindow({
                 )}
               </div>
 
-              {/* All connected devices */}
+              {/* This Device (local save only) - DEFAULT */}
+              <button
+                onClick={() => { onSelectTarget(LOCAL_DEVICE_ID); setDropdownOpen(false); }}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                  selectedTargetId === LOCAL_DEVICE_ID ? 'bg-primary/10 font-medium' : 'hover:bg-muted/50'
+                }`}
+              >
+                <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
+                <span className="truncate">{currentDevice?.name || 'This Device'} (This Device)</span>
+              </button>
+
+              {/* All Connected Devices */}
               <button
                 onClick={() => { onSelectTarget(null); setDropdownOpen(false); }}
                 className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
                   selectedTargetId === null ? 'bg-primary/10 font-medium' : 'hover:bg-muted/50'
                 }`}
               >
-                <span className="truncate">All connected devices</span>
+                <span className="truncate">All Connected Devices</span>
               </button>
 
               {/* Known devices */}
@@ -388,57 +502,73 @@ export function MinimalDropWindow({
           )}
         </div>
 
+        {/* Status text - outside the oval */}
+        <p className="text-muted-foreground text-xs text-center mb-2">
+          {selectedTargetId === LOCAL_DEVICE_ID
+            ? 'Files save to this device only'
+            : selectedTargetId
+              ? connections.some((c: any) => c.peerId === selectedTargetId || c.id === selectedTargetId)
+                ? 'Press ⌘V to paste clipboard'
+                : `Files will send when ${selectedTargetName} connects`
+              : connections.length > 0
+                ? 'Press ⌘V to paste clipboard'
+                : 'No devices connected — files save locally'}
+        </p>
+
         <div
-          className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 cursor-pointer group ${
-            isDragOver
-              ? 'border-primary bg-primary/10'
-              : 'border-primary/30 hover:border-primary hover:bg-primary/5'
-          }`}
+          className={`vortex-zone liquid-bg p-8 text-center ${
+            isDragOver ? 'is-dragging' : ''
+          } ${windowDragActive && !isDragOver ? 'window-drag-active' : ''}`}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           onClick={handleFileSelect}
         >
+          {/* Ripple effect */}
+          <div className={`vortex-ripple ${showRipple ? 'active' : ''}`} />
+          {/* Flash effect */}
+          <div className={`vortex-flash ${showFlash ? 'active' : ''}`} />
+
           <MistAnimation
             isVisible={showMist}
             onComplete={() => setShowMist(false)}
           />
-          <div className="space-y-3">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto transition-colors ${
-              isDragOver
-                ? 'bg-primary/20'
-                : 'bg-primary/10 group-hover:bg-primary/20'
-            }`}>
-              {isUploading ? (
-                <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <CloudUpload className="w-6 h-6 text-primary" />
+
+          <div className="vortex-content">
+            {/* Top: Main heading */}
+            <p className="font-semibold text-foreground">
+              {isUploading
+                ? 'Pouring...'
+                : isDragOver
+                  ? 'Release to Pour'
+                  : selectedTargetId === LOCAL_DEVICE_ID
+                    ? 'Drop files here'
+                    : selectedTargetId
+                      ? `Drop files for ${selectedTargetName}`
+                      : connections.length > 0
+                        ? 'Drop files here'
+                        : 'Drop files here'}
+            </p>
+
+            {/* Bottom: Browse + Arrow only */}
+            <div className="flex flex-col items-center gap-2">
+              {!isUploading && (
+                <button className="text-[var(--liquid-teal-dark)] text-sm font-semibold hover:text-[var(--liquid-teal)] transition-colors">
+                  Browse files
+                </button>
               )}
+
+              {/* Arrow icon at bottom, pointing up */}
+              <div className="vortex-icon-wrapper">
+                {isUploading ? (
+                  <div className="w-6 h-6 border-2 border-[var(--liquid-teal-dark)] border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <ArrowDown className="vortex-icon rotate-180" />
+                )}
+              </div>
             </div>
-            <div>
-              <p className="font-semibold text-foreground">
-                {isUploading
-                  ? 'Uploading...'
-                  : selectedTargetId
-                    ? `Drop files for ${selectedTargetName}`
-                    : connections.length > 0
-                      ? 'Drop files here'
-                      : 'Drop files to queue'}
-              </p>
-              <p className="text-muted-foreground text-sm mt-1">
-                {connections.length > 0
-                  ? 'or press ⌘V to paste clipboard'
-                  : selectedTargetId
-                    ? 'Files will send when connected'
-                    : 'Files will send when a device connects'}
-              </p>
-            </div>
-            {!isUploading && (
-              <button className="text-primary text-sm font-semibold hover:text-primary/80 transition-colors">
-                Browse files
-              </button>
-            )}
-            {pendingFileCount > 0 && (
+            {/* Only show queued indicator for specific device targets (not "This Device" or "All Devices") */}
+            {pendingFileCount > 0 && selectedTargetId && selectedTargetId !== LOCAL_DEVICE_ID && (
               <div className="inline-flex items-center gap-1.5 bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-1 rounded-full">
                 <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
                 {pendingFileCount} file{pendingFileCount > 1 ? 's' : ''} queued

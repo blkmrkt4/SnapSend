@@ -39,7 +39,7 @@ import { MetadataPanel } from './MetadataPanel';
 import { TagEditor } from './TagEditor';
 
 interface ExtendedFile extends FileType {
-  transferType?: 'sent' | 'received' | 'queued';
+  transferType?: 'sent' | 'received' | 'queued' | 'saved';
   fromDevice?: string;
 }
 
@@ -57,7 +57,7 @@ interface FileExplorerProps {
   currentDevice: any;
 }
 
-type DirectionFilter = 'all' | 'received' | 'sent' | 'pending';
+type DirectionFilter = 'all' | 'received' | 'sent' | 'saved' | 'pending';
 type TypeFilter = 'all' | 'clipboard' | 'screenshot' | 'image' | 'pdf' | 'excel' | 'docx' | 'ppt' | 'document' | 'file';
 
 export function FileExplorer({
@@ -191,12 +191,14 @@ export function FileExplorer({
   const getFileTypeColor = (file: ExtendedFile) => {
     if (file.transferType === 'queued') return 'text-amber-600 dark:text-amber-400';
     if (file.transferType === 'sent') return 'text-red-600 dark:text-red-400';
+    if (file.transferType === 'saved') return 'text-blue-600 dark:text-blue-400';
     return 'text-green-600 dark:text-green-400';
   };
 
   const getFileBorderColor = (file: ExtendedFile) => {
     if (file.transferType === 'queued') return 'border-l-4 border-l-amber-500 bg-amber-50 dark:bg-amber-950/20';
     if (file.transferType === 'sent') return 'border-l-4 border-l-red-500 bg-red-50 dark:bg-red-950/20';
+    if (file.transferType === 'saved') return 'border-l-4 border-l-blue-500 bg-blue-50 dark:bg-blue-950/20';
     return 'border-l-4 border-l-green-500 bg-green-50 dark:bg-green-950/20';
   };
 
@@ -540,8 +542,8 @@ export function FileExplorer({
         <div className="flex items-center gap-3 mt-3">
           <span className="text-xs font-medium text-secondary-foreground/70 w-16 shrink-0">Direction:</span>
           <div className="flex rounded-md overflow-hidden border border-secondary-foreground/30">
-            {(['all', 'received', 'sent', 'pending'] as const).map((value) => {
-              const labels: Record<DirectionFilter, string> = { all: 'All', received: 'Received', sent: 'Sent', pending: 'Pending' };
+            {(['all', 'received', 'sent', 'saved', 'pending'] as const).map((value) => {
+              const labels: Record<DirectionFilter, string> = { all: 'All', received: 'Received', sent: 'Sent', saved: 'Saved', pending: 'Pending' };
               const isActive = directionFilter === value;
               return (
                 <button
@@ -708,10 +710,10 @@ export function FileExplorer({
                                 </h4>
                               )}
                               <Badge
-                                variant={file.transferType === 'queued' ? 'outline' : file.transferType === 'sent' ? 'destructive' : 'secondary'}
-                                className={`text-xs ${file.transferType === 'queued' ? 'border-amber-400 text-amber-700 bg-amber-50' : ''}`}
+                                variant={file.transferType === 'queued' ? 'outline' : file.transferType === 'sent' ? 'destructive' : file.transferType === 'saved' ? 'outline' : 'secondary'}
+                                className={`text-xs ${file.transferType === 'queued' ? 'border-amber-400 text-amber-700 bg-amber-50' : file.transferType === 'saved' ? 'border-blue-400 text-blue-700 bg-blue-50' : ''}`}
                               >
-                                {file.transferType === 'queued' ? 'Queued' : file.transferType === 'sent' ? 'Sent' : 'Received'}
+                                {file.transferType === 'queued' ? 'Queued' : file.transferType === 'sent' ? 'Sent' : file.transferType === 'saved' ? 'Saved' : 'Received'}
                               </Badge>
                               {file.isClipboard === 1 && (
                                 <Badge variant="outline" className="text-xs">
