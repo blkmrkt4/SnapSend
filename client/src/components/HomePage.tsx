@@ -14,7 +14,6 @@ import {
   Shield,
   Wifi,
   Users,
-  FileText,
   Smartphone,
   MousePointerClick,
   Clipboard,
@@ -24,6 +23,7 @@ import {
   MonitorSmartphone,
   ChevronLeft,
   ChevronRight,
+  Tags,
 } from 'lucide-react';
 
 const heroSlides = [
@@ -35,7 +35,7 @@ const heroSlides = [
   {
     headline: 'Stop Emailing Files to Yourself',
     subtitle:
-      'Whether you\'re moving code output from your Mac to your work PC or pulling docs between a locked-down laptop and your personal machine — Liquid Relay transfers files across your desk in seconds. Nothing leaves your network.',
+      "Whether you're moving code output from your Mac to your work PC or pulling docs between a locked-down laptop and your personal machine — Liquid Relay transfers files across your desk in seconds. Nothing leaves your network.",
   },
   {
     headline: 'Bridge the Gap Between Your Machines',
@@ -45,7 +45,7 @@ const heroSlides = [
   {
     headline: 'Work on Any Machine. Move Files Between All of Them.',
     subtitle:
-      'Mac to PC, personal to corporate, dev to production — drag, drop, done. Peer-to-peer transfer over your local network. No internet required.',
+      'Mac to PC, personal to corporate, dev to production — drag, drop, done. Tag and organize everything you transfer. Peer-to-peer over your local network. No internet required.',
   },
 ];
 
@@ -71,14 +71,14 @@ const features = [
     description: 'Connect as many devices as you need. Auto-discovery finds peers on your network.',
   },
   {
-    icon: FileText,
-    title: 'Files & Clipboard',
-    description: 'Send files, images, and clipboard text between machines seamlessly.',
+    icon: Tags,
+    title: 'Tag & Organize',
+    description: 'Tag your files, filter by type or date, search by name. Build a catalog of everything you transfer.',
   },
   {
     icon: Smartphone,
-    title: 'Cross-Platform',
-    description: 'Runs on macOS, Windows, and Linux. Any device on the network can participate.',
+    title: 'Works Anywhere',
+    description: 'Mac and Windows. If auto-discovery fails, Client Mode connects through firewalled networks.',
   },
 ];
 
@@ -87,37 +87,43 @@ const tutorialSlides = [
     icon: MousePointerClick,
     title: 'Drag & Drop to Send',
     description:
-      'Drag files onto the drop zone or click to browse. They\'ll be sent to your connected device instantly.',
+      "Drag files onto the drop zone or click to browse. They'll be sent to your connected device instantly.",
   },
   {
     icon: Clipboard,
     title: 'Clipboard Sync',
     description:
-      'Copy text on one machine and it appears on the other. Paste images too — they transfer automatically.',
+      'Press \u2318V (or Ctrl+V) anywhere to send your clipboard. Text and images transfer automatically.',
   },
   {
     icon: Camera,
-    title: 'Take Screenshots',
+    title: 'Capture Screenshots',
     description:
-      'Use the screenshot tool to capture and crop a region of your screen. It\'s sent and saved immediately.',
+      'Take full-screen shots, capture a window, or select a region to crop. Screenshots save and transfer instantly.',
   },
   {
     icon: PenLine,
     title: 'Rename Files Inline',
     description:
-      'Click any filename to edit it. The extension stays locked — just type the new name and click away.',
+      "Click any filename to edit it. The extension stays locked — just type the new name and click away.",
   },
   {
     icon: LayoutGrid,
     title: 'File Actions',
     description:
-      'Eye = preview. Down-arrow = download to disk. Square-with-arrow = open in new tab. Pencil = rename. Trash = delete.',
+      'Eye = preview. Down-arrow = download. Square-with-arrow = open in new tab. Pencil = rename. Trash = delete.',
+  },
+  {
+    icon: Tags,
+    title: 'Tag & Filter Files',
+    description:
+      'Add tags to organize your files. Filter by type (screenshots, PDFs, images), by date range, or search by name.',
   },
   {
     icon: MonitorSmartphone,
     title: 'Connect Devices',
     description:
-      'Devices on the same network discover each other automatically. Go to Devices tab to see and pair with them.',
+      'Devices discover each other automatically. If discovery fails, switch to Client Mode in Settings to connect manually.',
   },
 ];
 
@@ -164,6 +170,15 @@ export function HomePage() {
 
   return (
     <div className="space-y-10 pb-8">
+      {/* App Name Banner */}
+      <div className="-mx-4 overflow-hidden rounded-xl">
+        <img
+          src="/liquid-relay-banner.png"
+          alt="Liquid Relay"
+          className="w-full h-auto object-cover"
+        />
+      </div>
+
       {/* Hero Carousel */}
       <section
         className="-mx-4 px-4 py-8 rounded-xl border"
