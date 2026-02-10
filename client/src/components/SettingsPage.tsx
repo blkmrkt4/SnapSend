@@ -18,7 +18,6 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
   const [licenseStatus, setLicenseStatus] = useState<LicenseStatus | null>(null);
   const [isDeactivating, setIsDeactivating] = useState(false);
   const [portSetting, setPortSetting] = useState('');
-  const [isSavingPort, setIsSavingPort] = useState(false);
   const [connectionMode, setConnectionMode] = useState<'server' | 'client'>('server');
   const [remoteServerUrl, setRemoteServerUrl] = useState('');
   const [isSavingMode, setIsSavingMode] = useState(false);
@@ -145,27 +144,17 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
 
               {connectionMode === 'server' && (
                 <div className="mt-3 space-y-2">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-xs text-muted-foreground">Your address:</span>
-                    {window.electronAPI?.isElectron ? (
-                      lanAddresses.length > 0 ? (
-                        lanAddresses.map((ip) => (
-                          <code key={ip} className="text-xs font-semibold font-mono text-foreground">
-                            http://{ip}:{portSetting || '53000'}
-                          </code>
-                        ))
-                      ) : (
-                        <span className="text-xs text-muted-foreground italic">No network addresses detected</span>
-                      )
-                    ) : (
-                      <code className="text-xs font-semibold font-mono text-foreground">
-                        {window.location.origin}
-                      </code>
-                    )}
-                    {(lanAddresses.length > 0 || !window.electronAPI?.isElectron) && (
-                      <span className="text-xs text-muted-foreground">— share with other devices to connect in Client Mode</span>
-                    )}
-                  </div>
+                  {lanAddresses.length > 0 && (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs text-muted-foreground">Share this address:</span>
+                      {lanAddresses.map((ip) => (
+                        <code key={ip} className="text-xs font-semibold font-mono text-foreground bg-muted px-1.5 py-0.5 rounded">
+                          http://{ip}:{portSetting || '53000'}
+                        </code>
+                      ))}
+                      <span className="text-xs text-muted-foreground">— if another device needs to be in Client Mode to connect</span>
+                    </div>
+                  )}
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-muted-foreground flex-shrink-0">Port:</span>
                     <Input
@@ -177,45 +166,7 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
                       placeholder="53000"
                       className="w-28 h-7 text-sm"
                     />
-                    <Button
-                      size="sm"
-                      className="h-7 text-xs px-2.5"
-                      disabled={isSavingPort || !portSetting.trim()}
-                      onClick={async () => {
-                        if (!isElectronProd) return;
-                        const port = parseInt(portSetting, 10);
-                        if (isNaN(port) || port < 1 || port > 65535) {
-                          toast({
-                            title: 'Invalid port',
-                            description: 'Port must be between 1 and 65535.',
-                            variant: 'destructive',
-                          });
-                          return;
-                        }
-                        setIsSavingPort(true);
-                        try {
-                          await window.electronAPI!.setPortSetting(port);
-                          toast({
-                            title: 'Port saved',
-                            description: `Liquid Relay will use port ${port} after restart.`,
-                          });
-                        } catch {
-                          toast({
-                            title: 'Failed to save port',
-                            description: 'Could not save port setting.',
-                            variant: 'destructive',
-                          });
-                        } finally {
-                          setIsSavingPort(false);
-                        }
-                      }}
-                    >
-                      {isSavingPort ? 'Saving...' : 'Save'}
-                    </Button>
-                    <span className="text-xs text-muted-foreground">Restart Liquid Relay to apply</span>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Change if the default port is already in use by another app
+                    <span className="text-xs text-muted-foreground">Change if the default port is already in use</span>
                   </div>
                 </div>
               )}
@@ -258,23 +209,39 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
             <Button
               size="sm"
               className="h-7 text-xs px-2.5"
-              disabled={isSavingMode || (connectionMode === 'client' && !remoteServerUrl.trim())}
+              disabled={isSavingMode || (connectionMode === 'client' && !remoteServerUrl.trim()) || (connectionMode === 'server' && !portSetting.trim())}
               onClick={async () => {
                 if (!isElectronProd) return;
+
+                // Validate port in server mode
+                if (connectionMode === 'server') {
+                  const port = parseInt(portSetting, 10);
+                  if (isNaN(port) || port < 1 || port > 65535) {
+                    toast({
+                      title: 'Invalid port',
+                      description: 'Port must be between 1 and 65535.',
+                      variant: 'destructive',
+                    });
+                    return;
+                  }
+                }
+
                 setIsSavingMode(true);
                 try {
                   await window.electronAPI!.setConnectionMode(connectionMode);
-                  if (connectionMode === 'client') {
+                  if (connectionMode === 'server') {
+                    await window.electronAPI!.setPortSetting(parseInt(portSetting, 10));
+                  } else {
                     await window.electronAPI!.setRemoteServerUrl(remoteServerUrl.trim());
                   }
                   toast({
-                    title: 'Connection mode saved',
-                    description: 'Restart the app for changes to take effect.',
+                    title: 'Settings saved',
+                    description: 'Restart Liquid Relay for changes to take effect.',
                   });
                 } catch {
                   toast({
                     title: 'Failed to save',
-                    description: 'Could not save connection mode.',
+                    description: 'Could not save connection settings.',
                     variant: 'destructive',
                   });
                 } finally {

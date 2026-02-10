@@ -1,19 +1,17 @@
 import { useState } from 'react';
-import { Sidebar } from '@/components/Sidebar';
 import { SettingsPage } from '@/components/SettingsPage';
 import { ConnectionManager } from '@/components/ConnectionManager';
-import { MinimalDropWindow } from '@/components/MinimalDropWindow';
 import { FileExplorer } from '@/components/FileExplorer';
 import { FilePreviewModal } from '@/components/FilePreviewModal';
 import { HomePage } from '@/components/HomePage';
+import { LeftSidebar } from '@/components/LeftSidebar';
 import { useConnectionSystem } from '@/hooks/useConnectionSystem';
-import { useFileTransfer } from '@/hooks/useFileTransfer';
 import { type File } from '@shared/schema';
 
 export default function Home() {
-  const [activeSection, setActiveSection] = useState<'home' | 'connections' | 'files' | 'settings'>('connections');
-  const [showExpanded, setShowExpanded] = useState(true);
+  const [activeSection, setActiveSection] = useState<'home' | 'connections' | 'files' | 'settings'>('files');
   const [previewFile, setPreviewFile] = useState<File | null>(null);
+  const [showFilesPanel, setShowFilesPanel] = useState(true);
 
   const {
     currentDevice,
@@ -38,8 +36,6 @@ export default function Home() {
     deleteTag,
     refreshDiscovery,
   } = useConnectionSystem();
-
-  const { downloadFile } = useFileTransfer();
 
   const handleSendFile = async (fileData: any) => {
     try {
@@ -73,39 +69,19 @@ export default function Home() {
 
       case 'files':
         return (
-          <div className="flex space-x-6">
-            <MinimalDropWindow
-              onSendFile={handleSendFile}
-              recentFiles={files.filter(file => file.transferType === 'sent').slice(0, 3)}
-              onToggleExpanded={() => setShowExpanded(!showExpanded)}
-              onMinimize={() => {}}
-              connections={connections}
-              onlineDevices={onlineDevices}
-              knownDevices={knownDevices}
-              currentDevice={currentDevice}
-              selectedTargetId={selectedTargetId}
-              onSelectTarget={setSelectedTarget}
-              pendingFileCount={pendingFiles.length}
-            />
-
-            {showExpanded && (
-              <div className="flex-1 min-w-0">
-                <FileExplorer
-                  files={files}
-                  onPreviewFile={(file: File) => setPreviewFile(file)}
-                  onRefresh={refreshFiles}
-                  onClearAll={clearAllFiles}
-                  onDeleteFile={deleteFile}
-                  onRenameFile={renameFile}
-                  onUpdateTags={updateFileTags}
-                  onAddTag={addTag}
-                  onDeleteTag={deleteTag}
-                  allTags={allTags}
-                  currentDevice={currentDevice}
-                />
-              </div>
-            )}
-          </div>
+          <FileExplorer
+            files={files}
+            onPreviewFile={(file: File) => setPreviewFile(file)}
+            onRefresh={refreshFiles}
+            onClearAll={clearAllFiles}
+            onDeleteFile={deleteFile}
+            onRenameFile={renameFile}
+            onUpdateTags={updateFileTags}
+            onAddTag={addTag}
+            onDeleteTag={deleteTag}
+            allTags={allTags}
+            currentDevice={currentDevice}
+          />
         );
 
       case 'settings':
@@ -122,20 +98,35 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Sidebar
+    <div className="h-screen flex bg-background overflow-hidden">
+      {/* Fixed Left Sidebar */}
+      <LeftSidebar
         activeSection={activeSection}
         onSectionChange={setActiveSection}
         connectionCount={connections.length}
         fileCount={files.length}
         deviceName={currentDevice?.name}
+        onSendFile={handleSendFile}
+        recentFiles={files.filter(file => file.transferType === 'sent' || file.transferType === 'saved').slice(0, 3)}
+        connections={connections}
+        onlineDevices={onlineDevices}
+        knownDevices={knownDevices}
+        currentDevice={currentDevice}
+        selectedTargetId={selectedTargetId}
+        onSelectTarget={setSelectedTarget}
+        pendingFileCount={pendingFiles.length}
+        showFilesPanel={showFilesPanel}
+        onToggleFilesPanel={() => setShowFilesPanel(!showFilesPanel)}
       />
 
-      <main className="px-4 pt-14 pb-4">
-        <div className="max-w-7xl mx-auto">
-          {renderMainContent()}
-        </div>
-      </main>
+      {/* Main Content Area - collapsible, fills remaining width */}
+      {showFilesPanel && (
+        <main className="flex-1 overflow-auto">
+          <div className="p-6 max-w-[1200px]">
+            {renderMainContent()}
+          </div>
+        </main>
+      )}
 
       <FilePreviewModal
         file={previewFile}
@@ -147,7 +138,8 @@ export default function Home() {
         allTags={allTags}
       />
 
-      <div className="fixed bottom-2 right-3 text-[10px] text-muted-foreground/50 select-none pointer-events-none">
+      {/* Version badge */}
+      <div className="fixed bottom-2 left-2 text-[10px] text-muted-foreground/50 select-none pointer-events-none z-50">
         Liquid <em>Relay</em> v{__APP_VERSION__}
       </div>
     </div>

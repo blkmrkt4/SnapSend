@@ -157,8 +157,8 @@ async function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    minWidth: 800,
-    minHeight: 600,
+    minWidth: 320,  // Match sidebar width for collapsed mode
+    minHeight: 400,
     title: 'Liquid Relay',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     webPreferences: {
