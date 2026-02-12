@@ -161,7 +161,7 @@ export function ConnectionManager({
             Devices on Network
           </span>
           <Badge variant="secondary" className="ml-auto tabular-nums">
-            {enabledCount}/{otherDevices.length} enabled
+            {connectedCount}/{otherDevices.length} connected
           </Badge>
           {onRefreshDiscovery && (
             <button
@@ -192,26 +192,34 @@ export function ConnectionManager({
                 >
                   {/* Connection status indicator */}
                   <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                    connected ? 'bg-green-500' : enabled ? 'bg-yellow-500' : 'bg-gray-400'
+                    connected ? 'bg-green-500' : 'bg-gray-400'
                   }`} />
 
                   {/* Device name */}
                   <span className={`text-sm font-medium flex-1 min-w-0 truncate ${
-                    enabled ? 'text-foreground' : 'text-muted-foreground'
+                    connected ? 'text-foreground' : 'text-muted-foreground'
                   }`}>
                     {device.name}
                   </span>
 
-                  {/* Status badge */}
+                  {/* Status badge - only show Connected or Not Connected */}
                   {connected ? (
                     <Badge variant="default" className="bg-green-600 text-xs flex-shrink-0">
                       Connected
                     </Badge>
                   ) : enabled ? (
-                    <Badge variant="secondary" className="text-xs flex-shrink-0">
-                      Enabled
-                    </Badge>
-                  ) : null}
+                    <button
+                      onClick={() => onPairWithDevice(deviceId)}
+                      className="text-xs text-blue-600 hover:text-blue-800 hover:underline flex-shrink-0"
+                      title="Click to retry connection"
+                    >
+                      Not Connected - Retry?
+                    </button>
+                  ) : (
+                    <span className="text-xs text-muted-foreground flex-shrink-0">
+                      Disabled
+                    </span>
+                  )}
 
                   {/* Enable/Disable toggle */}
                   <div className="flex items-center gap-2 flex-shrink-0">
