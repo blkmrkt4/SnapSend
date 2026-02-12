@@ -162,8 +162,12 @@ export function useConnectionSystem() {
     // Listen for mDNS peer events
     api.onPeerDiscovered?.((peer) => {
       setState(prev => {
-        const exists = prev.onlineDevices.some(d => d.socketId === peer.id);
-        if (exists) return prev;
+        // Check if already in onlineDevices
+        const existsInDevices = prev.onlineDevices.some(d => d.socketId === peer.id);
+        // Check if already connected (to avoid showing "Pair" button for already-paired peers)
+        const alreadyConnected = prev.connections.some(c => c.peerId === peer.id);
+
+        if (existsInDevices) return prev;
 
         const peerAsDevice: Device = {
           id: 0, // Not used in P2P mode
@@ -175,16 +179,19 @@ export function useConnectionSystem() {
           createdAt: new Date().toISOString(),
         };
 
+        // Only show notification if not already connected
+        const newNotifications = alreadyConnected ? prev.notifications : [...prev.notifications, {
+          id: Date.now(),
+          type: 'device-connected',
+          title: 'Peer discovered',
+          message: `${peer.name} appeared on the network`,
+          timestamp: new Date(),
+        }];
+
         return {
           ...prev,
           onlineDevices: [...prev.onlineDevices, peerAsDevice],
-          notifications: [...prev.notifications, {
-            id: Date.now(),
-            type: 'device-connected',
-            title: 'Peer discovered',
-            message: `${peer.name} appeared on the network`,
-            timestamp: new Date(),
-          }],
+          notifications: newNotifications,
         };
       });
 
@@ -212,22 +219,41 @@ export function useConnectionSystem() {
 
     // P2P connection events (Phase 4)
     api.onPeerConnected?.((peer) => {
-      setState(prev => ({
-        ...prev,
-        connections: [...prev.connections, {
-          id: peer.id,
-          peerId: peer.id,
-          partnerName: peer.name,
-          status: 'active',
-        }],
-        notifications: [...prev.notifications, {
-          id: Date.now(),
-          type: 'pair-accepted',
-          title: 'Connected',
-          message: `Connected to ${peer.name}`,
-          timestamp: new Date(),
-        }],
-      }));
+      setState(prev => {
+        // Check if already connected (avoid duplicates)
+        const alreadyConnected = prev.connections.some(c => c.peerId === peer.id);
+        if (alreadyConnected) return prev;
+
+        // Also ensure the peer is in onlineDevices (for incoming connections)
+        const existsInDevices = prev.onlineDevices.some(d => d.socketId === peer.id);
+        const updatedOnlineDevices = existsInDevices ? prev.onlineDevices : [...prev.onlineDevices, {
+          id: 0,
+          name: peer.name,
+          uuid: null,
+          socketId: peer.id,
+          isOnline: true,
+          lastSeen: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+        } as Device];
+
+        return {
+          ...prev,
+          onlineDevices: updatedOnlineDevices,
+          connections: [...prev.connections, {
+            id: peer.id,
+            peerId: peer.id,
+            partnerName: peer.name,
+            status: 'active',
+          }],
+          notifications: [...prev.notifications, {
+            id: Date.now(),
+            type: 'pair-accepted',
+            title: 'Connected',
+            message: `Connected to ${peer.name}`,
+            timestamp: new Date(),
+          }],
+        };
+      });
     });
 
     api.onPeerDisconnected?.((peerId) => {
@@ -617,6 +643,10 @@ export function useConnectionSystem() {
       const now = new Date().toISOString();
       const updated: KnownDevice[] = [];
 
+      // Helper to check if a device is connected
+      const isConnected = (socketId: string) =>
+        prev.connections.some(c => c.peerId === socketId);
+
       // Build fresh list from current online devices (excluding self)
       for (const device of prev.onlineDevices) {
         const devId = device.socketId;
@@ -631,7 +661,17 @@ export function useConnectionSystem() {
           : updated.findIndex(k => !k.uuid && k.name === device.name);
 
         if (existingIdx >= 0) {
-          updated[existingIdx] = { id: devId, uuid: devUUID, name: device.name, lastSeen: now };
+          // Only replace if the new entry is connected and the old one isn't
+          // (prefer entries that have active connections)
+          const existingConnected = isConnected(updated[existingIdx].id);
+          const newConnected = isConnected(devId);
+          if (newConnected && !existingConnected) {
+            updated[existingIdx] = { id: devId, uuid: devUUID, name: device.name, lastSeen: now };
+          } else if (!existingConnected && !newConnected) {
+            // Both unconnected - update with newer info
+            updated[existingIdx] = { id: devId, uuid: devUUID, name: device.name, lastSeen: now };
+          }
+          // If existing is connected, keep it (don't replace with unconnected)
         } else {
           updated.push({ id: devId, uuid: devUUID, name: device.name, lastSeen: now });
         }
@@ -648,7 +688,7 @@ export function useConnectionSystem() {
       saveKnownDevices(updated);
       return { ...prev, knownDevices: updated };
     });
-  }, [state.onlineDevices, state.currentDevice]);
+  }, [state.onlineDevices, state.currentDevice, state.connections]);
 
   // ────────────────────────────────────────────
   // Actions

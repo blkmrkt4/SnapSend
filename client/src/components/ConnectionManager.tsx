@@ -26,13 +26,32 @@ export function ConnectionManager({
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
 
-  // Filter out current device from the online list
-  const otherDevices = onlineDevices.filter(d => {
+  // Filter out current device from the online list and deduplicate by name
+  // (in case the same device appears via mDNS discovery AND incoming connection)
+  const otherDevicesRaw = onlineDevices.filter(d => {
     if (currentDevice?.socketId && d.socketId) {
       return d.socketId !== currentDevice.socketId;
     }
     return d.id !== currentDevice?.id;
   });
+
+  // Deduplicate: prefer entries that are already connected
+  const seenNames = new Map<string, Device>();
+  for (const device of otherDevicesRaw) {
+    const name = device.name;
+    const existingDevice = seenNames.get(name);
+    if (!existingDevice) {
+      seenNames.set(name, device);
+    } else {
+      // If the new one is connected and old one isn't, prefer new one
+      const existingIsPaired = connections.some(c => c.peerId === existingDevice.socketId);
+      const newIsPaired = connections.some(c => c.peerId === device.socketId);
+      if (newIsPaired && !existingIsPaired) {
+        seenNames.set(name, device);
+      }
+    }
+  }
+  const otherDevices = Array.from(seenNames.values());
 
   // Check if a device is already paired
   const isPaired = (device: Device) => {
