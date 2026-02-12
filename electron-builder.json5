@@ -30,7 +30,7 @@
     }
   },
   "dmg": {
-    "artifactName": "LiquidRelay-Mac-${arch}-3-33-0.${ext}",
+    "artifactName": "LiquidRelay-Mac-${arch}-${version}.${ext}",
     "contents": [
       { "x": 130, "y": 220 },
       { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
@@ -41,7 +41,7 @@
     "icon": "assets/icon.png"
   },
   "nsis": {
-    "artifactName": "LiquidRelaySetup-3-20-0.${ext}",
+    "artifactName": "LiquidRelaySetup-${version}.${ext}",
     "oneClick": false,
     "perMachine": true,
     "deleteAppDataOnUninstall": true,
