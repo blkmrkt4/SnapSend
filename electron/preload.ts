@@ -44,6 +44,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   sendRelayFile: (targetClientId: string, fileData: any) => ipcRenderer.invoke('send-relay-file', targetClientId, fileData),
   restartDiscovery: () => ipcRenderer.invoke('restart-discovery'),
 
+  // Chunked file transfer
+  sendChunkedFile: (peerId: string, fileData: any) => ipcRenderer.invoke('send-chunked-file-to-peer', peerId, fileData),
+  onChunkProgress: (callback: (data: { transferId: string; progress: number; direction: 'send' | 'receive' }) => void) => {
+    ipcRenderer.on('chunk-progress', (_event, data) => callback(data));
+  },
+  shouldUseChunkedTransfer: (size: number) => ipcRenderer.invoke('should-use-chunked-transfer', size),
+
   // Port setting
   getPortSetting: () => ipcRenderer.invoke('get-port-setting'),
   setPortSetting: (port: number) => ipcRenderer.invoke('set-port-setting', port),
@@ -58,9 +65,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Screenshot
   captureScreenshot: (mode: 'fullscreen' | 'window') => ipcRenderer.invoke('capture-screenshot', mode),
 
+  // Clipboard
+  readClipboardImage: () => ipcRenderer.invoke('read-clipboard-image'),
+
   // License
   activateLicense: (key: string) => ipcRenderer.invoke('activate-license', key),
   validateLicense: () => ipcRenderer.invoke('validate-license'),
   deactivateLicense: () => ipcRenderer.invoke('deactivate-license'),
   getLicenseStatus: () => ipcRenderer.invoke('get-license-status'),
+
+  // File operations
+  openFile: (filename: string) => ipcRenderer.invoke('open-file', filename),
 });

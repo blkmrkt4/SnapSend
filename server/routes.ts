@@ -3,9 +3,46 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import multer from "multer";
-import { type WebSocketMessage } from "@shared/schema";
+import { type WebSocketMessage, type ChunkedTransferState, CHUNK_THRESHOLD } from "@shared/schema";
 import path from "path";
 import fs from "fs";
+
+// Track in-progress chunked transfers (server side - for browser mode)
+interface ServerChunkTransfer extends ChunkedTransferState {
+  tempFilePath: string;
+  writeStream: fs.WriteStream | null;
+  clientId: string;
+}
+
+const inProgressChunkTransfers = new Map<string, ServerChunkTransfer>();
+
+// Clean up stale transfers periodically
+setInterval(() => {
+  const now = Date.now();
+  const timeout = 5 * 60 * 1000; // 5 minutes
+
+  inProgressChunkTransfers.forEach((transfer, transferId) => {
+    if (now - transfer.startedAt > timeout) {
+      console.log(`Cleaning up stale chunked transfer: ${transferId}`);
+      cleanupChunkTransfer(transferId);
+    }
+  });
+}, 60000);
+
+function cleanupChunkTransfer(transferId: string): void {
+  const transfer = inProgressChunkTransfers.get(transferId);
+  if (transfer) {
+    try {
+      transfer.writeStream?.destroy();
+      if (fs.existsSync(transfer.tempFilePath)) {
+        fs.unlinkSync(transfer.tempFilePath);
+      }
+    } catch (e) {
+      console.warn(`Error cleaning up transfer ${transferId}:`, e);
+    }
+    inProgressChunkTransfers.delete(transferId);
+  }
+}
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -714,6 +751,214 @@ export async function registerRoutes(app: Express, options?: RouteOptions): Prom
             }
             return;
           }
+
+          // ─── Chunked Transfer: chunk-start ───
+          if (message.type === 'chunk-start') {
+            const { transferId, filename, originalName, mimeType, size, totalChunks, isClipboard, targetConnectionId, targetPeerId } = message.data;
+            console.log(`Chunked transfer starting from ${device.name}: ${originalName} (${totalChunks} chunks)`);
+
+            const uploadsDir = process.env.SNAPSEND_UPLOADS_DIR || path.join(process.cwd(), 'uploads');
+            if (!fs.existsSync(uploadsDir)) {
+              fs.mkdirSync(uploadsDir, { recursive: true });
+            }
+
+            const tempFilePath = path.join(uploadsDir, `${transferId}.tmp`);
+
+            try {
+              const writeStream = fs.createWriteStream(tempFilePath);
+
+              const transfer: ServerChunkTransfer = {
+                transferId,
+                filename,
+                originalName,
+                mimeType,
+                totalSize: size,
+                totalChunks,
+                receivedChunks: 0,
+                isClipboard,
+                fromId: device.id.toString(),
+                fromName: device.name,
+                startedAt: Date.now(),
+                tempFilePath,
+                writeStream,
+                clientId: clientId,
+              };
+
+              // Store target info for forwarding when complete
+              (transfer as any).targetConnectionId = targetConnectionId;
+              (transfer as any).targetPeerId = targetPeerId;
+
+              inProgressChunkTransfers.set(transferId, transfer);
+
+              ws.send(JSON.stringify({
+                type: 'chunk-ack',
+                data: { transferId, status: 'ok' }
+              }));
+            } catch (error) {
+              console.error('Error starting chunked receive:', error);
+              ws.send(JSON.stringify({
+                type: 'chunk-ack',
+                data: { transferId, status: 'error', error: (error as Error).message }
+              }));
+            }
+            return;
+          }
+
+          // ─── Chunked Transfer: chunk-data ───
+          if (message.type === 'chunk-data') {
+            const { transferId, chunkIndex, content } = message.data;
+            const transfer = inProgressChunkTransfers.get(transferId);
+
+            if (!transfer) {
+              ws.send(JSON.stringify({
+                type: 'chunk-error',
+                data: { transferId, error: 'Unknown transfer', chunkIndex }
+              }));
+              return;
+            }
+
+            try {
+              const chunkBuffer = Buffer.from(content, 'base64');
+              transfer.writeStream?.write(chunkBuffer);
+              transfer.receivedChunks++;
+
+              ws.send(JSON.stringify({
+                type: 'chunk-ack',
+                data: { transferId, chunkIndex, status: 'ok' }
+              }));
+            } catch (error) {
+              console.error('Error writing chunk:', error);
+              ws.send(JSON.stringify({
+                type: 'chunk-ack',
+                data: { transferId, chunkIndex, status: 'error', error: (error as Error).message }
+              }));
+            }
+            return;
+          }
+
+          // ─── Chunked Transfer: chunk-end ───
+          if (message.type === 'chunk-end') {
+            const { transferId } = message.data;
+            const transfer = inProgressChunkTransfers.get(transferId);
+
+            if (!transfer) {
+              ws.send(JSON.stringify({
+                type: 'chunk-error',
+                data: { transferId, error: 'Unknown transfer' }
+              }));
+              return;
+            }
+
+            try {
+              // Close the write stream
+              await new Promise<void>((resolve, reject) => {
+                if (transfer.writeStream) {
+                  transfer.writeStream.end(() => resolve());
+                  transfer.writeStream.on('error', reject);
+                } else {
+                  resolve();
+                }
+              });
+
+              // Rename temp file to final filename
+              const uploadsDir = process.env.SNAPSEND_UPLOADS_DIR || path.join(process.cwd(), 'uploads');
+              const finalPath = path.join(uploadsDir, transfer.filename);
+              fs.renameSync(transfer.tempFilePath, finalPath);
+
+              console.log(`Chunked transfer complete: ${transfer.originalName}`);
+
+              // Save to database (no content stored for large files - it's on disk)
+              const savedFile = await storage.createFile({
+                filename: transfer.filename,
+                originalName: transfer.originalName,
+                mimeType: transfer.mimeType,
+                size: transfer.totalSize,
+                content: null, // Large file - content is on disk
+                fromDeviceId: device.id,
+                toDeviceId: null,
+                connectionId: null,
+                isClipboard: transfer.isClipboard ? 1 : 0,
+                fromDeviceName: device.name,
+                toDeviceName: null,
+              });
+
+              // Forward to connected devices (same logic as regular file transfer)
+              const targetPeerId = (transfer as any).targetPeerId;
+              const targetConnectionId = (transfer as any).targetConnectionId;
+
+              if (targetPeerId && connectedPeers.has(targetPeerId)) {
+                // Forward to P2P peer
+                const peerWs = connectedPeers.get(targetPeerId)!;
+                if (peerWs.readyState === WebSocket.OPEN) {
+                  // For large files, we need to re-read and send chunks to the peer
+                  // For now, send metadata and let peer know file is available
+                  peerWs.send(JSON.stringify({
+                    type: 'file-transfer',
+                    data: {
+                      filename: transfer.filename,
+                      originalName: transfer.originalName,
+                      mimeType: transfer.mimeType,
+                      size: transfer.totalSize,
+                      content: null, // Large file - receiver should request download
+                      isClipboard: transfer.isClipboard,
+                      fromId: clientId,
+                      fromName: device.name,
+                      isLargeFile: true,
+                    }
+                  }));
+                }
+              } else {
+                // Forward to browser clients via connections
+                const activeConnections = await storage.getActiveConnectionsForDevice(device.id);
+                for (const connection of activeConnections) {
+                  const partnerId = connection.deviceAId === device.id ? connection.deviceBId : connection.deviceAId;
+                  const partnerClient = connectedClients.get(partnerId.toString());
+
+                  if (partnerClient && partnerClient.readyState === WebSocket.OPEN) {
+                    partnerClient.send(JSON.stringify({
+                      type: 'file-received',
+                      data: { file: savedFile, fromDevice: device.name, isLargeFile: true }
+                    }));
+                  }
+                }
+              }
+
+              // Send confirmation to sender
+              ws.send(JSON.stringify({
+                type: 'chunk-ack',
+                data: { transferId, status: 'ok' }
+              }));
+
+              ws.send(JSON.stringify({
+                type: 'file-sent-confirmation',
+                data: {
+                  filename: transfer.originalName,
+                  recipientCount: 1,
+                  isClipboard: transfer.isClipboard,
+                  file: savedFile
+                }
+              }));
+
+              // Clean up
+              inProgressChunkTransfers.delete(transferId);
+            } catch (error) {
+              console.error('Error finalizing chunked transfer:', error);
+              ws.send(JSON.stringify({
+                type: 'chunk-ack',
+                data: { transferId, status: 'error', error: (error as Error).message }
+              }));
+              cleanupChunkTransfer(transferId);
+            }
+            return;
+          }
+
+          // ─── Chunked Transfer: chunk-error ───
+          if (message.type === 'chunk-error') {
+            const { transferId } = message.data;
+            console.error(`Chunked transfer error: ${message.data.error}`);
+            cleanupChunkTransfer(transferId);
+            return;
+          }
         } catch (error) {
           console.error('Error processing WebSocket message:', error);
           if (ws.readyState === WebSocket.OPEN) {
@@ -745,6 +990,13 @@ export async function registerRoutes(app: Express, options?: RouteOptions): Prom
 
         connectedClients.delete(clientId);
         clientNameMap.delete(clientId);
+
+        // Clean up any in-progress chunked transfers for this client
+        inProgressChunkTransfers.forEach((transfer, transferId) => {
+          if (transfer.clientId === clientId) {
+            cleanupChunkTransfer(transferId);
+          }
+        });
 
         // Notify P2P peers about updated client list
         broadcastRelayDevicesToPeers();

@@ -2,6 +2,9 @@ import { ipcMain, type BrowserWindow } from 'electron';
 import { DiscoveryManager, type PeerInfo } from './discovery';
 import { PeerConnectionManager } from './peer-connection';
 
+// Chunked transfer threshold (must match shared/schema.ts)
+const CHUNK_THRESHOLD = 70 * 1024 * 1024; // 70MB
+
 let peerManager: PeerConnectionManager | null = null;
 
 export function registerDiscoveryIPC(
@@ -57,6 +60,7 @@ export function registerP2PIPC(
   localId: string,
   localName: string,
   localPort: number,
+  uploadsDir?: string,
 ) {
   peerManager = new PeerConnectionManager(localId, localName, localPort, {
     onPeerConnected: (peer: PeerInfo) => {
@@ -79,7 +83,12 @@ export function registerP2PIPC(
         mainWindow.webContents.send('relay-devices-updated', devices);
       }
     },
-  });
+    onChunkProgress: (data) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('chunk-progress', data);
+      }
+    },
+  }, uploadsDir);
 
   ipcMain.handle('connect-to-peer', (_event, peerId: string) => {
     const peers = discovery.getPeers();
@@ -110,6 +119,18 @@ export function registerP2PIPC(
       }
     }
     return false;
+  });
+
+  // Chunked file transfer
+  ipcMain.handle('send-chunked-file-to-peer', async (_event, peerId: string, fileData: any) => {
+    if (peerManager) {
+      return peerManager.sendChunkedFileToPeer(peerId, fileData);
+    }
+    return false;
+  });
+
+  ipcMain.handle('should-use-chunked-transfer', (_event, size: number) => {
+    return size > CHUNK_THRESHOLD;
   });
 
   return peerManager;

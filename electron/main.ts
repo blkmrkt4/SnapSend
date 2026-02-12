@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, desktopCapturer } from 'electron';
+import { app, BrowserWindow, ipcMain, desktopCapturer, shell, clipboard } from 'electron';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { DiscoveryManager } from './discovery';
@@ -259,7 +259,8 @@ async function startApp() {
 
       if (mainWindow) {
         registerDiscoveryIPC(mainWindow, discovery);
-        registerP2PIPC(mainWindow, discovery, deviceId, deviceName, serverPort);
+        const uploadsDir = process.env.SNAPSEND_UPLOADS_DIR || path.join(process.cwd(), 'uploads');
+        registerP2PIPC(mainWindow, discovery, deviceId, deviceName, serverPort, uploadsDir);
       }
 
       console.log(`Liquid Relay ready: device="${deviceName}" id=${deviceId} port=${serverPort}`);
@@ -371,6 +372,35 @@ ipcMain.handle('activate-license', (_event, key: string) => activateLicense(key)
 ipcMain.handle('validate-license', () => validateLicense());
 ipcMain.handle('deactivate-license', () => deactivateLicense());
 ipcMain.handle('get-license-status', () => getLicenseStatus());
+
+// Read clipboard image
+ipcMain.handle('read-clipboard-image', () => {
+  const image = clipboard.readImage();
+  if (image.isEmpty()) return null;
+
+  const size = image.getSize();
+  return {
+    dataURL: image.toDataURL(),
+    width: size.width,
+    height: size.height,
+  };
+});
+
+// Open file with system default application
+ipcMain.handle('open-file', async (_event, filename: string) => {
+  const fs = require('fs') as typeof import('fs');
+  const uploadsDir = process.env.SNAPSEND_UPLOADS_DIR || path.join(process.cwd(), 'uploads');
+  const filePath = path.join(uploadsDir, filename);
+
+  // Verify file exists before opening
+  if (!fs.existsSync(filePath)) {
+    return { success: false, error: 'File not found' };
+  }
+
+  // shell.openPath returns empty string on success, error message on failure
+  const result = await shell.openPath(filePath);
+  return { success: result === '', error: result || undefined };
+});
 
 app.whenReady().then(startApp);
 

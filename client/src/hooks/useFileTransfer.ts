@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { apiRequest } from '@/lib/queryClient';
+import { CHUNK_SIZE, CHUNK_THRESHOLD } from '@shared/schema';
 
 export function useFileTransfer() {
   const uploadFile = useCallback(async (file: File, deviceId?: number) => {
@@ -72,11 +73,55 @@ export function useFileTransfer() {
     });
   }, []);
 
+  // Read a specific chunk of a file as base64
+  const readFileChunk = useCallback((file: File, chunkIndex: number, chunkSize: number = CHUNK_SIZE): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const start = chunkIndex * chunkSize;
+      const end = Math.min(start + chunkSize, file.size);
+      const chunk = file.slice(start, end);
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        // Convert ArrayBuffer to base64
+        const arrayBuffer = reader.result as ArrayBuffer;
+        const bytes = new Uint8Array(arrayBuffer);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        resolve(btoa(binary));
+      };
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(chunk);
+    });
+  }, []);
+
+  // Check if a file should use chunked transfer
+  const shouldUseChunkedTransfer = useCallback((file: File): boolean => {
+    return file.size > CHUNK_THRESHOLD;
+  }, []);
+
+  // Calculate total number of chunks for a file
+  const getTotalChunks = useCallback((fileSize: number, chunkSize: number = CHUNK_SIZE): number => {
+    return Math.ceil(fileSize / chunkSize);
+  }, []);
+
+  // Generate a unique transfer ID
+  const generateTransferId = useCallback((): string => {
+    return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+  }, []);
+
   return {
     uploadFile,
     syncClipboard,
     downloadFile,
     readFileAsText,
     readFileAsDataURL,
+    readFileChunk,
+    shouldUseChunkedTransfer,
+    getTotalChunks,
+    generateTransferId,
+    CHUNK_SIZE,
+    CHUNK_THRESHOLD,
   };
 }

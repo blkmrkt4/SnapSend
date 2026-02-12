@@ -299,6 +299,22 @@ export function FileExplorer({
     }
   };
 
+  const handleOpenWithSystemApp = async (file: ExtendedFile) => {
+    // In Electron, open with system default application
+    if (window.electronAPI?.openFile) {
+      const result = await window.electronAPI.openFile(file.filename);
+      if (!result.success) {
+        console.error('Failed to open file:', result.error);
+        // Fall back to browser behavior on error
+        handleOpenInNewTab(file);
+      }
+      return;
+    }
+
+    // In browser mode, fall back to opening in new tab
+    handleOpenInNewTab(file);
+  };
+
   // --- Filter pipeline ---
   const filteredFiles = files
     // Direction filter
@@ -668,12 +684,25 @@ export function FileExplorer({
               return (
                 <div
                   key={file.id}
-                  className={`rounded-lg border transition-all ${getFileBorderColor(file)} ${isExpanded ? 'shadow-md' : 'hover:shadow-md'}`}
+                  draggable="true"
+                  onDragStart={(e) => {
+                    // Set custom data type for internal file re-sharing
+                    e.dataTransfer.setData('application/x-snapsend-file', JSON.stringify({
+                      id: file.id,
+                      filename: file.filename,
+                      originalName: file.originalName,
+                      mimeType: file.mimeType,
+                      size: file.size,
+                      content: file.content,
+                    }));
+                    e.dataTransfer.effectAllowed = 'copy';
+                  }}
+                  className={`rounded-lg border transition-all cursor-grab active:cursor-grabbing ${getFileBorderColor(file)} ${isExpanded ? 'shadow-md' : 'hover:shadow-md'}`}
                 >
                   {/* Main row content */}
                   <div
                     className="p-3 cursor-pointer"
-                    onDoubleClick={() => handleOpenInNewTab(file)}
+                    onDoubleClick={() => handleOpenWithSystemApp(file)}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3 flex-1 min-w-0">

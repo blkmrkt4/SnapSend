@@ -22,6 +22,7 @@ export default function Home() {
     selectedTargetId,
     knownDevices,
     allTags,
+    chunkedTransfers,
     setupDevice,
     pairWithDevice,
     terminateConnection,
@@ -117,6 +118,7 @@ export default function Home() {
         pendingFileCount={pendingFiles.length}
         showFilesPanel={showFilesPanel}
         onToggleFilesPanel={() => setShowFilesPanel(!showFilesPanel)}
+        chunkedTransfers={chunkedTransfers}
       />
 
       {/* Main Content Area - collapsible, fills remaining width */}

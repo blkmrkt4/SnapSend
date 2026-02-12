@@ -5,7 +5,7 @@ import { useFileTransfer } from '@/hooks/useFileTransfer';
 import { MistAnimation } from './MistAnimation';
 import { ScreenshotCropper } from './ScreenshotCropper';
 import { type File, type Device } from '@shared/schema';
-import { type KnownDevice, LOCAL_DEVICE_ID } from '@/hooks/useConnectionSystem';
+import { type KnownDevice, LOCAL_DEVICE_ID, type ChunkedTransferProgress } from '@/hooks/useConnectionSystem';
 
 // Stylized liquid droplet icon for branding
 function LiquidDropletIcon({ className }: { className?: string }) {
@@ -61,6 +61,7 @@ interface LeftSidebarProps {
   pendingFileCount: number;
   showFilesPanel: boolean;
   onToggleFilesPanel: () => void;
+  chunkedTransfers?: ChunkedTransferProgress[];
 }
 
 export function LeftSidebar({
@@ -80,6 +81,7 @@ export function LeftSidebar({
   pendingFileCount,
   showFilesPanel,
   onToggleFilesPanel,
+  chunkedTransfers = [],
 }: LeftSidebarProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [windowDragActive, setWindowDragActive] = useState(false);
@@ -98,6 +100,7 @@ export function LeftSidebar({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { readFileAsText, readFileAsDataURL } = useFileTransfer();
   const [showScreenshotPicker, setShowScreenshotPicker] = useState(false);
+  const [showNoDeviceMessage, setShowNoDeviceMessage] = useState(false);
 
   const selectedTargetName = selectedTargetId === LOCAL_DEVICE_ID
     ? `${currentDevice?.name || 'This Device'} (This Device)`
@@ -174,8 +177,65 @@ export function LeftSidebar({
     setIsDragOver(false);
     setWindowDragActive(false);
     dragCounterRef.current = 0;
-    setIsUploading(true);
 
+    // Check for internal file re-share first
+    const internalFileData = e.dataTransfer.getData('application/x-snapsend-file');
+
+    if (internalFileData) {
+      // Internal file from shared files section - requires a remote device
+      if (!selectedTargetId || selectedTargetId === LOCAL_DEVICE_ID) {
+        // No remote device selected - show message
+        setShowNoDeviceMessage(true);
+        setTimeout(() => setShowNoDeviceMessage(false), 3000);
+        return;
+      }
+
+      setIsUploading(true);
+      setShowRipple(true);
+      setShowFlash(true);
+      setTimeout(() => setShowFlash(false), 150);
+      setTimeout(() => setShowRipple(false), 600);
+
+      try {
+        const fileData = JSON.parse(internalFileData);
+
+        // Check if content exists - large files may not have it stored
+        if (!fileData.content) {
+          // Fetch content from server
+          const response = await fetch(`/api/files/${fileData.id}/download`);
+          if (response.ok) {
+            const blob = await response.blob();
+            const reader = new FileReader();
+            fileData.content = await new Promise<string>((resolve) => {
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.readAsDataURL(blob);
+            });
+          } else {
+            console.error('Failed to fetch file content');
+            return;
+          }
+        }
+
+        await onSendFile({
+          filename: `${Date.now()}-${fileData.originalName}`,
+          originalName: fileData.originalName,
+          mimeType: fileData.mimeType,
+          size: fileData.size,
+          content: fileData.content,
+          isClipboard: false,
+        });
+
+        setShowMist(true);
+      } catch (error) {
+        console.error('Error re-sharing file:', error);
+      } finally {
+        setIsUploading(false);
+      }
+      return;
+    }
+
+    // External file from filesystem - current behavior
+    setIsUploading(true);
     setShowRipple(true);
     setShowFlash(true);
     setTimeout(() => setShowFlash(false), 150);
@@ -209,7 +269,7 @@ export function LeftSidebar({
     } finally {
       setIsUploading(false);
     }
-  }, [onSendFile, readFileAsText, readFileAsDataURL]);
+  }, [onSendFile, readFileAsText, readFileAsDataURL, selectedTargetId]);
 
   const handleFileSelect = useCallback(() => {
     fileInputRef.current?.click();
@@ -253,7 +313,29 @@ export function LeftSidebar({
 
   const handlePasteFromClipboard = useCallback(async () => {
     try {
-      if (navigator.clipboard && navigator.clipboard.readText) {
+      // Try Electron native clipboard image first
+      if (window.electronAPI?.readClipboardImage) {
+        const imageData = await window.electronAPI.readClipboardImage();
+        if (imageData) {
+          const filename = `clipboard-image-${Date.now()}.png`;
+          const base64Data = imageData.dataURL.split(',')[1] || '';
+          const sizeInBytes = Math.round(base64Data.length * 0.75);
+
+          await onSendFile({
+            filename,
+            originalName: filename,
+            mimeType: 'image/png',
+            size: sizeInBytes,
+            content: imageData.dataURL,
+            isClipboard: true,
+          });
+          setShowMist(true);
+          return;
+        }
+      }
+
+      // Fallback: read text
+      if (navigator.clipboard?.readText) {
         const text = await navigator.clipboard.readText();
         if (text) {
           await onSendFile({
@@ -264,7 +346,6 @@ export function LeftSidebar({
             content: text,
             isClipboard: true,
           });
-
           setShowMist(true);
         }
       }
@@ -279,6 +360,36 @@ export function LeftSidebar({
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
 
+      // Check for image in clipboardData.items
+      const items = e.clipboardData?.items;
+      if (items) {
+        for (const item of Array.from(items)) {
+          if (item.type.startsWith('image/')) {
+            e.preventDefault();
+            const blob = item.getAsFile();
+            if (blob) {
+              const reader = new FileReader();
+              reader.onload = async () => {
+                const dataURL = reader.result as string;
+                const filename = `clipboard-image-${Date.now()}.png`;
+                await onSendFile({
+                  filename,
+                  originalName: filename,
+                  mimeType: blob.type,
+                  size: blob.size,
+                  content: dataURL,
+                  isClipboard: true,
+                });
+                setShowMist(true);
+              };
+              reader.readAsDataURL(blob);
+              return;
+            }
+          }
+        }
+      }
+
+      // Fallback to text
       const text = e.clipboardData?.getData('text/plain');
       if (text) {
         e.preventDefault();
@@ -542,12 +653,19 @@ export function LeftSidebar({
             ? 'Files save to this device only'
             : selectedTargetId
               ? connections.some((c: any) => c.peerId === selectedTargetId || c.id === selectedTargetId)
-                ? 'Press ⌘V to paste clipboard'
+                ? `Sending files to ${selectedTargetName}`
                 : `Files will send when ${selectedTargetName} connects`
               : connections.length > 0
-                ? 'Press ⌘V to paste clipboard'
+                ? 'Sending to all connected devices'
                 : 'No devices connected — files save locally'}
         </p>
+
+        {/* No device selected message for re-sharing */}
+        {showNoDeviceMessage && (
+          <p className="text-amber-600 text-xs text-center mb-3 animate-pulse font-medium">
+            Select a device to re-share this file
+          </p>
+        )}
 
         {/* Drop zone */}
         <div
@@ -573,13 +691,7 @@ export function LeftSidebar({
                 ? 'Pouring...'
                 : isDragOver
                   ? 'Release to Pour'
-                  : selectedTargetId === LOCAL_DEVICE_ID
-                    ? 'Drop files here'
-                    : selectedTargetId
-                      ? `Drop files for ${selectedTargetName}`
-                      : connections.length > 0
-                        ? 'Drop files here'
-                        : 'Drop files here'}
+                  : 'Drop files here'}
             </p>
 
             <div className="flex flex-col items-center gap-2">
@@ -659,6 +771,33 @@ export function LeftSidebar({
               <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
               {pendingFileCount} file{pendingFileCount > 1 ? 's' : ''} queued
             </div>
+          </div>
+        )}
+
+        {/* Chunked transfer progress */}
+        {chunkedTransfers.length > 0 && (
+          <div className="mt-3 space-y-2">
+            {chunkedTransfers.map((transfer) => (
+              <div key={transfer.transferId} className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs font-medium text-blue-800 truncate max-w-[180px]">
+                    {transfer.direction === 'send' ? '↑ Sending' : '↓ Receiving'}: {transfer.originalName}
+                  </span>
+                  <span className="text-xs font-bold text-blue-600">
+                    {Math.round(transfer.progress)}%
+                  </span>
+                </div>
+                <div className="w-full bg-blue-200 rounded-full h-1.5">
+                  <div
+                    className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
+                    style={{ width: `${transfer.progress}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-blue-600 mt-1">
+                  Large file transfer in progress...
+                </p>
+              </div>
+            ))}
           </div>
         )}
 

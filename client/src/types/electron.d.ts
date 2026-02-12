@@ -27,8 +27,24 @@ export interface ElectronAPI {
   sendRelayFile?: (targetClientId: string, fileData: any) => Promise<boolean>;
   restartDiscovery?: () => Promise<void>;
 
+  // Chunked file transfer
+  sendChunkedFile?: (peerId: string, fileData: {
+    filename: string;
+    originalName: string;
+    mimeType: string;
+    size: number;
+    filePath?: string;
+    content?: string;
+    isClipboard?: boolean;
+  }) => Promise<boolean>;
+  onChunkProgress?: (callback: (data: { transferId: string; progress: number; direction: 'send' | 'receive' }) => void) => void;
+  shouldUseChunkedTransfer?: (size: number) => boolean;
+
   // Screenshot
   captureScreenshot: (mode: 'fullscreen' | 'window') => Promise<{ dataURL: string; width: number; height: number } | null>;
+
+  // Clipboard
+  readClipboardImage: () => Promise<{ dataURL: string; width: number; height: number } | null>;
 
   // Port setting
   getPortSetting: () => Promise<number>;
@@ -46,6 +62,9 @@ export interface ElectronAPI {
   validateLicense: () => Promise<{ isActivated: boolean; customerName?: string }>;
   deactivateLicense: () => Promise<void>;
   getLicenseStatus: () => Promise<LicenseStatus>;
+
+  // File operations
+  openFile: (filename: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 export interface LicenseStatus {

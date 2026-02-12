@@ -128,7 +128,9 @@ export interface WebSocketMessage {
         'pair-request' | 'pair-accepted' | 'auto-paired' |
         'connection-terminated' | 'setup-required' | 'setup-complete' | 'error' |
         // P2P message types
-        'peer-handshake' | 'peer-handshake-ack' | 'file-received-ack';
+        'peer-handshake' | 'peer-handshake-ack' | 'file-received-ack' |
+        // Chunked transfer message types
+        'chunk-start' | 'chunk-data' | 'chunk-end' | 'chunk-ack' | 'chunk-error';
   data?: any;
 }
 
@@ -174,4 +176,75 @@ export interface P2PFileTransferMessage {
     fromId: string;
     fromName: string;
   };
+}
+
+// Chunked transfer constants
+export const CHUNK_THRESHOLD = 70 * 1024 * 1024; // 70MB - files larger than this use chunked transfer
+export const CHUNK_SIZE = 1 * 1024 * 1024; // 1MB raw data per chunk
+
+// Chunked transfer message interfaces
+export interface ChunkStartMessage {
+  type: 'chunk-start';
+  data: {
+    transferId: string;
+    filename: string;
+    originalName: string;
+    mimeType: string;
+    size: number;
+    totalChunks: number;
+    isClipboard?: boolean;
+    fromId: string;
+    fromName: string;
+  };
+}
+
+export interface ChunkDataMessage {
+  type: 'chunk-data';
+  data: {
+    transferId: string;
+    chunkIndex: number;
+    content: string; // base64 encoded chunk
+  };
+}
+
+export interface ChunkEndMessage {
+  type: 'chunk-end';
+  data: {
+    transferId: string;
+    checksum?: string;
+  };
+}
+
+export interface ChunkAckMessage {
+  type: 'chunk-ack';
+  data: {
+    transferId: string;
+    chunkIndex?: number; // If present, acknowledges specific chunk; otherwise acknowledges start/end
+    status: 'ok' | 'error';
+    error?: string;
+  };
+}
+
+export interface ChunkErrorMessage {
+  type: 'chunk-error';
+  data: {
+    transferId: string;
+    error: string;
+    chunkIndex?: number;
+  };
+}
+
+// Active chunked transfer tracking (for both sender and receiver)
+export interface ChunkedTransferState {
+  transferId: string;
+  filename: string;
+  originalName: string;
+  mimeType: string;
+  totalSize: number;
+  totalChunks: number;
+  receivedChunks: number;
+  isClipboard?: boolean;
+  fromId?: string;
+  fromName?: string;
+  startedAt: number;
 }

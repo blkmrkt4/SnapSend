@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { type Device, type Connection, type File } from '@shared/schema';
+import { type Device, type Connection, type File, type ChunkedTransferState, CHUNK_SIZE, CHUNK_THRESHOLD } from '@shared/schema';
 import '@/types/electron.d.ts';
 
 // Special ID representing "this device" (local save only, no send)
@@ -14,6 +14,14 @@ interface PendingFile {
   id: number;
   fileData: any;
   queuedAt: Date;
+}
+
+export interface ChunkedTransferProgress {
+  transferId: string;
+  originalName: string;
+  progress: number;
+  direction: 'send' | 'receive';
+  totalSize: number;
 }
 
 export interface KnownDevice {
@@ -36,6 +44,7 @@ export interface ConnectionSystemState {
   selectedTargetId: string | null;
   knownDevices: KnownDevice[];
   allTags: string[];
+  chunkedTransfers: ChunkedTransferProgress[];
 }
 
 function loadKnownDevices(): KnownDevice[] {
@@ -136,6 +145,7 @@ export function useConnectionSystem() {
     selectedTargetId: LOCAL_DEVICE_ID, // Default to "This Device" (local save only)
     knownDevices: loadKnownDevices(),
     allTags: [],
+    chunkedTransfers: [],
   });
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -283,6 +293,25 @@ export function useConnectionSystem() {
         createdAt: new Date().toISOString(),
       }));
       setState(prev => ({ ...prev, onlineDevices: peerDevices }));
+    });
+
+    // Listen for chunked transfer progress
+    api.onChunkProgress?.((data) => {
+      setState(prev => {
+        const existingIndex = prev.chunkedTransfers.findIndex(t => t.transferId === data.transferId);
+        if (existingIndex >= 0) {
+          // Update existing transfer
+          const updated = [...prev.chunkedTransfers];
+          updated[existingIndex] = { ...updated[existingIndex], progress: data.progress };
+          // Remove if complete
+          if (data.progress >= 100) {
+            updated.splice(existingIndex, 1);
+          }
+          return { ...prev, chunkedTransfers: updated };
+        }
+        // New transfer (will be added with full info when we send)
+        return prev;
+      });
     });
   }, []);
 
@@ -822,7 +851,35 @@ export function useConnectionSystem() {
       if (targetConn) {
         // Send directly to the targeted connection
         if (window.electronAPI?.sendFile) {
-          window.electronAPI.sendFile(targetConn.peerId, fileData).then(async (sent) => {
+          // Check if we should use chunked transfer for large files
+          const useChunked = fileData.size > CHUNK_THRESHOLD && window.electronAPI.sendChunkedFile;
+
+          const sendPromise = useChunked
+            ? (async () => {
+                // Add to chunked transfers for progress tracking
+                const transferId = `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+                setState(prev => ({
+                  ...prev,
+                  chunkedTransfers: [...prev.chunkedTransfers, {
+                    transferId,
+                    originalName: fileData.originalName,
+                    progress: 0,
+                    direction: 'send' as const,
+                    totalSize: fileData.size,
+                  }],
+                  notifications: [...prev.notifications, {
+                    id: Date.now(),
+                    type: 'info',
+                    title: 'Large file transfer',
+                    message: `Starting chunked transfer of ${fileData.originalName}...`,
+                    timestamp: new Date(),
+                  }],
+                }));
+                return window.electronAPI!.sendChunkedFile!(targetConn.peerId, fileData);
+              })()
+            : window.electronAPI.sendFile(targetConn.peerId, fileData);
+
+          sendPromise.then(async (sent) => {
             if (sent) {
               // Persist sent file to database
               try {
@@ -834,7 +891,7 @@ export function useConnectionSystem() {
                     originalName: fileData.originalName,
                     mimeType: fileData.mimeType,
                     size: fileData.size,
-                    content: fileData.content,
+                    content: useChunked ? null : fileData.content, // Don't store large file content in DB
                     isClipboard: fileData.isClipboard,
                     toDeviceName: targetConn.partnerName,
                   }),
@@ -998,12 +1055,41 @@ export function useConnectionSystem() {
     }
 
     if (window.electronAPI?.sendFile) {
+      // Check if we should use chunked transfer for large files
+      const useChunked = fileData.size > CHUNK_THRESHOLD && window.electronAPI.sendChunkedFile;
+
+      if (useChunked) {
+        // For chunked transfers to multiple devices, add progress tracking
+        const transferId = `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+        setState(prev => ({
+          ...prev,
+          chunkedTransfers: [...prev.chunkedTransfers, {
+            transferId,
+            originalName: fileData.originalName,
+            progress: 0,
+            direction: 'send' as const,
+            totalSize: fileData.size,
+          }],
+          notifications: [...prev.notifications, {
+            id: Date.now(),
+            type: 'info',
+            title: 'Large file transfer',
+            message: `Starting chunked transfer of ${fileData.originalName} to ${state.connections.length} device(s)...`,
+            timestamp: new Date(),
+          }],
+        }));
+      }
+
       let sentCount = 0;
-      const sendPromises = state.connections.map(conn =>
-        window.electronAPI!.sendFile!(conn.peerId, fileData).then(sent => {
+      const sendPromises = state.connections.map(conn => {
+        const sendFn = useChunked
+          ? window.electronAPI!.sendChunkedFile!(conn.peerId, fileData)
+          : window.electronAPI!.sendFile!(conn.peerId, fileData);
+        return sendFn.then(sent => {
           if (sent) sentCount++;
-        })
-      );
+        });
+      });
+
       Promise.all(sendPromises).then(async () => {
         if (sentCount > 0) {
           // Persist sent file to database
@@ -1016,7 +1102,7 @@ export function useConnectionSystem() {
                 originalName: fileData.originalName,
                 mimeType: fileData.mimeType,
                 size: fileData.size,
-                content: fileData.content,
+                content: useChunked ? null : fileData.content, // Don't store large file content
                 isClipboard: fileData.isClipboard,
                 toDeviceName: `${sentCount} device${sentCount > 1 ? 's' : ''}`,
               }),
