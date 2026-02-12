@@ -30,16 +30,21 @@ export function registerDiscoveryIPC(
         mainWindow.webContents.send('peer-discovered', peer);
       }
       // Auto-connect: try to establish a P2P connection immediately.
-      // If outgoing TCP is blocked (macOS LNP from Finder), this fails silently.
-      // The other peer will also discover us and connect in the other direction.
-      if (peerManager && !peerManager.isConnected(peer.id)) {
+      // Skip if:
+      // - Already connected (incoming connection already established)
+      // - Invalid host/port (peer added via addIncomingPeer - they connected to us)
+      // - peerManager not ready yet
+      const hasValidAddress = peer.host && peer.port > 0;
+      if (peerManager && hasValidAddress && !peerManager.isConnected(peer.id)) {
         const delay = 500 + Math.random() * 1500;
         setTimeout(() => {
           if (peerManager && !peerManager.isConnected(peer.id)) {
-            console.log(`[IPC] Auto-connecting to discovered peer: ${peer.name}`);
+            console.log(`[IPC] Auto-connecting to discovered peer: ${peer.name} at ${peer.host}:${peer.port}`);
             peerManager.connectToPeer(peer);
           }
         }, delay);
+      } else if (!hasValidAddress) {
+        console.log(`[IPC] Skipping auto-connect for ${peer.name} (incoming peer, no outbound address)`);
       }
     },
     onPeerLost: (peerId: string) => {
@@ -91,9 +96,19 @@ export function registerP2PIPC(
   }, uploadsDir);
 
   ipcMain.handle('connect-to-peer', (_event, peerId: string) => {
+    // Skip if already connected
+    if (peerManager && peerManager.isConnected(peerId)) {
+      console.log(`[IPC] Already connected to peer: ${peerId}`);
+      return;
+    }
     const peers = discovery.getPeers();
     const peer = peers.find(p => p.id === peerId);
     if (peer && peerManager) {
+      // Skip if peer has invalid address (incoming peer that connected to us)
+      if (!peer.host || peer.port <= 0) {
+        console.log(`[IPC] Cannot connect to ${peer.name}: no valid address (they connected to us)`);
+        return;
+      }
       peerManager.connectToPeer(peer);
     }
   });

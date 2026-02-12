@@ -30,7 +30,7 @@
     }
   },
   "dmg": {
-    "artifactName": "LiquidRelay-Mac-${arch}-3-32-0.${ext}",
+    "artifactName": "LiquidRelay-Mac-${arch}-3-33-0.${ext}",
     "contents": [
       { "x": 130, "y": 220 },
       { "x": 410, "y": 220, "type": "link", "path": "/Applications" }

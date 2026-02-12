@@ -77,6 +77,12 @@ export class PeerConnectionManager {
       return;
     }
 
+    // Validate peer has a valid address
+    if (!peer.host || peer.port <= 0) {
+      console.log(`[P2P] Cannot connect to ${peer.name}: invalid address (host='${peer.host}', port=${peer.port})`);
+      return;
+    }
+
     const wsUrl = `ws://${peer.host}:${peer.port}/ws`;
     console.log(`[P2P] Connecting to ${peer.name} at ${wsUrl}`);
 

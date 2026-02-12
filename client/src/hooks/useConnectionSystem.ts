@@ -195,8 +195,9 @@ export function useConnectionSystem() {
         };
       });
 
-      // Auto-connect to discovered peer for immediate file transfer capability
-      api.connectToPeer?.(peer.id);
+      // Note: Auto-connect is handled by the main process in ipc-handlers.ts
+      // Don't call connectToPeer here to avoid redundant connection attempts
+      // for incoming peers (which have invalid host/port)
     });
 
     api.onPeerLost?.((peerId) => {
