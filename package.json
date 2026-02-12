@@ -1,6 +1,6 @@
 {
   "name": "liquid-relay",
-  "version": "3.33.0",
+  "version": "3.35.0",
   "type": "module",
   "license": "MIT",
   "main": "electron-dist/main.js",
@@ -12,7 +12,8 @@
     "db:push": "drizzle-kit push",
     "electron:compile": "tsc -p electron/tsconfig.json && node -e \"require('fs').writeFileSync('electron-dist/package.json', JSON.stringify({type:'commonjs'}))\"",
     "electron:dev": "concurrently --kill-others \"npm run dev\" \"wait-on http://localhost:5000 && npm run electron:compile && electron .\"",
-    "electron:build": "npm run build && npm run electron:compile && electron-builder"
+    "electron:rebuild": "npx electron-rebuild -f -w better-sqlite3",
+    "electron:build": "npm run build && npm run electron:compile && npm run electron:rebuild && electron-builder"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -83,6 +84,7 @@
     "zod-validation-error": "^3.4.0"
   },
   "devDependencies": {
+    "@electron/rebuild": "^4.0.3",
     "@tailwindcss/typography": "^0.5.15",
     "@tailwindcss/vite": "^4.1.3",
     "@types/better-sqlite3": "^7.6.13",
