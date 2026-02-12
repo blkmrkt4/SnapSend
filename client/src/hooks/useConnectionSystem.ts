@@ -323,6 +323,30 @@ export function useConnectionSystem() {
       setState(prev => ({ ...prev, onlineDevices: peerDevices }));
     });
 
+    // Load already-connected peers (sync connections that happened before renderer mounted)
+    api.getConnectedPeers?.().then(connectedPeers => {
+      if (connectedPeers && connectedPeers.length > 0) {
+        console.log(`[ConnectionSystem] Syncing ${connectedPeers.length} existing connection(s)`);
+        setState(prev => {
+          const newConnections = connectedPeers
+            .filter(peer => !prev.connections.some(c => c.peerId === peer.id))
+            .map(peer => ({
+              id: peer.id,
+              peerId: peer.id,
+              partnerName: peer.name,
+              status: 'active',
+            }));
+
+          if (newConnections.length === 0) return prev;
+
+          return {
+            ...prev,
+            connections: [...prev.connections, ...newConnections],
+          };
+        });
+      }
+    });
+
     // Listen for chunked transfer progress
     api.onChunkProgress?.((data) => {
       setState(prev => {

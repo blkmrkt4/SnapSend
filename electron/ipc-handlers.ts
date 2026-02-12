@@ -155,6 +155,14 @@ export function registerP2PIPC(
     return size > CHUNK_THRESHOLD;
   });
 
+  // Get currently connected peers (for renderer sync on mount)
+  ipcMain.handle('get-connected-peers', () => {
+    if (peerManager) {
+      return peerManager.getConnectedPeers();
+    }
+    return [];
+  });
+
   return peerManager;
 }
 

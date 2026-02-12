@@ -51,6 +51,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   shouldUseChunkedTransfer: (size: number) => ipcRenderer.invoke('should-use-chunked-transfer', size),
 
+  // Get currently connected peers (for sync on mount)
+  getConnectedPeers: () => ipcRenderer.invoke('get-connected-peers'),
+
   // Port setting
   getPortSetting: () => ipcRenderer.invoke('get-port-setting'),
   setPortSetting: (port: number) => ipcRenderer.invoke('set-port-setting', port),

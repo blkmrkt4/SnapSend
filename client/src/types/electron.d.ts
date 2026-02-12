@@ -40,6 +40,9 @@ export interface ElectronAPI {
   onChunkProgress?: (callback: (data: { transferId: string; progress: number; direction: 'send' | 'receive' }) => void) => void;
   shouldUseChunkedTransfer?: (size: number) => boolean;
 
+  // Get currently connected peers (for sync on mount)
+  getConnectedPeers?: () => Promise<PeerInfo[]>;
+
   // Screenshot
   captureScreenshot: (mode: 'fullscreen' | 'window') => Promise<{ dataURL: string; width: number; height: number } | null>;
 

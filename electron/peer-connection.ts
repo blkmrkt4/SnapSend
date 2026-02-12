@@ -580,6 +580,18 @@ export class PeerConnectionManager {
     return Array.from(this.connections.keys());
   }
 
+  // Get all connected peers with their info (for renderer sync)
+  getConnectedPeers(): PeerInfo[] {
+    const peers: PeerInfo[] = [];
+    for (const peerId of this.handshaked) {
+      const info = this.peerInfo.get(peerId);
+      if (info) {
+        peers.push(info);
+      }
+    }
+    return peers;
+  }
+
   isConnected(peerId: string): boolean {
     const ws = this.connections.get(peerId);
     return !!ws && ws.readyState === WebSocket.OPEN;
