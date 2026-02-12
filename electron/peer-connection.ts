@@ -314,13 +314,14 @@ export class PeerConnectionManager {
       data: { id: this.localId, name: this.localName },
     }));
 
-    // Store this as an active connection
-    if (!this.connections.has(peerId)) {
+    const peer: PeerInfo = { id: peerId, name: peerName, host: '', port: 0 };
+    const alreadyConnected = this.connections.has(peerId);
+    const alreadyHandshaked = this.handshaked.has(peerId);
+
+    // Store this as an active connection (prefer incoming WebSocket for bidirectional comms)
+    if (!alreadyConnected) {
       this.connections.set(peerId, ws);
-      const peer: PeerInfo = { id: peerId, name: peerName, host: '', port: 0 };
       this.peerInfo.set(peerId, peer);
-      this.handshaked.add(peerId);
-      this.callbacks.onPeerConnected(peer);
 
       ws.on('close', () => {
         this.connections.delete(peerId);
@@ -328,6 +329,13 @@ export class PeerConnectionManager {
         this.handshaked.delete(peerId);
         this.callbacks.onPeerDisconnected(peerId);
       });
+    }
+
+    // Always notify renderer if this is a new handshake (regardless of who initiated)
+    if (!alreadyHandshaked) {
+      this.handshaked.add(peerId);
+      console.log(`[P2P] Incoming handshake complete with ${peerName}`);
+      this.callbacks.onPeerConnected(peer);
     }
   }
 
