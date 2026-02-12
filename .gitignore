@@ -6,3 +6,10 @@ vite.config.ts.*
 *.tar.gz
 electron-dist
 release
+
+# Local data (each machine has its own)
+data/
+uploads/
+*.db
+*.db-shm
+*.db-wal
