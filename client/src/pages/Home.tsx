@@ -36,6 +36,7 @@ export default function Home() {
     addTag,
     deleteTag,
     refreshDiscovery,
+    toggleDeviceEnabled,
   } = useConnectionSystem();
 
   const handleSendFile = async (fileData: any) => {
@@ -61,8 +62,10 @@ export default function Home() {
             currentDevice={currentDevice}
             onlineDevices={onlineDevices}
             connections={connections}
+            knownDevices={knownDevices}
             onPairWithDevice={pairWithDevice}
             onTerminateConnection={terminateConnection}
+            onToggleDeviceEnabled={toggleDeviceEnabled}
             onDeviceNameUpdate={handleDeviceNameUpdate}
             onRefreshDiscovery={refreshDiscovery}
           />

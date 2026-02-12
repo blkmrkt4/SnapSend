@@ -57,6 +57,11 @@ export interface ElectronAPI {
   setRemoteServerUrl: (url: string) => Promise<void>;
   getLanAddresses: () => Promise<string[]>;
 
+  // Device enabled state (for auto-connect control)
+  isDeviceEnabled?: (deviceUUID: string) => Promise<boolean>;
+  setDeviceEnabled?: (deviceUUID: string, enabled: boolean) => Promise<void>;
+  getAllEnabledDevices?: () => Promise<Record<string, boolean>>;
+
   // License
   activateLicense: (key: string) => Promise<{ success: boolean; error?: string; customerName?: string }>;
   validateLicense: () => Promise<{ isActivated: boolean; customerName?: string }>;

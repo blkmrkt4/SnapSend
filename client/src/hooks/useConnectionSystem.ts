@@ -29,6 +29,7 @@ export interface KnownDevice {
   uuid: string;     // stable identity (persisted in localStorage)
   name: string;     // latest known display name
   lastSeen: string; // ISO timestamp
+  enabled: boolean; // whether to auto-connect and allow file transfers
 }
 
 export interface ConnectionSystemState {
@@ -648,6 +649,18 @@ export function useConnectionSystem() {
       const isConnected = (socketId: string) =>
         prev.connections.some(c => c.peerId === socketId);
 
+      // Helper to get existing enabled state (preserve user preference)
+      const getEnabledState = (uuid: string, name: string): boolean => {
+        // Check by UUID first (stable identity)
+        const byUUID = prev.knownDevices.find(k => k.uuid === uuid);
+        if (byUUID) return byUUID.enabled ?? true;
+        // Fall back to name match
+        const byName = prev.knownDevices.find(k => k.name === name);
+        if (byName) return byName.enabled ?? true;
+        // New device defaults to enabled
+        return true;
+      };
+
       // Build fresh list from current online devices (excluding self)
       for (const device of prev.onlineDevices) {
         const devId = device.socketId;
@@ -661,20 +674,22 @@ export function useConnectionSystem() {
           ? updated.findIndex(k => k.uuid === devUUID)
           : updated.findIndex(k => !k.uuid && k.name === device.name);
 
+        const enabled = getEnabledState(devUUID, device.name);
+
         if (existingIdx >= 0) {
           // Only replace if the new entry is connected and the old one isn't
           // (prefer entries that have active connections)
           const existingConnected = isConnected(updated[existingIdx].id);
           const newConnected = isConnected(devId);
           if (newConnected && !existingConnected) {
-            updated[existingIdx] = { id: devId, uuid: devUUID, name: device.name, lastSeen: now };
+            updated[existingIdx] = { id: devId, uuid: devUUID, name: device.name, lastSeen: now, enabled };
           } else if (!existingConnected && !newConnected) {
             // Both unconnected - update with newer info
-            updated[existingIdx] = { id: devId, uuid: devUUID, name: device.name, lastSeen: now };
+            updated[existingIdx] = { id: devId, uuid: devUUID, name: device.name, lastSeen: now, enabled };
           }
           // If existing is connected, keep it (don't replace with unconnected)
         } else {
-          updated.push({ id: devId, uuid: devUUID, name: device.name, lastSeen: now });
+          updated.push({ id: devId, uuid: devUUID, name: device.name, lastSeen: now, enabled });
         }
       }
 
@@ -683,7 +698,8 @@ export function useConnectionSystem() {
       for (const known of prev.knownDevices) {
         if (!known.uuid) continue;
         if (updated.some(k => k.uuid === known.uuid)) continue;
-        updated.push(known);
+        // Preserve enabled state, default to true for legacy entries
+        updated.push({ ...known, enabled: known.enabled ?? true });
       }
 
       saveKnownDevices(updated);
@@ -1412,6 +1428,33 @@ export function useConnectionSystem() {
     }
   }, [isElectron, connect]);
 
+  // Toggle device enabled state (controls auto-connect and file transfers)
+  const toggleDeviceEnabled = useCallback((deviceId: string, enabled: boolean) => {
+    setState(prev => {
+      // Find the device to get its UUID for main process sync
+      const device = prev.knownDevices.find(k => k.id === deviceId || k.uuid === deviceId);
+      const deviceUUID = device?.uuid || deviceId;
+
+      const updatedKnown = prev.knownDevices.map(k =>
+        k.id === deviceId || k.uuid === deviceId ? { ...k, enabled } : k
+      );
+      saveKnownDevices(updatedKnown);
+
+      // Sync with main process (handles connect/disconnect automatically)
+      if (isElectron && window.electronAPI?.setDeviceEnabled) {
+        window.electronAPI.setDeviceEnabled(deviceUUID, enabled);
+      }
+
+      return { ...prev, knownDevices: updatedKnown };
+    });
+  }, [isElectron]);
+
+  // Check if a device is enabled (for use by other components)
+  const isDeviceEnabled = useCallback((deviceId: string): boolean => {
+    const device = state.knownDevices.find(k => k.id === deviceId || k.uuid === deviceId);
+    return device?.enabled ?? true; // Default to enabled if not found
+  }, [state.knownDevices]);
+
   // Auto-flush pending files when a matching connection appears
   // NOTE: Only flushes for specific device targets, NOT for "All Devices" (security)
   useEffect(() => {
@@ -1474,5 +1517,7 @@ export function useConnectionSystem() {
     deleteTag,
     refreshTags,
     refreshDiscovery,
+    toggleDeviceEnabled,
+    isDeviceEnabled,
   };
 }

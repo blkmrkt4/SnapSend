@@ -1,6 +1,7 @@
 import { ipcMain, type BrowserWindow } from 'electron';
 import { DiscoveryManager, type PeerInfo } from './discovery';
 import { PeerConnectionManager } from './peer-connection';
+import { isDeviceEnabled } from './main';
 
 // Chunked transfer threshold (must match shared/schema.ts)
 const CHUNK_THRESHOLD = 70 * 1024 * 1024; // 70MB
@@ -34,11 +35,17 @@ export function registerDiscoveryIPC(
       // - Already connected (incoming connection already established)
       // - Invalid host/port (peer added via addIncomingPeer - they connected to us)
       // - peerManager not ready yet
+      // - Device is disabled by user
       const hasValidAddress = peer.host && peer.port > 0;
-      if (peerManager && hasValidAddress && !peerManager.isConnected(peer.id)) {
+      const deviceEnabled = isDeviceEnabled(peer.id);
+
+      if (!deviceEnabled) {
+        console.log(`[IPC] Skipping auto-connect for ${peer.name} (device disabled by user)`);
+      } else if (peerManager && hasValidAddress && !peerManager.isConnected(peer.id)) {
         const delay = 500 + Math.random() * 1500;
         setTimeout(() => {
-          if (peerManager && !peerManager.isConnected(peer.id)) {
+          // Re-check enabled state in case user disabled during delay
+          if (peerManager && !peerManager.isConnected(peer.id) && isDeviceEnabled(peer.id)) {
             console.log(`[IPC] Auto-connecting to discovered peer: ${peer.name} at ${peer.host}:${peer.port}`);
             peerManager.connectToPeer(peer);
           }

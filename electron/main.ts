@@ -65,6 +65,54 @@ function saveDeviceName(name: string) {
   }
 }
 
+// Enabled devices persistence (for auto-connect control)
+// Maps device UUID to enabled state
+let enabledDevicesCache: Map<string, boolean> = new Map();
+
+function loadEnabledDevices(): Map<string, boolean> {
+  const fs = require('fs') as typeof import('fs');
+  const configDir = app.getPath('userData');
+  const enabledFile = path.join(configDir, 'enabled-devices.json');
+
+  try {
+    if (fs.existsSync(enabledFile)) {
+      const data = JSON.parse(fs.readFileSync(enabledFile, 'utf-8'));
+      enabledDevicesCache = new Map(Object.entries(data));
+      return enabledDevicesCache;
+    }
+  } catch (err) {
+    console.error('Failed to load enabled devices:', err);
+  }
+  return new Map();
+}
+
+function saveEnabledDevices() {
+  const fs = require('fs') as typeof import('fs');
+  const configDir = app.getPath('userData');
+  const enabledFile = path.join(configDir, 'enabled-devices.json');
+
+  try {
+    fs.mkdirSync(configDir, { recursive: true });
+    const data = Object.fromEntries(enabledDevicesCache);
+    fs.writeFileSync(enabledFile, JSON.stringify(data, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Failed to save enabled devices:', err);
+  }
+}
+
+function isDeviceEnabled(deviceUUID: string): boolean {
+  // If not in cache, default to enabled (new devices are enabled by default)
+  if (!enabledDevicesCache.has(deviceUUID)) {
+    return true;
+  }
+  return enabledDevicesCache.get(deviceUUID) ?? true;
+}
+
+function setDeviceEnabled(deviceUUID: string, enabled: boolean) {
+  enabledDevicesCache.set(deviceUUID, enabled);
+  saveEnabledDevices();
+}
+
 // Connection mode persistence (server or client)
 function getConnectionMode(): 'server' | 'client' {
   const fs = require('fs') as typeof import('fs');
@@ -192,6 +240,9 @@ async function createWindow() {
 
 async function startApp() {
   try {
+    // Load enabled devices from disk
+    loadEnabledDevices();
+
     const connectionMode = isDev ? 'server' : getConnectionMode();
     const isClientMode = connectionMode === 'client' && !isDev;
     const remoteUrl = isClientMode ? getRemoteServerUrl() : '';
@@ -325,6 +376,35 @@ ipcMain.handle('set-remote-server-url', (_event, url: string) => {
   saveRemoteServerUrl(url);
 });
 
+// Device enabled state IPC handlers
+ipcMain.handle('is-device-enabled', (_event, deviceUUID: string) => {
+  return isDeviceEnabled(deviceUUID);
+});
+ipcMain.handle('set-device-enabled', (_event, deviceUUID: string, enabled: boolean) => {
+  setDeviceEnabled(deviceUUID, enabled);
+  // If disabling, disconnect from peer
+  if (!enabled) {
+    const pm = getPeerManager();
+    if (pm && pm.isConnected(deviceUUID)) {
+      pm.disconnectFromPeer(deviceUUID);
+    }
+  }
+  // If enabling and peer is discovered, connect
+  if (enabled && discovery) {
+    const peers = discovery.getPeers();
+    const peer = peers.find(p => p.id === deviceUUID);
+    if (peer && peer.host && peer.port > 0) {
+      const pm = getPeerManager();
+      if (pm && !pm.isConnected(deviceUUID)) {
+        pm.connectToPeer(peer);
+      }
+    }
+  }
+});
+ipcMain.handle('get-all-enabled-devices', () => {
+  return Object.fromEntries(enabledDevicesCache);
+});
+
 // LAN address discovery
 ipcMain.handle('get-lan-addresses', () => {
   const os = require('os') as typeof import('os');
@@ -419,3 +499,6 @@ app.on('activate', () => {
 app.on('before-quit', () => {
   gracefulShutdown();
 });
+
+// Export for use by ipc-handlers
+export { isDeviceEnabled };

@@ -62,6 +62,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setRemoteServerUrl: (url: string) => ipcRenderer.invoke('set-remote-server-url', url),
   getLanAddresses: () => ipcRenderer.invoke('get-lan-addresses'),
 
+  // Device enabled state (for auto-connect control)
+  isDeviceEnabled: (deviceUUID: string) => ipcRenderer.invoke('is-device-enabled', deviceUUID),
+  setDeviceEnabled: (deviceUUID: string, enabled: boolean) => ipcRenderer.invoke('set-device-enabled', deviceUUID, enabled),
+  getAllEnabledDevices: () => ipcRenderer.invoke('get-all-enabled-devices'),
+
   // Screenshot
   captureScreenshot: (mode: 'fullscreen' | 'window') => ipcRenderer.invoke('capture-screenshot', mode),
 

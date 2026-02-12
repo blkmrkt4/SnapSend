@@ -1,15 +1,18 @@
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Users, Monitor, X, Link, Pencil, Check, RefreshCw } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Users, Monitor, Pencil, Check, RefreshCw } from 'lucide-react';
 import { type Device } from '@shared/schema';
+import { type KnownDevice } from '@/hooks/useConnectionSystem';
 
 interface ConnectionManagerProps {
   currentDevice: Device | null;
   onlineDevices: Device[];
   connections: any[];
+  knownDevices: KnownDevice[];
   onPairWithDevice: (targetDeviceId: number | string) => void;
   onTerminateConnection: (connectionId: number | string) => void;
+  onToggleDeviceEnabled: (deviceId: string, enabled: boolean) => void;
   onDeviceNameUpdate?: (name: string) => void;
   onRefreshDiscovery?: () => void;
 }
@@ -18,8 +21,10 @@ export function ConnectionManager({
   currentDevice,
   onlineDevices,
   connections,
+  knownDevices,
   onPairWithDevice,
   onTerminateConnection,
+  onToggleDeviceEnabled,
   onDeviceNameUpdate,
   onRefreshDiscovery,
 }: ConnectionManagerProps) {
@@ -27,7 +32,6 @@ export function ConnectionManager({
   const [editName, setEditName] = useState('');
 
   // Filter out current device from the online list and deduplicate by name
-  // (in case the same device appears via mDNS discovery AND incoming connection)
   const otherDevicesRaw = onlineDevices.filter(d => {
     if (currentDevice?.socketId && d.socketId) {
       return d.socketId !== currentDevice.socketId;
@@ -43,7 +47,6 @@ export function ConnectionManager({
     if (!existingDevice) {
       seenNames.set(name, device);
     } else {
-      // If the new one is connected and old one isn't, prefer new one
       const existingIsPaired = connections.some(c => c.peerId === existingDevice.socketId);
       const newIsPaired = connections.some(c => c.peerId === device.socketId);
       if (newIsPaired && !existingIsPaired) {
@@ -53,8 +56,8 @@ export function ConnectionManager({
   }
   const otherDevices = Array.from(seenNames.values());
 
-  // Check if a device is already paired
-  const isPaired = (device: Device) => {
+  // Check if a device is connected (has active connection)
+  const isConnected = (device: Device) => {
     return connections.some(c => {
       if (c.peerId && device.socketId) {
         return c.peerId === device.socketId;
@@ -64,23 +67,16 @@ export function ConnectionManager({
     });
   };
 
-  // Get the connection ID for a paired device (to disconnect)
-  const getConnectionId = (device: Device): number | string | null => {
-    const conn = connections.find(c => {
-      if (c.peerId && device.socketId) {
-        return c.peerId === device.socketId;
-      }
-      return (c.deviceAId === device.id || c.deviceBId === device.id) &&
-             (c.deviceAId === currentDevice?.id || c.deviceBId === currentDevice?.id);
-    });
-    return conn?.id ?? null;
+  // Check if a device is enabled (from knownDevices)
+  const isEnabled = (device: Device): boolean => {
+    const deviceId = device.socketId || String(device.id);
+    const known = knownDevices.find(k => k.id === deviceId || k.uuid === deviceId || k.name === device.name);
+    return known?.enabled ?? true; // Default to enabled if not found
   };
 
-  const getPairId = (device: Device): number | string => {
-    if (device.socketId && device.id === 0) {
-      return device.socketId;
-    }
-    return device.id;
+  // Get the device ID for toggle (prefer socketId for P2P)
+  const getDeviceId = (device: Device): string => {
+    return device.socketId || String(device.id);
   };
 
   const handleStartEdit = () => {
@@ -100,6 +96,10 @@ export function ConnectionManager({
     if (e.key === 'Enter') handleSaveEdit();
     if (e.key === 'Escape') setIsEditing(false);
   };
+
+  // Count enabled and connected devices
+  const enabledCount = otherDevices.filter(d => isEnabled(d)).length;
+  const connectedCount = connections.length;
 
   return (
     <div className="space-y-4">
@@ -142,18 +142,18 @@ export function ConnectionManager({
           </div>
         )}
 
-        {connections.length > 0 ? (
+        {connectedCount > 0 ? (
           <Badge className="flex-shrink-0 bg-green-600 text-xs">
-            Online · {connections.length}
+            Connected · {connectedCount}
           </Badge>
         ) : (
           <Badge variant="secondary" className="flex-shrink-0 text-xs">
-            Offline
+            No Connections
           </Badge>
         )}
       </div>
 
-      {/* Devices on Network — combined list with pair/disconnect actions */}
+      {/* Devices on Network — with enable/disable toggles */}
       <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
         <div className="flex items-center gap-2 px-4 py-3 border-b bg-muted/30">
           <Users className="h-4 w-4 text-muted-foreground" />
@@ -161,7 +161,7 @@ export function ConnectionManager({
             Devices on Network
           </span>
           <Badge variant="secondary" className="ml-auto tabular-nums">
-            {otherDevices.length}
+            {enabledCount}/{otherDevices.length} enabled
           </Badge>
           {onRefreshDiscovery && (
             <button
@@ -181,47 +181,49 @@ export function ConnectionManager({
             </p>
           ) : (
             otherDevices.map((device) => {
-              const paired = isPaired(device);
-              const connId = paired ? getConnectionId(device) : null;
+              const enabled = isEnabled(device);
+              const connected = isConnected(device);
+              const deviceId = getDeviceId(device);
 
               return (
                 <div
                   key={device.socketId || device.id}
                   className="flex items-center gap-3 px-4 py-3"
                 >
+                  {/* Connection status indicator */}
                   <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                    paired ? 'bg-green-500' : 'bg-green-400 animate-pulse'
+                    connected ? 'bg-green-500' : enabled ? 'bg-yellow-500' : 'bg-gray-400'
                   }`} />
-                  <span className="text-sm font-medium text-foreground flex-1 min-w-0 truncate">
+
+                  {/* Device name */}
+                  <span className={`text-sm font-medium flex-1 min-w-0 truncate ${
+                    enabled ? 'text-foreground' : 'text-muted-foreground'
+                  }`}>
                     {device.name}
                   </span>
 
-                  {paired ? (
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <Badge variant="default" className="bg-green-600 text-xs">
-                        Paired
-                      </Badge>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => connId != null && onTerminateConnection(connId)}
-                        className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                        title="Disconnect"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => onPairWithDevice(getPairId(device))}
-                      className="h-7 text-xs px-2.5"
-                    >
-                      <Link className="h-3.5 w-3.5 mr-1" />
-                      Pair
-                    </Button>
-                  )}
+                  {/* Status badge */}
+                  {connected ? (
+                    <Badge variant="default" className="bg-green-600 text-xs flex-shrink-0">
+                      Connected
+                    </Badge>
+                  ) : enabled ? (
+                    <Badge variant="secondary" className="text-xs flex-shrink-0">
+                      Enabled
+                    </Badge>
+                  ) : null}
+
+                  {/* Enable/Disable toggle */}
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className={`text-xs ${enabled ? 'text-green-600' : 'text-red-500'}`}>
+                      {enabled ? 'On' : 'Off'}
+                    </span>
+                    <Switch
+                      checked={enabled}
+                      onCheckedChange={(checked) => onToggleDeviceEnabled(deviceId, checked)}
+                      className={`${enabled ? 'data-[state=checked]:bg-green-600' : 'data-[state=unchecked]:bg-red-500'}`}
+                    />
+                  </div>
                 </div>
               );
             })
