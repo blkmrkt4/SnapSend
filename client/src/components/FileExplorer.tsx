@@ -29,7 +29,8 @@ import {
   X,
   CalendarDays,
   Pencil,
-  Tag
+  Tag,
+  ChevronDown
 } from 'lucide-react';
 
 // Question mark with down caret icon for metadata toggle
