@@ -226,6 +226,69 @@ function saveAlwaysOnTopSetting(enabled: boolean) {
   }
 }
 
+// Ghost mode persistence
+function getGhostModeSetting(): boolean {
+  const fs = require('fs') as typeof import('fs');
+  const configDir = app.getPath('userData');
+  const settingFile = path.join(configDir, 'ghost-mode');
+
+  try {
+    if (fs.existsSync(settingFile)) {
+      return fs.readFileSync(settingFile, 'utf-8').trim() === 'true';
+    }
+  } catch {}
+
+  return false;
+}
+
+function saveGhostModeSetting(enabled: boolean) {
+  const fs = require('fs') as typeof import('fs');
+  const configDir = app.getPath('userData');
+  const settingFile = path.join(configDir, 'ghost-mode');
+
+  try {
+    fs.mkdirSync(configDir, { recursive: true });
+    fs.writeFileSync(settingFile, enabled ? 'true' : 'false', 'utf-8');
+  } catch (err) {
+    console.error('Failed to save ghost mode setting:', err);
+  }
+}
+
+function getGhostOpacitySetting(): number {
+  const fs = require('fs') as typeof import('fs');
+  const configDir = app.getPath('userData');
+  const settingFile = path.join(configDir, 'ghost-opacity');
+
+  try {
+    if (fs.existsSync(settingFile)) {
+      const val = parseFloat(fs.readFileSync(settingFile, 'utf-8').trim());
+      if (val >= 0.1 && val <= 0.5) return val;
+    }
+  } catch {}
+
+  return 0.25;
+}
+
+function saveGhostOpacitySetting(opacity: number) {
+  const fs = require('fs') as typeof import('fs');
+  const configDir = app.getPath('userData');
+  const settingFile = path.join(configDir, 'ghost-opacity');
+
+  try {
+    fs.mkdirSync(configDir, { recursive: true });
+    fs.writeFileSync(settingFile, String(opacity), 'utf-8');
+  } catch (err) {
+    console.error('Failed to save ghost opacity setting:', err);
+  }
+}
+
+// Pre-ghost state for restoring when leaving ghost mode
+let preGhostState: {
+  width: number;
+  height: number;
+  alwaysOnTop: boolean;
+} | null = null;
+
 async function createWindow() {
   const isClientMode = !isDev && getConnectionMode() === 'client';
 
@@ -245,6 +308,19 @@ async function createWindow() {
 
   if (getAlwaysOnTopSetting()) {
     mainWindow.setAlwaysOnTop(true, 'floating');
+  }
+
+  // Apply ghost mode on startup if previously enabled
+  if (getGhostModeSetting()) {
+    const ghostOpacity = getGhostOpacitySetting();
+    preGhostState = {
+      width: 1200,
+      height: 800,
+      alwaysOnTop: getAlwaysOnTopSetting(),
+    };
+    mainWindow.setOpacity(ghostOpacity);
+    mainWindow.setAlwaysOnTop(true, 'floating');
+    mainWindow.setSize(320, 800);
   }
 
   if (isDev) {
@@ -403,6 +479,49 @@ ipcMain.handle('set-always-on-top', (_event, enabled: boolean) => {
   saveAlwaysOnTopSetting(enabled);
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.setAlwaysOnTop(enabled, 'floating');
+  }
+});
+
+// Ghost mode IPC handlers
+ipcMain.handle('get-ghost-mode', () => getGhostModeSetting());
+ipcMain.handle('set-ghost-mode', (_event, enabled: boolean) => {
+  saveGhostModeSetting(enabled);
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+
+  if (enabled) {
+    // Save pre-ghost state
+    const [w, h] = mainWindow.getSize();
+    preGhostState = {
+      width: w,
+      height: h,
+      alwaysOnTop: getAlwaysOnTopSetting(),
+    };
+    const ghostOpacity = getGhostOpacitySetting();
+    mainWindow.setOpacity(ghostOpacity);
+    mainWindow.setAlwaysOnTop(true, 'floating');
+    mainWindow.setSize(320, h);
+  } else {
+    // Restore
+    mainWindow.setOpacity(1.0);
+    if (preGhostState) {
+      mainWindow.setAlwaysOnTop(preGhostState.alwaysOnTop, 'floating');
+      mainWindow.setSize(preGhostState.width, preGhostState.height);
+      preGhostState = null;
+    } else {
+      mainWindow.setAlwaysOnTop(getAlwaysOnTopSetting(), 'floating');
+    }
+  }
+});
+
+ipcMain.handle('get-window-opacity', () => getGhostOpacitySetting());
+ipcMain.handle('set-window-opacity', (_event, opacity: number) => {
+  if (opacity < 0.1 || opacity > 1.0) return;
+  // Only persist if within the ghost range (0.1-0.5); higher values are transient hover reveals
+  if (opacity <= 0.5) {
+    saveGhostOpacitySetting(opacity);
+  }
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setOpacity(opacity);
   }
 });
 

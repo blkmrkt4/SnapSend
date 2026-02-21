@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { ArrowDown, Clipboard, Camera, FileImage, Monitor, Maximize, Crop, Wifi, WifiOff, PanelRightOpen, PanelRightClose } from 'lucide-react';
+import { ArrowDown, Clipboard, Camera, FileImage, Monitor, Maximize, Crop, Wifi, WifiOff, PanelRightOpen, PanelRightClose, Ghost } from 'lucide-react';
 import { HamburgerMenu } from './HamburgerMenu';
 import { useFileTransfer } from '@/hooks/useFileTransfer';
 import { MistAnimation } from './MistAnimation';
@@ -126,6 +126,8 @@ interface LeftSidebarProps {
   showFilesPanel: boolean;
   onToggleFilesPanel: () => void;
   chunkedTransfers?: ChunkedTransferProgress[];
+  isGhostMode?: boolean;
+  onToggleGhostMode?: () => void;
 }
 
 export function LeftSidebar({
@@ -146,6 +148,8 @@ export function LeftSidebar({
   showFilesPanel,
   onToggleFilesPanel,
   chunkedTransfers = [],
+  isGhostMode = false,
+  onToggleGhostMode,
 }: LeftSidebarProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [windowDragActive, setWindowDragActive] = useState(false);
@@ -588,6 +592,22 @@ export function LeftSidebar({
             fileCount={fileCount}
           />
         </div>
+
+        {/* Ghost mode toggle - only in Electron */}
+        {window.electronAPI?.isElectron && onToggleGhostMode && (
+          <button
+            onClick={onToggleGhostMode}
+            className={`p-1.5 rounded transition-colors ${
+              isGhostMode
+                ? 'bg-[var(--liquid-teal)]/20 text-[var(--liquid-teal-dark)]'
+                : 'hover:bg-muted/50 text-muted-foreground'
+            }`}
+            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+            title={isGhostMode ? 'Exit Ghost Mode' : 'Ghost Mode'}
+          >
+            <Ghost className="w-4 h-4" />
+          </button>
+        )}
 
         {/* Files panel toggle */}
         <button

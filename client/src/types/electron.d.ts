@@ -75,6 +75,12 @@ export interface ElectronAPI {
   getAlwaysOnTop: () => Promise<boolean>;
   setAlwaysOnTop: (enabled: boolean) => Promise<void>;
 
+  // Ghost mode
+  getGhostMode: () => Promise<boolean>;
+  setGhostMode: (enabled: boolean) => Promise<void>;
+  getWindowOpacity: () => Promise<number>;
+  setWindowOpacity: (opacity: number) => Promise<void>;
+
   // File operations
   openFile: (filename: string) => Promise<{ success: boolean; error?: string }>;
 }

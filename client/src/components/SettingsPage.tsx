@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Settings, Monitor, KeyRound, Wifi, Pencil, Check, Pin } from 'lucide-react';
+import { Settings, Monitor, KeyRound, Wifi, Pencil, Check, Pin, Ghost } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { LicenseStatus } from '@/types/electron';
 
@@ -24,6 +24,8 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
   const [isSavingMode, setIsSavingMode] = useState(false);
   const [lanAddresses, setLanAddresses] = useState<string[]>([]);
   const [alwaysOnTop, setAlwaysOnTop] = useState(false);
+  const [ghostMode, setGhostMode] = useState(false);
+  const [ghostOpacity, setGhostOpacity] = useState(0.25);
 
   const isElectronProd = window.electronAPI?.isElectron && !window.electronAPI?.isDev;
 
@@ -35,6 +37,8 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
       window.electronAPI!.getRemoteServerUrl().then(setRemoteServerUrl).catch(() => {});
       window.electronAPI!.getLanAddresses().then(setLanAddresses).catch(() => {});
       window.electronAPI!.getAlwaysOnTop().then(setAlwaysOnTop).catch(() => {});
+      window.electronAPI!.getGhostMode().then(setGhostMode).catch(() => {});
+      window.electronAPI!.getWindowOpacity().then(setGhostOpacity).catch(() => {});
     } else {
       // DEV PREVIEW: mock data so all sections are visible
       setPortSetting('53000');
@@ -154,6 +158,68 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
               }
             }}
           />
+        </div>
+
+        <div className="border-t">
+          <div className="flex items-center justify-between gap-3 px-4 py-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                <Ghost className="h-4 w-4" />
+                Ghost Mode
+              </div>
+              <div className="text-xs text-muted-foreground">Make the window translucent so you can see through to apps behind it</div>
+            </div>
+            <Switch
+              checked={ghostMode}
+              onCheckedChange={async (checked) => {
+                setGhostMode(checked);
+                try {
+                  await window.electronAPI!.setGhostMode(checked);
+                  toast({
+                    title: checked ? 'Ghost Mode enabled' : 'Ghost Mode disabled',
+                    description: checked
+                      ? 'Window is now translucent and floating.'
+                      : 'Window restored to normal.',
+                  });
+                } catch {
+                  setGhostMode(!checked);
+                  toast({
+                    title: 'Failed to update',
+                    description: 'Could not change ghost mode setting.',
+                    variant: 'destructive',
+                  });
+                }
+              }}
+            />
+          </div>
+
+          {ghostMode && (
+            <div className="px-4 pb-3">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs text-muted-foreground">Ghost Opacity</span>
+                <span className="text-xs font-mono font-semibold text-foreground">{Math.round(ghostOpacity * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min="0.10"
+                max="0.50"
+                step="0.05"
+                value={ghostOpacity}
+                onChange={async (e) => {
+                  const val = parseFloat(e.target.value);
+                  setGhostOpacity(val);
+                  try {
+                    await window.electronAPI!.setWindowOpacity(val);
+                  } catch {}
+                }}
+                className="w-full h-1.5 bg-muted rounded-full appearance-none cursor-pointer accent-primary"
+              />
+              <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
+                <span>10%</span>
+                <span>50%</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

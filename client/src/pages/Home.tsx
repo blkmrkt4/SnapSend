@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { SettingsPage } from '@/components/SettingsPage';
 import { ConnectionManager } from '@/components/ConnectionManager';
 import { FileExplorer } from '@/components/FileExplorer';
@@ -12,6 +12,22 @@ export default function Home() {
   const [activeSection, setActiveSection] = useState<'home' | 'connections' | 'files' | 'settings'>('files');
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [showFilesPanel, setShowFilesPanel] = useState(true);
+  const [isGhostMode, setIsGhostMode] = useState(false);
+  const [ghostOpacity, setGhostOpacity] = useState(0.25);
+  const preGhostFilesPanelRef = useRef(true);
+
+  // Load ghost mode state on mount
+  useEffect(() => {
+    if (window.electronAPI?.isElectron) {
+      window.electronAPI.getGhostMode().then((enabled) => {
+        setIsGhostMode(enabled);
+        if (enabled) {
+          setShowFilesPanel(false);
+        }
+      }).catch(() => {});
+      window.electronAPI.getWindowOpacity().then(setGhostOpacity).catch(() => {});
+    }
+  }, []);
 
   const {
     currentDevice,
@@ -50,6 +66,37 @@ export default function Home() {
   const handleDeviceNameUpdate = (name: string) => {
     setupDevice(name);
   };
+
+  const handleToggleGhostMode = useCallback(async () => {
+    if (!window.electronAPI?.isElectron) return;
+    const newGhostMode = !isGhostMode;
+    setIsGhostMode(newGhostMode);
+
+    if (newGhostMode) {
+      // Save panel state and collapse
+      preGhostFilesPanelRef.current = showFilesPanel;
+      setShowFilesPanel(false);
+    } else {
+      // Restore panel state
+      setShowFilesPanel(preGhostFilesPanelRef.current);
+    }
+
+    try {
+      await window.electronAPI.setGhostMode(newGhostMode);
+    } catch {}
+  }, [isGhostMode, showFilesPanel]);
+
+  const handleMouseEnterGhost = useCallback(() => {
+    if (isGhostMode && window.electronAPI?.isElectron) {
+      window.electronAPI.setWindowOpacity(0.7).catch(() => {});
+    }
+  }, [isGhostMode]);
+
+  const handleMouseLeaveGhost = useCallback(() => {
+    if (isGhostMode && window.electronAPI?.isElectron) {
+      window.electronAPI.setWindowOpacity(ghostOpacity).catch(() => {});
+    }
+  }, [isGhostMode, ghostOpacity]);
 
   const renderMainContent = () => {
     switch (activeSection) {
@@ -102,7 +149,11 @@ export default function Home() {
   };
 
   return (
-    <div className="h-screen flex bg-background overflow-hidden">
+    <div
+      className="h-screen flex bg-background overflow-hidden"
+      onMouseEnter={handleMouseEnterGhost}
+      onMouseLeave={handleMouseLeaveGhost}
+    >
       {/* Fixed Left Sidebar */}
       <LeftSidebar
         activeSection={activeSection}
@@ -122,6 +173,8 @@ export default function Home() {
         showFilesPanel={showFilesPanel}
         onToggleFilesPanel={() => setShowFilesPanel(!showFilesPanel)}
         chunkedTransfers={chunkedTransfers}
+        isGhostMode={isGhostMode}
+        onToggleGhostMode={handleToggleGhostMode}
       />
 
       {/* Main Content Area - collapsible, fills remaining width */}

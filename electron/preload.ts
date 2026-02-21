@@ -86,6 +86,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAlwaysOnTop: () => ipcRenderer.invoke('get-always-on-top'),
   setAlwaysOnTop: (enabled: boolean) => ipcRenderer.invoke('set-always-on-top', enabled),
 
+  // Ghost mode
+  getGhostMode: () => ipcRenderer.invoke('get-ghost-mode'),
+  setGhostMode: (enabled: boolean) => ipcRenderer.invoke('set-ghost-mode', enabled),
+  getWindowOpacity: () => ipcRenderer.invoke('get-window-opacity'),
+  setWindowOpacity: (opacity: number) => ipcRenderer.invoke('set-window-opacity', opacity),
+
   // File operations
   openFile: (filename: string) => ipcRenderer.invoke('open-file', filename),
 });
