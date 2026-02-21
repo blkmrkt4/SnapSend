@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Settings, Monitor, KeyRound, Wifi, Pencil, Check } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Settings, Monitor, KeyRound, Wifi, Pencil, Check, Pin } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { LicenseStatus } from '@/types/electron';
 
@@ -22,6 +23,7 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
   const [remoteServerUrl, setRemoteServerUrl] = useState('');
   const [isSavingMode, setIsSavingMode] = useState(false);
   const [lanAddresses, setLanAddresses] = useState<string[]>([]);
+  const [alwaysOnTop, setAlwaysOnTop] = useState(false);
 
   const isElectronProd = window.electronAPI?.isElectron && !window.electronAPI?.isDev;
 
@@ -32,6 +34,7 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
       window.electronAPI!.getConnectionMode().then((mode) => setConnectionMode(mode as 'server' | 'client')).catch(() => {});
       window.electronAPI!.getRemoteServerUrl().then(setRemoteServerUrl).catch(() => {});
       window.electronAPI!.getLanAddresses().then(setLanAddresses).catch(() => {});
+      window.electronAPI!.getAlwaysOnTop().then(setAlwaysOnTop).catch(() => {});
     } else {
       // DEV PREVIEW: mock data so all sections are visible
       setPortSetting('53000');
@@ -116,6 +119,42 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
             Offline
           </Badge>
         )}
+      </div>
+
+      {/* Window */}
+      <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+        <div className="flex items-center gap-2 px-4 py-3 border-b bg-muted/30">
+          <Pin className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-semibold text-foreground">Window</span>
+        </div>
+        <div className="flex items-center justify-between gap-3 px-4 py-3">
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium text-foreground">Always on Top</div>
+            <div className="text-xs text-muted-foreground">Keep window above other applications for easy drag-and-drop</div>
+          </div>
+          <Switch
+            checked={alwaysOnTop}
+            onCheckedChange={async (checked) => {
+              setAlwaysOnTop(checked);
+              try {
+                await window.electronAPI!.setAlwaysOnTop(checked);
+                toast({
+                  title: checked ? 'Window pinned' : 'Window unpinned',
+                  description: checked
+                    ? 'Window will stay above other apps.'
+                    : 'Window returned to normal stacking.',
+                });
+              } catch {
+                setAlwaysOnTop(!checked);
+                toast({
+                  title: 'Failed to update',
+                  description: 'Could not change always-on-top setting.',
+                  variant: 'destructive',
+                });
+              }
+            }}
+          />
+        </div>
       </div>
 
       {/* Connection Mode */}

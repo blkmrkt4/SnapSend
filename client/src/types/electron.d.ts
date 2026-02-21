@@ -71,6 +71,10 @@ export interface ElectronAPI {
   deactivateLicense: () => Promise<void>;
   getLicenseStatus: () => Promise<LicenseStatus>;
 
+  // Window settings
+  getAlwaysOnTop: () => Promise<boolean>;
+  setAlwaysOnTop: (enabled: boolean) => Promise<void>;
+
   // File operations
   openFile: (filename: string) => Promise<{ success: boolean; error?: string }>;
 }

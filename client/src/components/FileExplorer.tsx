@@ -23,17 +23,43 @@ import {
   Eye,
   EyeOff,
   Trash2,
-  Clock,
   User,
   RefreshCw,
   Search,
   X,
   CalendarDays,
-  ChevronDown,
-  ChevronUp,
   Pencil,
   Tag
 } from 'lucide-react';
+
+// Question mark with down caret icon for metadata toggle
+function QuestionDropdownIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {/* Question mark */}
+      <path
+        d="M9 9C9 7.34 10.34 6 12 6C13.66 6 15 7.34 15 9C15 10.2 14.2 11.2 13.1 11.7C12.4 12 12 12.6 12 13.3V14"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <circle cx="12" cy="17" r="1" fill="currentColor" />
+      {/* Down caret */}
+      <path
+        d="M8 20L12 23L16 20"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 import { type File as FileType } from '@shared/schema';
 import { MetadataPanel } from './MetadataPanel';
 import { TagEditor } from './TagEditor';
@@ -212,7 +238,12 @@ export function FileExplorer({
 
   const formatDate = (date: string | Date) => {
     const d = new Date(date);
-    return d.toLocaleString();
+    return d.toLocaleDateString();
+  };
+
+  const formatTime = (date: string | Date) => {
+    const d = new Date(date);
+    return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   };
 
   const isPreviewable = (file: ExtendedFile) => {
@@ -701,18 +732,18 @@ export function FileExplorer({
                 >
                   {/* Main row content */}
                   <div
-                    className="p-3 cursor-pointer"
+                    className="p-2 cursor-pointer"
                     onDoubleClick={() => handleOpenWithSystemApp(file)}
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
 
                           <div className={getFileTypeColor(file)}>
                             {getFileIcon(file)}
                           </div>
 
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <div className="flex items-center gap-2 flex-wrap">
                               {editingFileId === file.id ? (
                                 <span className="flex items-center gap-0 min-w-0">
                                   <input
@@ -767,35 +798,43 @@ export function FileExplorer({
                               )}
                             </div>
 
-                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                {formatDate(file.transferredAt || new Date())}
-                              </span>
+                            {/* Metadata row - only visible when expanded */}
+                            {isExpanded && (
+                              <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
+                                <span>{formatFileSize(file.size)}</span>
 
-                              <span>{formatFileSize(file.size)}</span>
+                                <span>{getFileLabel(file)}</span>
 
-                              <span>{getFileLabel(file)}</span>
+                                {file.transferType === 'received' && file.fromDevice && (
+                                  <span className="flex items-center gap-1">
+                                    <User className="h-3 w-3" />
+                                    from {file.fromDevice}
+                                  </span>
+                                )}
 
-                              {file.transferType === 'received' && file.fromDevice && (
-                                <span className="flex items-center gap-1">
-                                  <User className="h-3 w-3" />
-                                  from {file.fromDevice}
-                                </span>
-                              )}
-
-                              {file.transferType === 'queued' && (
-                                <span className="flex items-center gap-1 text-amber-600">
-                                  <User className="h-3 w-3" />
-                                  {file.toDeviceName ? `for ${file.toDeviceName}` : 'waiting for connection'}
-                                </span>
-                              )}
-                            </div>
+                                {file.transferType === 'queued' && (
+                                  <span className="flex items-center gap-1 text-amber-600">
+                                    <User className="h-3 w-3" />
+                                    {file.toDeviceName ? `for ${file.toDeviceName}` : 'waiting for connection'}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-1 ml-4">
-                          {/* Expand/collapse toggle - next to eye icon */}
+                        {/* Time + date always visible */}
+                        <div className="flex flex-col items-end shrink-0 ml-3 mr-1">
+                          <span className="text-sm font-semibold text-foreground leading-tight">
+                            {formatTime(file.transferredAt || new Date())}
+                          </span>
+                          <span className="text-xs text-muted-foreground leading-tight">
+                            {formatDate(file.transferredAt || new Date())}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1 ml-1">
+                          {/* Expand/collapse toggle with question mark icon */}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -803,14 +842,10 @@ export function FileExplorer({
                               e.stopPropagation();
                               toggleExpanded(file.id);
                             }}
-                            title={isExpanded ? "Hide details" : "Show details & tags"}
+                            title={isExpanded ? "Hide details" : "Show file info"}
                             className={isExpanded ? "bg-primary/10" : ""}
                           >
-                            {isExpanded ? (
-                              <ChevronUp className="h-4 w-4" />
-                            ) : (
-                              <ChevronDown className="h-4 w-4" />
-                            )}
+                            <QuestionDropdownIcon className={`h-5 w-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                           </Button>
 
                           <Button

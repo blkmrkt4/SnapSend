@@ -1,6 +1,64 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { type Device, type Connection, type File, type ChunkedTransferState, CHUNK_SIZE, CHUNK_THRESHOLD } from '@shared/schema';
+import { toast } from '@/hooks/use-toast';
 import '@/types/electron.d.ts';
+
+// Generate descriptive file type for toast notifications
+function getFileTypeDescription(file: { originalName: string; mimeType: string; isClipboard?: boolean | number }): string {
+  const name = file.originalName.toLowerCase();
+  const mime = file.mimeType.toLowerCase();
+  const isClipboard = file.isClipboard === true || file.isClipboard === 1;
+
+  // Check for screenshot first (screenshots have specific naming patterns)
+  if (name.startsWith('screenshot')) {
+    return 'Screenshot';
+  }
+
+  // Clipboard content
+  if (isClipboard) {
+    if (mime.startsWith('image/')) {
+      return 'Clipboard image';
+    }
+    if (mime === 'text/plain') {
+      return 'Clipboard text';
+    }
+    return 'Clipboard content';
+  }
+
+  // Image types
+  if (mime.startsWith('image/')) {
+    const ext = mime.split('/')[1]?.toUpperCase();
+    if (ext === 'JPEG') return 'JPG image';
+    if (ext) return `${ext} image`;
+    return 'Image';
+  }
+
+  // Document types
+  if (mime === 'application/pdf') return 'PDF document';
+  if (mime.includes('wordprocessingml') || name.endsWith('.docx')) return 'Word document';
+  if (mime.includes('spreadsheetml') || name.endsWith('.xlsx')) return 'Excel spreadsheet';
+  if (mime.includes('presentationml') || name.endsWith('.pptx')) return 'PowerPoint presentation';
+
+  // Text files
+  if (mime === 'text/plain' || name.endsWith('.txt')) return 'Text file';
+  if (mime === 'text/html' || name.endsWith('.html')) return 'HTML file';
+  if (mime === 'text/css' || name.endsWith('.css')) return 'CSS file';
+  if (mime === 'application/json' || name.endsWith('.json')) return 'JSON file';
+  if (mime.includes('javascript') || name.endsWith('.js') || name.endsWith('.ts')) return 'Code file';
+
+  // Archives
+  if (mime === 'application/zip' || name.endsWith('.zip')) return 'ZIP archive';
+
+  // Video/Audio
+  if (mime.startsWith('video/')) return 'Video file';
+  if (mime.startsWith('audio/')) return 'Audio file';
+
+  // Fallback: use file extension
+  const ext = name.split('.').pop()?.toUpperCase();
+  if (ext && ext.length <= 5) return `${ext} file`;
+
+  return 'File';
+}
 
 // Special ID representing "this device" (local save only, no send)
 export const LOCAL_DEVICE_ID = '__local__';
@@ -276,6 +334,11 @@ export function useConnectionSystem() {
     });
 
     api.onFileReceived?.((data) => {
+      const fileType = getFileTypeDescription(data.file);
+      toast({
+        title: `${fileType} received`,
+        description: `from ${data.fromDevice}`,
+      });
       setState(prev => ({
         ...prev,
         files: [{ ...data.file, transferType: 'received', fromDevice: data.fromDevice }, ...prev.files],
@@ -527,7 +590,12 @@ export function useConnectionSystem() {
             }));
             break;
 
-          case 'file-received':
+          case 'file-received': {
+            const fileType = getFileTypeDescription(message.data.file);
+            toast({
+              title: `${fileType} received`,
+              description: `from ${message.data.fromDevice}`,
+            });
             setState(prev => ({
               ...prev,
               files: [{ ...message.data.file, transferType: 'received', fromDevice: message.data.fromDevice }, ...prev.files],
@@ -541,6 +609,7 @@ export function useConnectionSystem() {
               }]
             }));
             break;
+          }
 
           case 'clipboard-sync':
             if (navigator.clipboard && navigator.clipboard.writeText) {

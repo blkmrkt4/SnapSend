@@ -24,108 +24,18 @@ import {
   ChevronLeft,
   ChevronRight,
   Tags,
+  type LucideIcon,
 } from 'lucide-react';
+import {
+  heroSlides,
+  features,
+  tutorialSlides,
+} from '@shared/marketing-content';
 
-const heroSlides = [
-  {
-    headline: 'Two Computers. One Desk. Zero Friction.',
-    subtitle:
-      'Build on your Mac, deliver from your PC — or the other way around. Liquid Relay moves files and clipboard between machines instantly over your local network. No cloud, no cables, no hassle.',
-  },
-  {
-    headline: 'Stop Emailing Files to Yourself',
-    subtitle:
-      "Whether you're moving code output from your Mac to your work PC or pulling docs between a locked-down laptop and your personal machine — Liquid Relay transfers files across your desk in seconds. Nothing leaves your network.",
-  },
-  {
-    headline: 'Bridge the Gap Between Your Machines',
-    subtitle:
-      'Dev tools on one computer, work on another. Liquid Relay lets you move files and clipboard between them instantly — direct transfer over your local network, no accounts, no cloud, nothing to configure.',
-  },
-  {
-    headline: 'Work on Any Machine. Move Files Between All of Them.',
-    subtitle:
-      'Mac to PC, personal to corporate, dev to production — drag, drop, done. Tag and organize everything you transfer. Peer-to-peer over your local network. No internet required.',
-  },
-];
-
-const features = [
-  {
-    icon: Zap,
-    title: 'Lightning Fast',
-    description: 'Direct peer-to-peer transfers over your local network. No cloud relay, no waiting.',
-  },
-  {
-    icon: Shield,
-    title: 'Private & Secure',
-    description: 'Files never leave your network. No accounts, no tracking, no data collection.',
-  },
-  {
-    icon: Wifi,
-    title: 'No Internet Required',
-    description: 'Works on any local network, even air-gapped. Just connect your devices to the same Wi-Fi.',
-  },
-  {
-    icon: Users,
-    title: 'Multi-Device',
-    description: 'Connect as many devices as you need. Auto-discovery finds peers on your network.',
-  },
-  {
-    icon: Tags,
-    title: 'Tag & Organize',
-    description: 'Tag your files, filter by type or date, search by name. Build a catalog of everything you transfer.',
-  },
-  {
-    icon: Smartphone,
-    title: 'Works Anywhere',
-    description: 'Mac and Windows. If auto-discovery fails, Client Mode connects through firewalled networks.',
-  },
-];
-
-const tutorialSlides = [
-  {
-    icon: MousePointerClick,
-    title: 'Drag & Drop to Send',
-    description:
-      "Drag files onto the drop zone or click to browse. They'll be sent to your connected device instantly.",
-  },
-  {
-    icon: Clipboard,
-    title: 'Clipboard Sync',
-    description:
-      'Press \u2318V (or Ctrl+V) anywhere to send your clipboard. Text and images transfer automatically.',
-  },
-  {
-    icon: Camera,
-    title: 'Capture Screenshots',
-    description:
-      'Take full-screen shots, capture a window, or select a region to crop. Screenshots save and transfer instantly.',
-  },
-  {
-    icon: PenLine,
-    title: 'Rename Files Inline',
-    description:
-      "Click any filename to edit it. The extension stays locked — just type the new name and click away.",
-  },
-  {
-    icon: LayoutGrid,
-    title: 'File Actions',
-    description:
-      'Eye = preview. Down-arrow = download. Square-with-arrow = open in new tab. Pencil = rename. Trash = delete.',
-  },
-  {
-    icon: Tags,
-    title: 'Tag & Filter Files',
-    description:
-      'Add tags to organize your files. Filter by type (screenshots, PDFs, images), by date range, or search by name.',
-  },
-  {
-    icon: MonitorSmartphone,
-    title: 'Connect Devices',
-    description:
-      'Devices discover each other automatically. If discovery fails, switch to Client Mode in Settings to connect manually.',
-  },
-];
+const iconMap: Record<string, LucideIcon> = {
+  Zap, Shield, Wifi, Users, Smartphone, MousePointerClick,
+  Clipboard, Camera, PenLine, LayoutGrid, MonitorSmartphone, Tags,
+};
 
 export function HomePage() {
   // Hero carousel state
@@ -248,12 +158,12 @@ export function HomePage() {
       {/* Feature Cards */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {features.map((feature) => {
-          const Icon = feature.icon;
+          const Icon = iconMap[feature.icon];
           return (
             <Card key={feature.title}>
               <CardContent className="flex items-start gap-3 p-4">
                 <div className="rounded-md bg-primary/10 p-2 shrink-0">
-                  <Icon className="h-5 w-5 text-primary" />
+                  {Icon && <Icon className="h-5 w-5 text-primary" />}
                 </div>
                 <div>
                   <h3 className="font-semibold text-sm">{feature.title}</h3>
@@ -274,7 +184,7 @@ export function HomePage() {
           <Carousel setApi={setTutorialApi} opts={{ loop: true, align: 'center' }}>
             <CarouselContent>
               {tutorialSlides.map((slide, index) => {
-                const Icon = slide.icon;
+                const Icon = iconMap[slide.icon];
                 const isCurrent = index === tutorialCurrent;
                 return (
                   <CarouselItem key={index} className="basis-1/3 pl-4">
@@ -287,7 +197,7 @@ export function HomePage() {
                     >
                       <CardContent className="flex flex-col items-center text-center p-6 space-y-3">
                         <div className="rounded-full bg-primary/10 p-3">
-                          <Icon className="h-6 w-6 text-primary" />
+                          {Icon && <Icon className="h-6 w-6 text-primary" />}
                         </div>
                         <h3 className="font-semibold text-sm">{slide.title}</h3>
                         <p className="text-xs text-muted-foreground">

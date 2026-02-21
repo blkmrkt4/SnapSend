@@ -82,6 +82,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deactivateLicense: () => ipcRenderer.invoke('deactivate-license'),
   getLicenseStatus: () => ipcRenderer.invoke('get-license-status'),
 
+  // Window settings
+  getAlwaysOnTop: () => ipcRenderer.invoke('get-always-on-top'),
+  setAlwaysOnTop: (enabled: boolean) => ipcRenderer.invoke('set-always-on-top', enabled),
+
   // File operations
   openFile: (filename: string) => ipcRenderer.invoke('open-file', filename),
 });

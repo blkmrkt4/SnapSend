@@ -199,6 +199,33 @@ function saveServerPortSetting(port: number) {
   }
 }
 
+function getAlwaysOnTopSetting(): boolean {
+  const fs = require('fs') as typeof import('fs');
+  const configDir = app.getPath('userData');
+  const settingFile = path.join(configDir, 'always-on-top');
+
+  try {
+    if (fs.existsSync(settingFile)) {
+      return fs.readFileSync(settingFile, 'utf-8').trim() === 'true';
+    }
+  } catch {}
+
+  return false;
+}
+
+function saveAlwaysOnTopSetting(enabled: boolean) {
+  const fs = require('fs') as typeof import('fs');
+  const configDir = app.getPath('userData');
+  const settingFile = path.join(configDir, 'always-on-top');
+
+  try {
+    fs.mkdirSync(configDir, { recursive: true });
+    fs.writeFileSync(settingFile, enabled ? 'true' : 'false', 'utf-8');
+  } catch (err) {
+    console.error('Failed to save always-on-top setting:', err);
+  }
+}
+
 async function createWindow() {
   const isClientMode = !isDev && getConnectionMode() === 'client';
 
@@ -215,6 +242,10 @@ async function createWindow() {
       nodeIntegration: false,
     },
   });
+
+  if (getAlwaysOnTopSetting()) {
+    mainWindow.setAlwaysOnTop(true, 'floating');
+  }
 
   if (isDev) {
     mainWindow.loadURL(`http://localhost:${serverPort}`);
@@ -363,6 +394,15 @@ ipcMain.handle('get-port-setting', () => getServerPortSetting());
 ipcMain.handle('set-port-setting', (_event, port: number) => {
   if (port > 0 && port < 65536) {
     saveServerPortSetting(port);
+  }
+});
+
+// Always on top IPC handlers
+ipcMain.handle('get-always-on-top', () => getAlwaysOnTopSetting());
+ipcMain.handle('set-always-on-top', (_event, enabled: boolean) => {
+  saveAlwaysOnTopSetting(enabled);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setAlwaysOnTop(enabled, 'floating');
   }
 });
 

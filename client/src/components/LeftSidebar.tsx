@@ -1,11 +1,75 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { ArrowDown, Clipboard, Camera, FileImage, ChevronDown, Monitor, Maximize, Crop, Wifi, WifiOff, PanelRightOpen, PanelRightClose } from 'lucide-react';
+import { ArrowDown, Clipboard, Camera, FileImage, Monitor, Maximize, Crop, Wifi, WifiOff, PanelRightOpen, PanelRightClose } from 'lucide-react';
 import { HamburgerMenu } from './HamburgerMenu';
 import { useFileTransfer } from '@/hooks/useFileTransfer';
 import { MistAnimation } from './MistAnimation';
 import { ScreenshotCropper } from './ScreenshotCropper';
 import { type File, type Device } from '@shared/schema';
 import { type KnownDevice, LOCAL_DEVICE_ID, type ChunkedTransferProgress } from '@/hooks/useConnectionSystem';
+
+// Generate descriptive clipboard filenames
+function generateClipboardFilename(type: 'text' | 'image', options: {
+  content?: string;
+  width?: number;
+  height?: number;
+}): string {
+  const now = new Date();
+  const timestamp = now.toISOString()
+    .replace(/[-:]/g, '')
+    .replace('T', '-')
+    .slice(0, 15); // YYYYMMDD-HHMMSS
+
+  if (type === 'text' && options.content) {
+    // Extract first ~30 chars, truncate at word boundary
+    let preview = options.content.slice(0, 40).split(/\s+/).slice(0, 5).join(' ');
+    preview = preview.slice(0, 30);
+    // Sanitize: lowercase, replace non-alphanumeric with hyphens
+    const slug = preview
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 25);
+    return slug ? `${slug}-${timestamp}.txt` : `clipboard-${timestamp}.txt`;
+  }
+
+  if (type === 'image') {
+    const dims = options.width && options.height
+      ? `${options.width}x${options.height}-`
+      : '';
+    return `clipboard-image-${dims}${timestamp}.png`;
+  }
+
+  return `clipboard-${timestamp}`;
+}
+
+// Question mark with down caret icon for dropdown
+function QuestionDropdownIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {/* Question mark */}
+      <path
+        d="M9 9C9 7.34 10.34 6 12 6C13.66 6 15 7.34 15 9C15 10.2 14.2 11.2 13.1 11.7C12.4 12 12 12.6 12 13.3V14"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <circle cx="12" cy="17" r="1" fill="currentColor" />
+      {/* Down caret */}
+      <path
+        d="M8 20L12 23L16 20"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 // Stylized liquid droplet icon for branding
 function LiquidDropletIcon({ className }: { className?: string }) {
@@ -317,7 +381,10 @@ export function LeftSidebar({
       if (window.electronAPI?.readClipboardImage) {
         const imageData = await window.electronAPI.readClipboardImage();
         if (imageData) {
-          const filename = `clipboard-image-${Date.now()}.png`;
+          const filename = generateClipboardFilename('image', {
+            width: imageData.width,
+            height: imageData.height
+          });
           const base64Data = imageData.dataURL.split(',')[1] || '';
           const sizeInBytes = Math.round(base64Data.length * 0.75);
 
@@ -338,9 +405,10 @@ export function LeftSidebar({
       if (navigator.clipboard?.readText) {
         const text = await navigator.clipboard.readText();
         if (text) {
+          const filename = generateClipboardFilename('text', { content: text });
           await onSendFile({
-            filename: 'clipboard-content',
-            originalName: 'Clipboard Content',
+            filename,
+            originalName: filename,
             mimeType: 'text/plain',
             size: text.length,
             content: text,
@@ -371,7 +439,7 @@ export function LeftSidebar({
               const reader = new FileReader();
               reader.onload = async () => {
                 const dataURL = reader.result as string;
-                const filename = `clipboard-image-${Date.now()}.png`;
+                const filename = generateClipboardFilename('image', {});
                 await onSendFile({
                   filename,
                   originalName: filename,
@@ -393,9 +461,10 @@ export function LeftSidebar({
       const text = e.clipboardData?.getData('text/plain');
       if (text) {
         e.preventDefault();
+        const filename = generateClipboardFilename('text', { content: text });
         await onSendFile({
-          filename: 'clipboard-content',
-          originalName: 'Clipboard Content',
+          filename,
+          originalName: filename,
           mimeType: 'text/plain',
           size: text.length,
           content: text,
@@ -559,7 +628,7 @@ export function LeftSidebar({
                   ? selectedTargetName
                   : 'All Connected Devices'}
             </span>
-            <ChevronDown className={`w-4 h-4 text-muted-foreground flex-shrink-0 ml-2 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
+            <QuestionDropdownIcon className={`w-5 h-5 text-muted-foreground flex-shrink-0 ml-2 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
           </button>
 
           {dropdownOpen && (

@@ -5,9 +5,15 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: {
-          DEFAULT: '#7c3aed',
-          foreground: '#ffffff',
+        // Matches the in-app Liquid Relay palette
+        teal: {
+          DEFAULT: '#4fd1c5',
+          dark: '#38b2ac',
+          light: '#e6fffa',
+        },
+        navy: {
+          DEFAULT: '#332D56',
+          light: '#4E6688',
         },
       },
     },
