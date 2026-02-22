@@ -75,6 +75,10 @@ export interface ElectronAPI {
   getAlwaysOnTop: () => Promise<boolean>;
   setAlwaysOnTop: (enabled: boolean) => Promise<void>;
 
+  // Window size
+  setWindowSize: (width: number, height: number) => Promise<void>;
+  getWindowSize: () => Promise<{ width: number; height: number }>;
+
   // Ghost mode
   getGhostMode: () => Promise<boolean>;
   setGhostMode: (enabled: boolean) => Promise<void>;

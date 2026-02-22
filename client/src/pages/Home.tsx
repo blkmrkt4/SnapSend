@@ -15,6 +15,7 @@ export default function Home() {
   const [isGhostMode, setIsGhostMode] = useState(false);
   const [ghostOpacity, setGhostOpacity] = useState(0.25);
   const preGhostFilesPanelRef = useRef(true);
+  const prePanelSizeRef = useRef<{ width: number; height: number } | null>(null);
 
   // Load ghost mode state on mount
   useEffect(() => {
@@ -171,7 +172,22 @@ export default function Home() {
         onSelectTarget={setSelectedTarget}
         pendingFileCount={pendingFiles.length}
         showFilesPanel={showFilesPanel}
-        onToggleFilesPanel={() => setShowFilesPanel(!showFilesPanel)}
+        onToggleFilesPanel={async () => {
+          const newState = !showFilesPanel;
+          setShowFilesPanel(newState);
+          if (window.electronAPI?.isElectron) {
+            if (!newState) {
+              // Collapsing — save size and shrink to sidebar width
+              const size = await window.electronAPI.getWindowSize();
+              prePanelSizeRef.current = size;
+              await window.electronAPI.setWindowSize(320, size.height);
+            } else if (prePanelSizeRef.current) {
+              // Expanding — restore previous size
+              await window.electronAPI.setWindowSize(prePanelSizeRef.current.width, prePanelSizeRef.current.height);
+              prePanelSizeRef.current = null;
+            }
+          }
+        }}
         chunkedTransfers={chunkedTransfers}
         isGhostMode={isGhostMode}
         onToggleGhostMode={handleToggleGhostMode}

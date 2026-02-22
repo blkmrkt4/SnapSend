@@ -320,7 +320,7 @@ async function createWindow() {
     };
     mainWindow.setOpacity(ghostOpacity);
     mainWindow.setAlwaysOnTop(true, 'floating');
-    mainWindow.setSize(320, 800);
+    mainWindow.setSize(320, 530);
   }
 
   if (isDev) {
@@ -482,6 +482,20 @@ ipcMain.handle('set-always-on-top', (_event, enabled: boolean) => {
   }
 });
 
+// Window size IPC handler
+ipcMain.handle('set-window-size', (_event, width: number, height: number) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setSize(width, height);
+  }
+});
+ipcMain.handle('get-window-size', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    const [width, height] = mainWindow.getSize();
+    return { width, height };
+  }
+  return { width: 1200, height: 800 };
+});
+
 // Ghost mode IPC handlers
 ipcMain.handle('get-ghost-mode', () => getGhostModeSetting());
 ipcMain.handle('set-ghost-mode', (_event, enabled: boolean) => {
@@ -499,7 +513,7 @@ ipcMain.handle('set-ghost-mode', (_event, enabled: boolean) => {
     const ghostOpacity = getGhostOpacitySetting();
     mainWindow.setOpacity(ghostOpacity);
     mainWindow.setAlwaysOnTop(true, 'floating');
-    mainWindow.setSize(320, h);
+    mainWindow.setSize(320, 530);
   } else {
     // Restore
     mainWindow.setOpacity(1.0);

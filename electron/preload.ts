@@ -86,6 +86,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAlwaysOnTop: () => ipcRenderer.invoke('get-always-on-top'),
   setAlwaysOnTop: (enabled: boolean) => ipcRenderer.invoke('set-always-on-top', enabled),
 
+  // Window size
+  setWindowSize: (width: number, height: number) => ipcRenderer.invoke('set-window-size', width, height),
+  getWindowSize: () => ipcRenderer.invoke('get-window-size'),
+
   // Ghost mode
   getGhostMode: () => ipcRenderer.invoke('get-ghost-mode'),
   setGhostMode: (enabled: boolean) => ipcRenderer.invoke('set-ghost-mode', enabled),
