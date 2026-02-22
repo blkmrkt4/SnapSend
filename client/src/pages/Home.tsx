@@ -15,6 +15,7 @@ export default function Home() {
   const [isGhostMode, setIsGhostMode] = useState(false);
   const [ghostOpacity, setGhostOpacity] = useState(0.25);
   const preGhostFilesPanelRef = useRef(true);
+  const preGhostWindowSizeRef = useRef<{ width: number; height: number } | null>(null);
   const prePanelSizeRef = useRef<{ width: number; height: number } | null>(null);
 
   // Load ghost mode state on mount
@@ -74,12 +75,22 @@ export default function Home() {
     setIsGhostMode(newGhostMode);
 
     if (newGhostMode) {
-      // Save panel state and collapse
+      // Entering ghost mode: save state, collapse panel, shrink window
       preGhostFilesPanelRef.current = showFilesPanel;
+      preGhostWindowSizeRef.current = await window.electronAPI.getWindowSize();
       setShowFilesPanel(false);
     } else {
-      // Restore panel state
-      setShowFilesPanel(preGhostFilesPanelRef.current);
+      // Exiting ghost mode: keep current drawer state, resize based on it
+      // Don't change showFilesPanel — leave whatever the user has open
+      if (showFilesPanel && preGhostWindowSizeRef.current) {
+        // Drawer is open — restore to full pre-ghost size
+        await window.electronAPI.setWindowSize(
+          preGhostWindowSizeRef.current.width,
+          preGhostWindowSizeRef.current.height
+        );
+      }
+      // If drawer is closed, window is already at 320 width — leave it
+      preGhostWindowSizeRef.current = null;
     }
 
     try {

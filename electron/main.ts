@@ -507,11 +507,10 @@ ipcMain.handle('set-ghost-mode', (_event, enabled: boolean) => {
     mainWindow.setAlwaysOnTop(true, 'floating');
     mainWindow.setSize(320, 535);
   } else {
-    // Restore
+    // Restore opacity and always-on-top only — renderer handles window sizing
     mainWindow.setOpacity(1.0);
     if (preGhostState) {
       mainWindow.setAlwaysOnTop(preGhostState.alwaysOnTop, 'floating');
-      mainWindow.setSize(preGhostState.width, preGhostState.height);
       preGhostState = null;
     } else {
       mainWindow.setAlwaysOnTop(getAlwaysOnTopSetting(), 'floating');
