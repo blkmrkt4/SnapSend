@@ -447,7 +447,7 @@ export function FileExplorer({
   };
 
   return (
-    <Card className="h-full border-primary/20 shadow-lg w-full">
+    <Card className="flex-1 flex flex-col border-primary/20 shadow-lg w-full min-h-0">
       <CardHeader
         className="text-secondary-foreground"
         style={{
@@ -696,8 +696,8 @@ export function FileExplorer({
         )}
       </CardHeader>
 
-      <CardContent>
-        <div className="space-y-2 max-h-96 overflow-y-auto">
+      <CardContent className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <div className="space-y-2 flex-1 overflow-y-auto">
           {filteredFiles.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <File className="h-12 w-12 mx-auto mb-4 opacity-50" />

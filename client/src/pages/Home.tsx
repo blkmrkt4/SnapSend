@@ -211,8 +211,8 @@ export default function Home() {
 
       {/* Main Content Area - collapsible, fills remaining width */}
       {showFilesPanel && (
-        <main className="flex-1 flex flex-col overflow-hidden">
-          <div className="p-6 flex-1 overflow-auto">
+        <main className="flex-1 flex flex-col overflow-hidden min-h-0">
+          <div className="p-6 flex-1 flex flex-col min-h-0">
             {renderMainContent()}
           </div>
         </main>
