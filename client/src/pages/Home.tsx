@@ -187,14 +187,19 @@ export default function Home() {
           const newState = !showFilesPanel;
           setShowFilesPanel(newState);
           if (window.electronAPI?.isElectron) {
+            const currentSize = await window.electronAPI.getWindowSize();
             if (!newState) {
               // Collapsing — save size and shrink to sidebar width
-              const size = await window.electronAPI.getWindowSize();
-              prePanelSizeRef.current = size;
-              await window.electronAPI.setWindowSize(320, size.height);
-            } else if (prePanelSizeRef.current) {
-              // Expanding — restore previous size
-              await window.electronAPI.setWindowSize(prePanelSizeRef.current.width, prePanelSizeRef.current.height);
+              prePanelSizeRef.current = currentSize;
+              await window.electronAPI.setWindowSize(320, currentSize.height);
+            } else {
+              // Expanding — restore previous size, or default to 1200 if window is narrow
+              const targetWidth = prePanelSizeRef.current?.width ?? 1200;
+              const targetHeight = prePanelSizeRef.current?.height ?? currentSize.height;
+              await window.electronAPI.setWindowSize(
+                Math.max(targetWidth, 800),
+                Math.max(targetHeight, 600)
+              );
               prePanelSizeRef.current = null;
             }
           }
