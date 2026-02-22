@@ -310,17 +310,9 @@ async function createWindow() {
     mainWindow.setAlwaysOnTop(true, 'floating');
   }
 
-  // Apply ghost mode on startup if previously enabled
+  // Always reset ghost mode on startup — app should open in normal mode
   if (getGhostModeSetting()) {
-    const ghostOpacity = getGhostOpacitySetting();
-    preGhostState = {
-      width: 1200,
-      height: 800,
-      alwaysOnTop: getAlwaysOnTopSetting(),
-    };
-    mainWindow.setOpacity(ghostOpacity);
-    mainWindow.setAlwaysOnTop(true, 'floating');
-    mainWindow.setSize(320, 530);
+    saveGhostModeSetting(false);
   }
 
   if (isDev) {
@@ -513,7 +505,7 @@ ipcMain.handle('set-ghost-mode', (_event, enabled: boolean) => {
     const ghostOpacity = getGhostOpacitySetting();
     mainWindow.setOpacity(ghostOpacity);
     mainWindow.setAlwaysOnTop(true, 'floating');
-    mainWindow.setSize(320, 530);
+    mainWindow.setSize(320, 535);
   } else {
     // Restore
     mainWindow.setOpacity(1.0);

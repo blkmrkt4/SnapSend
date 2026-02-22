@@ -597,9 +597,9 @@ export function LeftSidebar({
         {window.electronAPI?.isElectron && onToggleGhostMode && (
           <button
             onClick={onToggleGhostMode}
-            className={`p-1.5 rounded transition-colors ${
+            className={`p-1.5 rounded-md transition-colors ${
               isGhostMode
-                ? 'bg-[var(--liquid-teal)]/20 text-[var(--liquid-teal-dark)]'
+                ? 'bg-teal-500 text-white shadow-md shadow-teal-500/30'
                 : 'hover:bg-muted/50 text-muted-foreground'
             }`}
             style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
@@ -618,14 +618,18 @@ export function LeftSidebar({
             }
             onToggleFilesPanel();
           }}
-          className="p-1.5 rounded hover:bg-muted/50 transition-colors"
+          className={`p-1.5 rounded-md transition-colors ${
+            isGhostMode
+              ? 'bg-teal-500 text-white shadow-md shadow-teal-500/30'
+              : 'hover:bg-muted/50'
+          }`}
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
           title={showFilesPanel ? 'Hide panel' : 'Show files'}
         >
           {showFilesPanel ? (
-            <PanelRightClose className="w-4 h-4 text-muted-foreground" />
+            <PanelRightClose className={`w-4 h-4 ${isGhostMode ? '' : 'text-muted-foreground'}`} />
           ) : (
-            <PanelRightOpen className="w-4 h-4 text-muted-foreground" />
+            <PanelRightOpen className={`w-4 h-4 ${isGhostMode ? '' : 'text-muted-foreground'}`} />
           )}
         </button>
       </div>
