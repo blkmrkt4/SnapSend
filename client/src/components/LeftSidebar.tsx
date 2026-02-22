@@ -890,29 +890,42 @@ export function LeftSidebar({
           </div>
         )}
 
-        {/* Recently Sent */}
-        <div className="mt-6 pt-4 border-t border-primary/20">
-          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-3">Recently Sent</h3>
-          <div className="space-y-2">
-            {recentFiles.slice(0, 3).map((file) => (
-              <div key={file.id} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50">
-                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                  <FileImage className="text-green-600 w-4 h-4" />
+        {/* Recently Sent — hidden in ghost mode */}
+        {!isGhostMode && (
+          <div className="mt-6 pt-4 border-t border-primary/20">
+            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-3">Recently Sent</h3>
+            <div className="space-y-2">
+              {recentFiles.slice(0, 3).map((file) => (
+                <div
+                  key={file.id}
+                  className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer select-none"
+                  onDoubleClick={async () => {
+                    if (window.electronAPI?.openFile) {
+                      await window.electronAPI.openFile(file.filename);
+                    } else {
+                      window.open(`/api/files/${file.id}/download`, '_blank');
+                    }
+                  }}
+                  title="Double-click to open"
+                >
+                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                    <FileImage className="text-green-600 w-4 h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-700 truncate">{file.originalName}</p>
+                    <p className="text-xs text-gray-500">
+                      {file.transferredAt ? new Date(file.transferredAt).toLocaleTimeString() : 'Just now'}
+                    </p>
+                  </div>
+                  <div className="w-2 h-2 bg-green-500 rounded-full" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-700 truncate">{file.originalName}</p>
-                  <p className="text-xs text-gray-500">
-                    {file.transferredAt ? new Date(file.transferredAt).toLocaleTimeString() : 'Just now'}
-                  </p>
-                </div>
-                <div className="w-2 h-2 bg-green-500 rounded-full" />
-              </div>
-            ))}
-            {recentFiles.length === 0 && (
-              <p className="text-xs text-muted-foreground text-center py-2">No files sent yet</p>
-            )}
+              ))}
+              {recentFiles.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-2">No files sent yet</p>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {screenshotData && (
