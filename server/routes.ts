@@ -203,8 +203,8 @@ export async function registerRoutes(app: Express, options?: RouteOptions): Prom
 
             let filename = fileData.filename || `${Date.now()}_${fileData.originalName}`;
 
-            // Save file to disk if not clipboard
-            if (fileData.content && !fileData.isClipboard) {
+            // Save file to disk (including clipboard items, needed for smart naming)
+            if (fileData.content) {
               try {
                 const uploadsDir = process.env.SNAPSEND_UPLOADS_DIR || path.join(process.cwd(), 'uploads');
                 if (!fs.existsSync(uploadsDir)) {
@@ -287,8 +287,8 @@ export async function registerRoutes(app: Express, options?: RouteOptions): Prom
 
             let filename = fileTransferData.filename || `${Date.now()}_${fileTransferData.originalName}`;
 
-            // Save file to disk if not clipboard
-            if (fileTransferData.content && !fileTransferData.isClipboard) {
+            // Save file to disk (including clipboard items, needed for smart naming)
+            if (fileTransferData.content) {
               try {
                 const uploadsDir = process.env.SNAPSEND_UPLOADS_DIR || path.join(process.cwd(), 'uploads');
                 if (!fs.existsSync(uploadsDir)) {
@@ -565,8 +565,8 @@ export async function registerRoutes(app: Express, options?: RouteOptions): Prom
               const peerWs = connectedPeers.get(targetPeerId)!;
               let filename = message.data.filename;
 
-              // Save file to disk if not clipboard
-              if (message.data.content && !message.data.isClipboard) {
+              // Save file to disk (including clipboard items, needed for smart naming)
+              if (message.data.content) {
                 const uploadsDir = process.env.SNAPSEND_UPLOADS_DIR || path.join(process.cwd(), 'uploads');
                 if (!fs.existsSync(uploadsDir)) {
                   fs.mkdirSync(uploadsDir, { recursive: true });
@@ -645,8 +645,8 @@ export async function registerRoutes(app: Express, options?: RouteOptions): Prom
 
             let filename = message.data.filename;
 
-            // Save files to disk if they have content and aren't clipboard
-            if (message.data.content && !message.data.isClipboard) {
+            // Save files to disk (including clipboard items, needed for smart naming)
+            if (message.data.content) {
               const uploadsDir = process.env.SNAPSEND_UPLOADS_DIR || path.join(process.cwd(), 'uploads');
               if (!fs.existsSync(uploadsDir)) {
                 fs.mkdirSync(uploadsDir, { recursive: true });
