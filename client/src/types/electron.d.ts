@@ -105,6 +105,8 @@ export interface ElectronAPI {
   openPromptLog: () => Promise<string>;
   clearPromptLog: () => Promise<void>;
   resetPromptConfig: () => Promise<void>;
+  getImageModel?: () => Promise<string>;
+  setImageModel?: (model: string) => Promise<void>;
 }
 
 export interface LicenseStatus {

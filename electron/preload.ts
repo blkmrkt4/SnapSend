@@ -121,4 +121,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openPromptLog: () => ipcRenderer.invoke('open-prompt-log'),
   clearPromptLog: () => ipcRenderer.invoke('clear-prompt-log'),
   resetPromptConfig: () => ipcRenderer.invoke('reset-prompt-config'),
+  getImageModel: () => ipcRenderer.invoke('get-image-model'),
+  setImageModel: (model: string) => ipcRenderer.invoke('set-image-model', model),
 });

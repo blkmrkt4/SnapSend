@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Sparkles, CheckCircle2, XCircle, Download, ExternalLink, Loader2 } from 'lucide-react';
+import { Sparkles, CheckCircle2, XCircle, Download, ExternalLink, Loader2, AlertTriangle } from 'lucide-react';
 import type { OllamaStatus } from '@/types/electron';
 
 interface SmartNamingSetupModalProps {
@@ -11,10 +11,14 @@ interface SmartNamingSetupModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type Step = 'welcome' | 'ollama-check' | 'model-pull' | 'done';
+type Step = 'welcome' | 'ollama-check' | 'model-choice' | 'model-pull' | 'done';
 
-const IMAGE_MODEL = 'llava';
 const TEXT_MODEL = 'phi3:mini';
+
+const IMAGE_MODELS = {
+  llava: { label: 'LLaVA', size: '~4.7GB', ram: '~8GB', minRam: 16 },
+  moondream: { label: 'Moondream', size: '~1.7GB', ram: '~3GB', minRam: 8 },
+} as const;
 
 export function SmartNamingSetupModal({ open, onOpenChange }: SmartNamingSetupModalProps) {
   const [step, setStep] = useState<Step>('welcome');
@@ -23,6 +27,18 @@ export function SmartNamingSetupModal({ open, onOpenChange }: SmartNamingSetupMo
   const [pullProgress, setPullProgress] = useState<Record<string, { status: string; percent: number }>>({});
   const [pullingModel, setPullingModel] = useState<string | null>(null);
   const [pullComplete, setPullComplete] = useState<Record<string, boolean>>({});
+  const [selectedImageModel, setSelectedImageModel] = useState<'llava' | 'moondream'>('llava');
+
+  // Load current image model from config on open
+  useEffect(() => {
+    if (open && window.electronAPI?.getImageModel) {
+      window.electronAPI.getImageModel().then((model) => {
+        if (model === 'moondream' || model === 'llava') {
+          setSelectedImageModel(model);
+        }
+      }).catch(() => {});
+    }
+  }, [open]);
 
   const checkOllama = useCallback(async () => {
     if (!window.electronAPI?.isElectron) return;
@@ -31,7 +47,7 @@ export function SmartNamingSetupModal({ open, onOpenChange }: SmartNamingSetupMo
       const status = await window.electronAPI.checkOllamaStatus();
       setOllamaStatus(status);
       if (status.running && step === 'ollama-check') {
-        setStep('model-pull');
+        setStep('model-choice');
       }
     } catch {
       setOllamaStatus({ running: false, models: [] });
@@ -81,6 +97,14 @@ export function SmartNamingSetupModal({ open, onOpenChange }: SmartNamingSetupMo
     setStep('welcome');
   };
 
+  const handleSelectImageModel = async (model: 'llava' | 'moondream') => {
+    setSelectedImageModel(model);
+    // Save to config immediately
+    if (window.electronAPI?.setImageModel) {
+      await window.electronAPI.setImageModel(model);
+    }
+  };
+
   const isModelAvailable = (modelName: string): boolean => {
     if (pullComplete[modelName]) return true;
     if (!ollamaStatus) return false;
@@ -89,7 +113,7 @@ export function SmartNamingSetupModal({ open, onOpenChange }: SmartNamingSetupMo
     );
   };
 
-  const allModelsAvailable = isModelAvailable(IMAGE_MODEL) && isModelAvailable(TEXT_MODEL);
+  const allModelsAvailable = isModelAvailable(selectedImageModel) && isModelAvailable(TEXT_MODEL);
 
   // Reset state when modal opens
   useEffect(() => {
@@ -101,6 +125,8 @@ export function SmartNamingSetupModal({ open, onOpenChange }: SmartNamingSetupMo
       setOllamaStatus(null);
     }
   }, [open]);
+
+  const imageInfo = IMAGE_MODELS[selectedImageModel];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -121,7 +147,7 @@ export function SmartNamingSetupModal({ open, onOpenChange }: SmartNamingSetupMo
             <div className="rounded-lg bg-muted/50 p-3 space-y-2 text-sm">
               <div className="flex items-start gap-2">
                 <span className="text-primary font-bold">1.</span>
-                <span>Images analyzed with <strong>LLaVA</strong> vision model (~4.7GB)</span>
+                <span>Images analyzed with a <strong>vision model</strong> (you choose which one)</span>
               </div>
               <div className="flex items-start gap-2">
                 <span className="text-primary font-bold">2.</span>
@@ -185,10 +211,89 @@ export function SmartNamingSetupModal({ open, onOpenChange }: SmartNamingSetupMo
             )}
 
             {ollamaStatus?.running && (
-              <Button className="w-full" onClick={() => setStep('model-pull')}>
+              <Button className="w-full" onClick={() => setStep('model-choice')}>
                 Continue
               </Button>
             )}
+          </div>
+        )}
+
+        {step === 'model-choice' && (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Choose a vision model for analyzing images. This depends on how much <strong>RAM</strong> your machine has.
+            </p>
+
+            <div className="space-y-3">
+              {/* LLaVA option */}
+              <label
+                className={`block rounded-lg border-2 p-3 cursor-pointer transition-colors ${
+                  selectedImageModel === 'llava'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-muted hover:border-muted-foreground/30'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <input
+                    type="radio"
+                    name="imageModel"
+                    checked={selectedImageModel === 'llava'}
+                    onChange={() => handleSelectImageModel('llava')}
+                    className="accent-primary mt-1"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold">LLaVA</span>
+                      <Badge className="text-[10px] bg-green-600">Recommended</Badge>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                      <div>Better accuracy for describing images</div>
+                      <div>Download: ~4.7GB &middot; Uses ~8GB RAM while running</div>
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-1.5 text-xs text-amber-600">
+                      <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                      <span>Requires 16GB+ RAM on your machine</span>
+                    </div>
+                  </div>
+                </div>
+              </label>
+
+              {/* Moondream option */}
+              <label
+                className={`block rounded-lg border-2 p-3 cursor-pointer transition-colors ${
+                  selectedImageModel === 'moondream'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-muted hover:border-muted-foreground/30'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <input
+                    type="radio"
+                    name="imageModel"
+                    checked={selectedImageModel === 'moondream'}
+                    onChange={() => handleSelectImageModel('moondream')}
+                    className="accent-primary mt-1"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold">Moondream</span>
+                      <Badge variant="secondary" className="text-[10px]">Lightweight</Badge>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                      <div>Smaller and faster, but less accurate</div>
+                      <div>Download: ~1.7GB &middot; Uses ~3GB RAM while running</div>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1.5">
+                      Works on machines with 8GB RAM
+                    </div>
+                  </div>
+                </div>
+              </label>
+            </div>
+
+            <Button className="w-full" onClick={() => setStep('model-pull')}>
+              Continue with {IMAGE_MODELS[selectedImageModel].label}
+            </Button>
           </div>
         )}
 
@@ -200,7 +305,7 @@ export function SmartNamingSetupModal({ open, onOpenChange }: SmartNamingSetupMo
 
             <div className="space-y-3">
               {[
-                { name: IMAGE_MODEL, label: 'LLaVA (Vision)', size: '~4.7GB' },
+                { name: selectedImageModel, label: `${imageInfo.label} (Vision)`, size: imageInfo.size },
                 { name: TEXT_MODEL, label: 'Phi-3 Mini (Text)', size: '~2.3GB' },
               ].map(({ name, label, size }) => {
                 const available = isModelAvailable(name);
@@ -258,7 +363,7 @@ export function SmartNamingSetupModal({ open, onOpenChange }: SmartNamingSetupMo
               </p>
             )}
 
-            {(isModelAvailable(IMAGE_MODEL) || isModelAvailable(TEXT_MODEL)) && !allModelsAvailable && (
+            {(isModelAvailable(selectedImageModel) || isModelAvailable(TEXT_MODEL)) && !allModelsAvailable && (
               <Button variant="outline" className="w-full" onClick={() => setStep('done')}>
                 Skip — use available models only
               </Button>

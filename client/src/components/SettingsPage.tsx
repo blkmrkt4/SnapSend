@@ -30,6 +30,7 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
   const [smartNaming, setSmartNaming] = useState(false);
   const [ollamaStatus, setOllamaStatus] = useState<OllamaStatus | null>(null);
   const [showSetupModal, setShowSetupModal] = useState(false);
+  const [imageModel, setImageModel] = useState<string>('llava');
 
   const isElectronProd = window.electronAPI?.isElectron && !window.electronAPI?.isDev;
 
@@ -45,6 +46,7 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
       window.electronAPI!.getWindowOpacity().then(setGhostOpacity).catch(() => {});
       window.electronAPI!.getSmartNaming().then(setSmartNaming).catch(() => {});
       window.electronAPI!.checkOllamaStatus().then(setOllamaStatus).catch(() => {});
+      window.electronAPI!.getImageModel?.().then((m) => { if (m) setImageModel(m); }).catch(() => {});
     } else {
       // DEV PREVIEW: mock data so all sections are visible
       setPortSetting('53000');
@@ -271,10 +273,40 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
         </div>
 
         {ollamaStatus?.running && (
-          <div className="border-t px-4 py-3 space-y-2">
-            <div className="text-xs font-medium text-muted-foreground">Models</div>
+          <div className="border-t px-4 py-3 space-y-3">
+            <div className="text-xs font-medium text-muted-foreground">Vision Model</div>
+            <div className="flex gap-2">
+              {[
+                { value: 'llava' as const, label: 'LLaVA', desc: 'Better accuracy, ~8GB RAM', minRam: '16GB+ RAM' },
+                { value: 'moondream' as const, label: 'Moondream', desc: 'Lightweight, ~3GB RAM', minRam: '8GB+ RAM' },
+              ].map(({ value, label, desc, minRam }) => (
+                <button
+                  key={value}
+                  onClick={async () => {
+                    setImageModel(value);
+                    try {
+                      await window.electronAPI?.setImageModel?.(value);
+                      toast({ title: `Vision model set to ${label}` });
+                    } catch {
+                      toast({ title: 'Failed to update model', variant: 'destructive' });
+                    }
+                  }}
+                  className={`flex-1 rounded-lg border-2 p-2 text-left transition-colors ${
+                    imageModel === value
+                      ? 'border-primary bg-primary/5'
+                      : 'border-muted hover:border-muted-foreground/30'
+                  }`}
+                >
+                  <div className="text-xs font-semibold text-foreground">{label}</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">{desc}</div>
+                  <div className="text-[10px] text-amber-600 mt-0.5">Needs {minRam}</div>
+                </button>
+              ))}
+            </div>
+
+            <div className="text-xs font-medium text-muted-foreground mt-3">Model Status</div>
             {[
-              { name: 'llava', label: 'LLaVA (Vision)' },
+              { name: imageModel, label: `${imageModel === 'llava' ? 'LLaVA' : 'Moondream'} (Vision)` },
               { name: 'phi3:mini', label: 'Phi-3 Mini (Text)' },
             ].map(({ name, label }) => {
               const available = ollamaStatus.models.some(
@@ -392,6 +424,7 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
           // Refresh state when modal closes
           window.electronAPI?.getSmartNaming().then(setSmartNaming).catch(() => {});
           window.electronAPI?.checkOllamaStatus().then(setOllamaStatus).catch(() => {});
+          window.electronAPI?.getImageModel?.().then((m) => { if (m) setImageModel(m); }).catch(() => {});
         }
       }} />
 

@@ -78,15 +78,6 @@ export function loadPromptConfig(): PromptConfig {
         cleanFilename: { ...DEFAULT_CONFIG.cleanFilename, ...parsed.cleanFilename },
       };
 
-      // Auto-migrate: moondream → llava (moondream was too unreliable)
-      if (config.models.image === 'moondream') {
-        console.log('Smart Naming: migrating image model from moondream to llava');
-        config.models.image = 'llava';
-        try {
-          fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
-        } catch {}
-      }
-
       return config;
     }
   } catch (err) {
@@ -111,6 +102,21 @@ export function saveDefaultConfig(): void {
 
 export function resetPromptConfig(): void {
   saveDefaultConfig();
+}
+
+export function getConfigImageModel(): string {
+  return loadPromptConfig().models.image;
+}
+
+export function setConfigImageModel(model: string): void {
+  const config = loadPromptConfig();
+  config.models.image = model;
+  const configPath = getPromptConfigPath();
+  try {
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Smart Naming: Failed to save image model:', err);
+  }
 }
 
 // --- Template resolution ---

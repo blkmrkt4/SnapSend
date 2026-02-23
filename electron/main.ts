@@ -16,6 +16,8 @@ import {
   getPromptLogPath,
   clearPromptLog,
   resetPromptConfig,
+  getConfigImageModel,
+  setConfigImageModel,
   type SmartNameContext,
 } from './smart-naming';
 
@@ -838,6 +840,8 @@ ipcMain.handle('open-prompt-log', async () => {
 });
 ipcMain.handle('clear-prompt-log', () => clearPromptLog());
 ipcMain.handle('reset-prompt-config', () => resetPromptConfig());
+ipcMain.handle('get-image-model', () => getConfigImageModel());
+ipcMain.handle('set-image-model', (_event, model: string) => setConfigImageModel(model));
 
 app.whenReady().then(startApp);
 
