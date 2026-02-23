@@ -411,6 +411,7 @@ async function startApp() {
           }
         },
         onFileSaved: (data: { fileId: number; filename: string; mimeType: string; originalName: string; size: number; isClipboard: boolean; fromDeviceName: string }) => {
+          console.log(`onFileSaved: id=${data.fileId} file="${data.filename}" mime=${data.mimeType} clipboard=${data.isClipboard} smartNaming=${process.env.SNAPSEND_SMART_NAMING}`);
           // Async smart rename — non-blocking, silent failure
           if (process.env.SNAPSEND_SMART_NAMING === 'true') {
             const uploadsDir = process.env.SNAPSEND_UPLOADS_DIR || path.join(process.cwd(), 'uploads');

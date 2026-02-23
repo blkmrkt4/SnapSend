@@ -383,14 +383,28 @@ export async function generateSmartName(
   context: SmartNameContext
 ): Promise<SmartNameResult | null> {
   const enabled = getSmartNamingSetting();
-  if (!enabled) return null;
+  if (!enabled) {
+    console.log('Smart Naming: disabled, skipping');
+    return null;
+  }
+
+  // Verify file exists on disk
+  if (!fs.existsSync(filePath)) {
+    console.log(`Smart Naming: file not on disk, skipping: ${filePath}`);
+    return null;
+  }
 
   const status = await checkOllamaStatus();
-  if (!status.running) return null;
+  if (!status.running) {
+    console.log('Smart Naming: Ollama not running, skipping');
+    return null;
+  }
 
   const config = loadPromptConfig();
   const ext = path.extname(context.originalName);
   const stem = path.basename(context.originalName, ext);
+
+  console.log(`Smart Naming: processing "${context.originalName}" (${context.mimeType}), models available: [${status.models.join(', ')}]`);
 
   // Build template variables available to all file types
   const baseVars: Record<string, string> = {
@@ -408,17 +422,29 @@ export async function generateSmartName(
     let rawName: string | null = null;
 
     if (context.mimeType.startsWith('image/') && isModelAvailable(status.models, config.models.image)) {
+      console.log(`Smart Naming: using image model "${config.models.image}"`);
       rawName = await generateImageName(filePath, config, baseVars, context);
+    } else if (context.mimeType.startsWith('image/')) {
+      console.log(`Smart Naming: image model "${config.models.image}" not available in [${status.models.join(', ')}]`);
     } else if (
       (context.mimeType.startsWith('text/') || context.mimeType === 'application/json') &&
       isModelAvailable(status.models, config.models.text)
     ) {
+      console.log(`Smart Naming: using text model "${config.models.text}"`);
       rawName = await generateTextName(filePath, config, baseVars, context);
+    } else if (context.mimeType.startsWith('text/') || context.mimeType === 'application/json') {
+      console.log(`Smart Naming: text model "${config.models.text}" not available in [${status.models.join(', ')}]`);
+    } else {
+      console.log(`Smart Naming: no model configured for mimeType "${context.mimeType}"`);
     }
 
-    if (!rawName) return null;
+    if (!rawName) {
+      console.log('Smart Naming: no name generated (model returned empty or null)');
+      return null;
+    }
 
     const cleaned = cleanFilename(rawName, config);
+    console.log(`Smart Naming: raw="${rawName}" → cleaned="${cleaned}${ext}"`);
     if (!cleaned || cleaned.length < 2) return null;
 
     return { suggestedName: cleaned + ext };
