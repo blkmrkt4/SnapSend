@@ -667,7 +667,7 @@ ipcMain.handle('validate-license', () => validateLicense());
 ipcMain.handle('deactivate-license', () => deactivateLicense());
 ipcMain.handle('get-license-status', () => getLicenseStatus());
 
-// Read clipboard image
+// Read clipboard with format detection
 ipcMain.handle('read-clipboard-image', () => {
   const image = clipboard.readImage();
   if (image.isEmpty()) return null;
@@ -678,6 +678,43 @@ ipcMain.handle('read-clipboard-image', () => {
     width: size.width,
     height: size.height,
   };
+});
+
+ipcMain.handle('read-clipboard', () => {
+  const formats = clipboard.availableFormats();
+  const hasImage = formats.some(f =>
+    f === 'image/png' || f === 'image/jpeg' || f === 'image/bmp' ||
+    f === 'image/gif' || f === 'image/tiff' || f === 'image/webp'
+  );
+  const hasText = formats.some(f => f === 'text/plain' || f === 'text/html' || f === 'text/rtf');
+
+  // Prefer image when both are present
+  if (hasImage) {
+    const image = clipboard.readImage();
+    if (!image.isEmpty()) {
+      const size = image.getSize();
+      return {
+        type: 'image' as const,
+        dataURL: image.toDataURL(),
+        mimeType: 'image/png',
+        width: size.width,
+        height: size.height,
+      };
+    }
+  }
+
+  if (hasText) {
+    const text = clipboard.readText();
+    if (text) {
+      return {
+        type: 'text' as const,
+        content: text,
+        mimeType: 'text/plain',
+      };
+    }
+  }
+
+  return null;
 });
 
 // Open file with system default application

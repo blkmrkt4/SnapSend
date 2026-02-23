@@ -75,6 +75,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Clipboard
   readClipboardImage: () => ipcRenderer.invoke('read-clipboard-image'),
+  readClipboard: () => ipcRenderer.invoke('read-clipboard'),
 
   // License
   activateLicense: (key: string) => ipcRenderer.invoke('activate-license', key),

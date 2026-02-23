@@ -48,6 +48,7 @@ export interface ElectronAPI {
 
   // Clipboard
   readClipboardImage: () => Promise<{ dataURL: string; width: number; height: number } | null>;
+  readClipboard?: () => Promise<ClipboardReadResult | null>;
 
   // Port setting
   getPortSetting: () => Promise<number>;
@@ -129,6 +130,10 @@ export interface OllamaPullProgress {
   status: string;
   percent?: number;
 }
+
+export type ClipboardReadResult =
+  | { type: 'image'; dataURL: string; mimeType: string; width: number; height: number }
+  | { type: 'text'; content: string; mimeType: string };
 
 export interface PeerInfo {
   id: string;

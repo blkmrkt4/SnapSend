@@ -381,7 +381,47 @@ export function LeftSidebar({
 
   const handlePasteFromClipboard = useCallback(async () => {
     try {
-      // Try Electron native clipboard image first
+      // Use format-detecting clipboard reader when available (Electron)
+      if (window.electronAPI?.readClipboard) {
+        const result = await window.electronAPI.readClipboard();
+        if (result) {
+          if (result.type === 'image') {
+            const filename = generateClipboardFilename('image', {
+              width: result.width,
+              height: result.height,
+            });
+            const base64Data = result.dataURL.split(',')[1] || '';
+            const sizeInBytes = Math.round(base64Data.length * 0.75);
+
+            await onSendFile({
+              filename,
+              originalName: filename,
+              mimeType: result.mimeType,
+              size: sizeInBytes,
+              content: result.dataURL,
+              isClipboard: true,
+            });
+            setShowMist(true);
+            return;
+          }
+
+          if (result.type === 'text') {
+            const filename = generateClipboardFilename('text', { content: result.content });
+            await onSendFile({
+              filename,
+              originalName: filename,
+              mimeType: result.mimeType,
+              size: result.content.length,
+              content: result.content,
+              isClipboard: true,
+            });
+            setShowMist(true);
+            return;
+          }
+        }
+      }
+
+      // Fallback for legacy readClipboardImage (Electron without readClipboard)
       if (window.electronAPI?.readClipboardImage) {
         const imageData = await window.electronAPI.readClipboardImage();
         if (imageData) {
@@ -405,7 +445,7 @@ export function LeftSidebar({
         }
       }
 
-      // Fallback: read text
+      // Fallback: browser clipboard text
       if (navigator.clipboard?.readText) {
         const text = await navigator.clipboard.readText();
         if (text) {
