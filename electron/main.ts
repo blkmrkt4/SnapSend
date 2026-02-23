@@ -683,17 +683,30 @@ ipcMain.handle('read-clipboard-image', () => {
 
 ipcMain.handle('read-clipboard', () => {
   const formats = clipboard.availableFormats();
-  const hasImage = formats.some(f =>
-    f === 'image/png' || f === 'image/jpeg' || f === 'image/bmp' ||
-    f === 'image/gif' || f === 'image/tiff' || f === 'image/webp'
-  );
-  const hasText = formats.some(f => f === 'text/plain' || f === 'text/html' || f === 'text/rtf');
+  console.log('Clipboard formats:', formats);
 
-  // Prefer image when both are present
-  if (hasImage) {
+  // Check for image formats: MIME types + macOS UTIs + Windows formats
+  const hasImage = formats.some(f => {
+    const lower = f.toLowerCase();
+    return lower.startsWith('image/') ||
+      lower === 'public.png' || lower === 'public.jpeg' || lower === 'public.tiff' ||
+      lower === 'public.heic' || lower === 'com.apple.pict' ||
+      lower === 'com.compuserve.gif' || lower === 'public.webp' ||
+      lower === 'cf_bitmap' || lower === 'cf_dib' || lower === 'cf_dibv5';
+  });
+  const hasText = formats.some(f => {
+    const lower = f.toLowerCase();
+    return lower === 'text/plain' || lower === 'text/html' || lower === 'text/rtf';
+  });
+
+  // Prefer image when both are present.
+  // Also try readImage() as a fallback even if no known image format was detected,
+  // since some apps use non-standard format names.
+  if (hasImage || !hasText) {
     const image = clipboard.readImage();
     if (!image.isEmpty()) {
       const size = image.getSize();
+      console.log(`Clipboard: detected image ${size.width}x${size.height}`);
       return {
         type: 'image' as const,
         dataURL: image.toDataURL(),
@@ -707,12 +720,27 @@ ipcMain.handle('read-clipboard', () => {
   if (hasText) {
     const text = clipboard.readText();
     if (text) {
+      console.log(`Clipboard: detected text (${text.length} chars)`);
       return {
         type: 'text' as const,
         content: text,
         mimeType: 'text/plain',
       };
     }
+  }
+
+  // Last resort: try readImage anyway — some apps don't advertise image formats
+  const fallbackImage = clipboard.readImage();
+  if (!fallbackImage.isEmpty()) {
+    const size = fallbackImage.getSize();
+    console.log(`Clipboard: fallback detected image ${size.width}x${size.height}`);
+    return {
+      type: 'image' as const,
+      dataURL: fallbackImage.toDataURL(),
+      mimeType: 'image/png',
+      width: size.width,
+      height: size.height,
+    };
   }
 
   return null;
