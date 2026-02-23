@@ -31,7 +31,7 @@ export interface PromptConfig {
 
 const DEFAULT_CONFIG: PromptConfig = {
   models: {
-    image: 'moondream',
+    image: 'llava',
     text: 'phi3:mini',
   },
   prompts: {
@@ -68,7 +68,7 @@ export function loadPromptConfig(): PromptConfig {
       const raw = fs.readFileSync(configPath, 'utf-8');
       const parsed = JSON.parse(raw);
       // Merge with defaults so missing keys get filled in
-      return {
+      const config: PromptConfig = {
         models: { ...DEFAULT_CONFIG.models, ...parsed.models },
         prompts: {
           image: { ...DEFAULT_CONFIG.prompts.image, ...parsed.prompts?.image },
@@ -77,6 +77,17 @@ export function loadPromptConfig(): PromptConfig {
         textPreviewChars: parsed.textPreviewChars ?? DEFAULT_CONFIG.textPreviewChars,
         cleanFilename: { ...DEFAULT_CONFIG.cleanFilename, ...parsed.cleanFilename },
       };
+
+      // Auto-migrate: moondream → llava (moondream was too unreliable)
+      if (config.models.image === 'moondream') {
+        console.log('Smart Naming: migrating image model from moondream to llava');
+        config.models.image = 'llava';
+        try {
+          fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+        } catch {}
+      }
+
+      return config;
     }
   } catch (err) {
     console.error('Smart Naming: Failed to load config, using defaults:', err);

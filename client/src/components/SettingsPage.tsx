@@ -274,7 +274,7 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
           <div className="border-t px-4 py-3 space-y-2">
             <div className="text-xs font-medium text-muted-foreground">Models</div>
             {[
-              { name: 'moondream', label: 'Moondream (Vision)' },
+              { name: 'llava', label: 'LLaVA (Vision)' },
               { name: 'phi3:mini', label: 'Phi-3 Mini (Text)' },
             ].map(({ name, label }) => {
               const available = ollamaStatus.models.some(

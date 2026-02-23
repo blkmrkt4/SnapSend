@@ -13,7 +13,7 @@ interface SmartNamingSetupModalProps {
 
 type Step = 'welcome' | 'ollama-check' | 'model-pull' | 'done';
 
-const IMAGE_MODEL = 'moondream';
+const IMAGE_MODEL = 'llava';
 const TEXT_MODEL = 'phi3:mini';
 
 export function SmartNamingSetupModal({ open, onOpenChange }: SmartNamingSetupModalProps) {
@@ -121,7 +121,7 @@ export function SmartNamingSetupModal({ open, onOpenChange }: SmartNamingSetupMo
             <div className="rounded-lg bg-muted/50 p-3 space-y-2 text-sm">
               <div className="flex items-start gap-2">
                 <span className="text-primary font-bold">1.</span>
-                <span>Images analyzed with <strong>Moondream</strong> vision model (~1.7GB)</span>
+                <span>Images analyzed with <strong>LLaVA</strong> vision model (~4.7GB)</span>
               </div>
               <div className="flex items-start gap-2">
                 <span className="text-primary font-bold">2.</span>
@@ -200,7 +200,7 @@ export function SmartNamingSetupModal({ open, onOpenChange }: SmartNamingSetupMo
 
             <div className="space-y-3">
               {[
-                { name: IMAGE_MODEL, label: 'Moondream (Vision)', size: '~1.7GB' },
+                { name: IMAGE_MODEL, label: 'LLaVA (Vision)', size: '~4.7GB' },
                 { name: TEXT_MODEL, label: 'Phi-3 Mini (Text)', size: '~2.3GB' },
               ].map(({ name, label, size }) => {
                 const available = isModelAvailable(name);
