@@ -469,26 +469,26 @@ async function generateImageName(
     const imageBuffer = fs.readFileSync(filePath);
     const base64 = imageBuffer.toString('base64');
 
-    const body: any = {
-      model,
-      prompt: userPrompt,
-      images: [base64],
-      stream: false,
-    };
+    // Use /api/chat for better multimodal + system prompt support
+    const messages: any[] = [];
     if (systemPrompt) {
-      body.system = systemPrompt;
+      messages.push({ role: 'system', content: systemPrompt });
     }
+    messages.push({ role: 'user', content: userPrompt, images: [base64] });
 
-    const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
+    const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(30000),
+      body: JSON.stringify({ model, messages, stream: false }),
+      signal: AbortSignal.timeout(60000),
     });
 
-    if (!response.ok) return null;
-    const data = await response.json() as { response?: string };
-    const rawResponse = data.response?.trim() || '';
+    if (!response.ok) {
+      console.log(`Smart Naming: Ollama /api/chat returned ${response.status}`);
+      return null;
+    }
+    const data = await response.json() as { message?: { content?: string } };
+    const rawResponse = data.message?.content?.trim() || '';
     const ext = path.extname(context.originalName);
     const cleaned = cleanFilename(rawResponse, config);
 
@@ -505,7 +505,8 @@ async function generateImageName(
     });
 
     return rawResponse || null;
-  } catch {
+  } catch (err) {
+    console.error('Smart Naming: image generation error:', err);
     return null;
   }
 }
@@ -527,25 +528,26 @@ async function generateTextName(
     const systemPrompt = resolveTemplate(config.prompts.text.system, textVars);
     const userPrompt = resolveTemplate(config.prompts.text.user, textVars);
 
-    const body: any = {
-      model,
-      prompt: userPrompt,
-      stream: false,
-    };
+    // Use /api/chat for consistent system prompt handling
+    const messages: any[] = [];
     if (systemPrompt) {
-      body.system = systemPrompt;
+      messages.push({ role: 'system', content: systemPrompt });
     }
+    messages.push({ role: 'user', content: userPrompt });
 
-    const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
+    const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ model, messages, stream: false }),
       signal: AbortSignal.timeout(30000),
     });
 
-    if (!response.ok) return null;
-    const data = await response.json() as { response?: string };
-    const rawResponse = data.response?.trim() || '';
+    if (!response.ok) {
+      console.log(`Smart Naming: Ollama /api/chat returned ${response.status}`);
+      return null;
+    }
+    const data = await response.json() as { message?: { content?: string } };
+    const rawResponse = data.message?.content?.trim() || '';
     const ext = path.extname(context.originalName);
     const cleaned = cleanFilename(rawResponse, config);
 
