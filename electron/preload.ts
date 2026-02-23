@@ -98,4 +98,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // File operations
   openFile: (filename: string) => ipcRenderer.invoke('open-file', filename),
+
+  // Smart Naming
+  getSmartNaming: () => ipcRenderer.invoke('get-smart-naming'),
+  setSmartNaming: (enabled: boolean) => ipcRenderer.invoke('set-smart-naming', enabled),
+  checkOllamaStatus: () => ipcRenderer.invoke('check-ollama-status'),
+  pullOllamaModel: (name: string) => ipcRenderer.invoke('pull-ollama-model', name),
+  smartRenameFile: (fileId: number, filePath: string, mimeType: string, originalName: string) =>
+    ipcRenderer.invoke('smart-rename-file', fileId, filePath, mimeType, originalName),
+  onOllamaPullProgress: (callback: (data: { model: string; status: string; percent?: number }) => void) => {
+    ipcRenderer.on('ollama-pull-progress', (_event, data) => callback(data));
+  },
+  onSmartRenamed: (callback: (data: { fileId: number; newName: string }) => void) => {
+    ipcRenderer.on('smart-renamed', (_event, data) => callback(data));
+  },
+
+  // Prompt config/log
+  getPromptConfigPath: () => ipcRenderer.invoke('get-prompt-config-path'),
+  getPromptLogPath: () => ipcRenderer.invoke('get-prompt-log-path'),
+  openPromptConfig: () => ipcRenderer.invoke('open-prompt-config'),
+  openPromptLog: () => ipcRenderer.invoke('open-prompt-log'),
+  clearPromptLog: () => ipcRenderer.invoke('clear-prompt-log'),
+  resetPromptConfig: () => ipcRenderer.invoke('reset-prompt-config'),
 });

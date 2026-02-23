@@ -64,6 +64,8 @@ function QuestionDropdownIcon({ className }: { className?: string }) {
 import { type File as FileType } from '@shared/schema';
 import { MetadataPanel } from './MetadataPanel';
 import { TagEditor } from './TagEditor';
+import { SmartNamingBanner } from './SmartNamingBanner';
+import { SmartNamingSetupModal } from './SmartNamingSetupModal';
 
 interface ExtendedFile extends FileType {
   transferType?: 'sent' | 'received' | 'queued' | 'saved';
@@ -110,6 +112,7 @@ export function FileExplorer({
   const [editingFileId, setEditingFileId] = useState<number | null>(null);
   const [editingName, setEditingName] = useState('');
   const [expandedFileIds, setExpandedFileIds] = useState<Set<number>>(new Set());
+  const [showSmartNamingSetup, setShowSmartNamingSetup] = useState(false);
   const editInputRef = useRef<HTMLInputElement>(null);
   const editingNameRef = useRef('');
 
@@ -697,6 +700,9 @@ export function FileExplorer({
       </CardHeader>
 
       <CardContent className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        {window.electronAPI?.isElectron && (
+          <SmartNamingBanner onSetup={() => setShowSmartNamingSetup(true)} />
+        )}
         <div className="space-y-2 flex-1 overflow-y-auto">
           {filteredFiles.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
@@ -941,6 +947,7 @@ export function FileExplorer({
           )}
         </div>
       </CardContent>
+      <SmartNamingSetupModal open={showSmartNamingSetup} onOpenChange={setShowSmartNamingSetup} />
     </Card>
   );
 }

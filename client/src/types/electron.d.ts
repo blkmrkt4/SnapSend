@@ -87,6 +87,23 @@ export interface ElectronAPI {
 
   // File operations
   openFile: (filename: string) => Promise<{ success: boolean; error?: string }>;
+
+  // Smart Naming
+  getSmartNaming: () => Promise<boolean>;
+  setSmartNaming: (enabled: boolean) => Promise<void>;
+  checkOllamaStatus: () => Promise<OllamaStatus>;
+  pullOllamaModel: (name: string) => Promise<boolean>;
+  smartRenameFile: (fileId: number, filePath: string, mimeType: string, originalName: string) => Promise<SmartNameResult | null>;
+  onOllamaPullProgress: (callback: (data: OllamaPullProgress) => void) => void;
+  onSmartRenamed: (callback: (data: { fileId: number; newName: string }) => void) => void;
+
+  // Prompt config/log
+  getPromptConfigPath: () => Promise<string>;
+  getPromptLogPath: () => Promise<string>;
+  openPromptConfig: () => Promise<string>;
+  openPromptLog: () => Promise<string>;
+  clearPromptLog: () => Promise<void>;
+  resetPromptConfig: () => Promise<void>;
 }
 
 export interface LicenseStatus {
@@ -96,6 +113,21 @@ export interface LicenseStatus {
   customerName?: string;
   expiresAt?: string;
   lastValidated?: string;
+}
+
+export interface OllamaStatus {
+  running: boolean;
+  models: string[];
+}
+
+export interface SmartNameResult {
+  suggestedName: string;
+}
+
+export interface OllamaPullProgress {
+  model: string;
+  status: string;
+  percent?: number;
 }
 
 export interface PeerInfo {

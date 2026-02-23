@@ -10,6 +10,7 @@ export interface StartServerOptions {
   port?: number;
   onP2PFileReceived?: (data: { file: any; fromDevice: string; isClipboard: boolean; clipboardContent?: string }) => void;
   onPeerHandshake?: (ws: any, peerId: string, peerName: string) => void;
+  onFileSaved?: (data: { fileId: number; filename: string; mimeType: string; originalName: string; size: number; isClipboard: boolean; fromDeviceName: string }) => void;
 }
 
 export interface StartServerResult {
@@ -67,6 +68,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Sta
   const server = await registerRoutes(app, {
     onP2PFileReceived: options.onP2PFileReceived,
     onPeerHandshake: options.onPeerHandshake,
+    onFileSaved: options.onFileSaved,
   });
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

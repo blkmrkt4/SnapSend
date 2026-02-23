@@ -3,9 +3,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Settings, Monitor, KeyRound, Wifi, Pencil, Check, Pin, Ghost } from 'lucide-react';
+import { Settings, Monitor, KeyRound, Wifi, Pencil, Check, Pin, Ghost, Sparkles, FileText, ScrollText, Trash2, RotateCcw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { LicenseStatus } from '@/types/electron';
+import type { LicenseStatus, OllamaStatus } from '@/types/electron';
+import { SmartNamingSetupModal } from './SmartNamingSetupModal';
 
 interface SettingsPageProps {
   currentDevice: any;
@@ -26,6 +27,9 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
   const [alwaysOnTop, setAlwaysOnTop] = useState(false);
   const [ghostMode, setGhostMode] = useState(false);
   const [ghostOpacity, setGhostOpacity] = useState(0.25);
+  const [smartNaming, setSmartNaming] = useState(false);
+  const [ollamaStatus, setOllamaStatus] = useState<OllamaStatus | null>(null);
+  const [showSetupModal, setShowSetupModal] = useState(false);
 
   const isElectronProd = window.electronAPI?.isElectron && !window.electronAPI?.isDev;
 
@@ -39,6 +43,8 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
       window.electronAPI!.getAlwaysOnTop().then(setAlwaysOnTop).catch(() => {});
       window.electronAPI!.getGhostMode().then(setGhostMode).catch(() => {});
       window.electronAPI!.getWindowOpacity().then(setGhostOpacity).catch(() => {});
+      window.electronAPI!.getSmartNaming().then(setSmartNaming).catch(() => {});
+      window.electronAPI!.checkOllamaStatus().then(setOllamaStatus).catch(() => {});
     } else {
       // DEV PREVIEW: mock data so all sections are visible
       setPortSetting('53000');
@@ -222,6 +228,172 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
           )}
         </div>
       </div>
+
+      {/* AI / Smart Naming */}
+      <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+        <div className="flex items-center gap-2 px-4 py-3 border-b bg-muted/30">
+          <Sparkles className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-semibold text-foreground">AI / Smart Naming</span>
+          {ollamaStatus && (
+            <Badge className={`ml-auto text-xs ${ollamaStatus.running ? 'bg-green-600' : 'bg-red-600'}`}>
+              {ollamaStatus.running ? 'Ollama Connected' : 'Ollama Not Running'}
+            </Badge>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-3 px-4 py-3">
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium text-foreground">Smart Naming</div>
+            <div className="text-xs text-muted-foreground">Use local AI to auto-suggest descriptive names for transferred files</div>
+          </div>
+          <Switch
+            checked={smartNaming}
+            onCheckedChange={async (checked) => {
+              setSmartNaming(checked);
+              try {
+                await window.electronAPI!.setSmartNaming(checked);
+                toast({
+                  title: checked ? 'Smart Naming enabled' : 'Smart Naming disabled',
+                  description: checked
+                    ? 'Files will be renamed with AI-suggested names.'
+                    : 'Files will keep their original names.',
+                });
+              } catch {
+                setSmartNaming(!checked);
+                toast({
+                  title: 'Failed to update',
+                  description: 'Could not change Smart Naming setting.',
+                  variant: 'destructive',
+                });
+              }
+            }}
+          />
+        </div>
+
+        {ollamaStatus?.running && (
+          <div className="border-t px-4 py-3 space-y-2">
+            <div className="text-xs font-medium text-muted-foreground">Models</div>
+            {[
+              { name: 'moondream', label: 'Moondream (Vision)' },
+              { name: 'phi3:mini', label: 'Phi-3 Mini (Text)' },
+            ].map(({ name, label }) => {
+              const available = ollamaStatus.models.some(
+                (m) => m === name || m.startsWith(`${name}:`)
+              );
+              return (
+                <div key={name} className="flex items-center justify-between">
+                  <span className="text-sm text-foreground">{label}</span>
+                  <Badge className={`text-xs ${available ? 'bg-green-600' : ''}`} variant={available ? 'default' : 'secondary'}>
+                    {available ? 'Available' : 'Not Pulled'}
+                  </Badge>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Prompt Config & Debug */}
+        <div className="border-t px-4 py-3 space-y-3">
+          <div className="text-xs font-medium text-muted-foreground">Prompt Configuration</div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1.5"
+              onClick={async () => {
+                try {
+                  await window.electronAPI?.openPromptConfig();
+                } catch {
+                  toast({ title: 'Failed to open config', variant: 'destructive' });
+                }
+              }}
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Open Prompt Config
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1.5"
+              onClick={async () => {
+                try {
+                  await window.electronAPI?.openPromptLog();
+                } catch {
+                  toast({ title: 'Failed to open log', variant: 'destructive' });
+                }
+              }}
+            >
+              <ScrollText className="h-3.5 w-3.5" />
+              Open Prompt Log
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1.5"
+              onClick={async () => {
+                try {
+                  await window.electronAPI?.clearPromptLog();
+                  toast({ title: 'Prompt log cleared' });
+                } catch {
+                  toast({ title: 'Failed to clear log', variant: 'destructive' });
+                }
+              }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Clear Log
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1.5"
+              onClick={async () => {
+                try {
+                  await window.electronAPI?.resetPromptConfig();
+                  toast({ title: 'Prompt config reset to defaults' });
+                } catch {
+                  toast({ title: 'Failed to reset config', variant: 'destructive' });
+                }
+              }}
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Reset to Defaults
+            </Button>
+          </div>
+          <div className="text-xs text-muted-foreground leading-relaxed">
+            Edit the config JSON to customize prompts and models. Available template variables:{' '}
+            <code className="text-[10px] bg-muted px-1 rounded">{'{{original_name}}'}</code>{' '}
+            <code className="text-[10px] bg-muted px-1 rounded">{'{{file_extension}}'}</code>{' '}
+            <code className="text-[10px] bg-muted px-1 rounded">{'{{file_stem}}'}</code>{' '}
+            <code className="text-[10px] bg-muted px-1 rounded">{'{{mime_type}}'}</code>{' '}
+            <code className="text-[10px] bg-muted px-1 rounded">{'{{file_size}}'}</code>{' '}
+            <code className="text-[10px] bg-muted px-1 rounded">{'{{file_size_human}}'}</code>{' '}
+            <code className="text-[10px] bg-muted px-1 rounded">{'{{is_clipboard}}'}</code>{' '}
+            <code className="text-[10px] bg-muted px-1 rounded">{'{{from_device}}'}</code>{' '}
+            <code className="text-[10px] bg-muted px-1 rounded">{'{{text_preview}}'}</code> (text files only).
+            Changes take effect on the next file transfer.
+          </div>
+        </div>
+
+        <div className="border-t px-4 py-3">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            onClick={() => setShowSetupModal(true)}
+          >
+            {smartNaming ? 'Re-run Setup' : 'Run Setup Wizard'}
+          </Button>
+        </div>
+      </div>
+
+      <SmartNamingSetupModal open={showSetupModal} onOpenChange={(open) => {
+        setShowSetupModal(open);
+        if (!open) {
+          // Refresh state when modal closes
+          window.electronAPI?.getSmartNaming().then(setSmartNaming).catch(() => {});
+          window.electronAPI?.checkOllamaStatus().then(setOllamaStatus).catch(() => {});
+        }
+      }} />
 
       {/* Connection Mode */}
       <div className="rounded-lg border bg-card shadow-sm overflow-hidden">

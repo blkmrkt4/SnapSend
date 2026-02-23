@@ -57,6 +57,22 @@ export default function Home() {
     toggleDeviceEnabled,
   } = useConnectionSystem();
 
+  // Listen for AI smart-rename events: rename via API, then refresh file list
+  const renameFileRef = useRef(renameFile);
+  renameFileRef.current = renameFile;
+  const refreshFilesRef = useRef(refreshFiles);
+  refreshFilesRef.current = refreshFiles;
+  useEffect(() => {
+    if (window.electronAPI?.isElectron) {
+      window.electronAPI.onSmartRenamed((data) => {
+        // Apply the AI-suggested name via the existing rename function
+        renameFileRef.current(data.fileId, data.newName);
+        // Refresh after a short delay to ensure DB update propagates
+        setTimeout(() => refreshFilesRef.current(), 500);
+      });
+    }
+  }, []);
+
   const handleSendFile = async (fileData: any) => {
     try {
       sendFile(fileData);

@@ -4,6 +4,20 @@ import { v4 as uuidv4 } from 'uuid';
 import { DiscoveryManager } from './discovery';
 import { registerDiscoveryIPC, registerP2PIPC, getPeerManager } from './ipc-handlers';
 import { activateLicense, validateLicense, deactivateLicense, getLicenseStatus } from './license';
+import {
+  getSmartNamingSetting,
+  saveSmartNamingSetting,
+  checkOllamaStatus,
+  pullModel,
+  generateSmartName,
+  ensureOllamaRunning,
+  stopOllama,
+  getPromptConfigPath,
+  getPromptLogPath,
+  clearPromptLog,
+  resetPromptConfig,
+  type SmartNameContext,
+} from './smart-naming';
 
 let mainWindow: BrowserWindow | null = null;
 let serverPort: number = 5000;
@@ -342,6 +356,9 @@ async function startApp() {
     // Load enabled devices from disk
     loadEnabledDevices();
 
+    // Sync smart naming setting to env for server process
+    process.env.SNAPSEND_SMART_NAMING = getSmartNamingSetting() ? 'true' : 'false';
+
     const connectionMode = isDev ? 'server' : getConnectionMode();
     const isClientMode = connectionMode === 'client' && !isDev;
     const remoteUrl = isClientMode ? getRemoteServerUrl() : '';
@@ -393,6 +410,32 @@ async function startApp() {
             discovery.addIncomingPeer(peerId, peerName);
           }
         },
+        onFileSaved: (data: { fileId: number; filename: string; mimeType: string; originalName: string; size: number; isClipboard: boolean; fromDeviceName: string }) => {
+          // Async smart rename — non-blocking, silent failure
+          if (process.env.SNAPSEND_SMART_NAMING === 'true') {
+            const uploadsDir = process.env.SNAPSEND_UPLOADS_DIR || path.join(process.cwd(), 'uploads');
+            const filePath = path.join(uploadsDir, data.filename);
+            const context: SmartNameContext = {
+              fileId: data.fileId,
+              filename: data.filename,
+              mimeType: data.mimeType,
+              originalName: data.originalName,
+              size: data.size,
+              isClipboard: data.isClipboard,
+              fromDeviceName: data.fromDeviceName,
+            };
+            generateSmartName(filePath, context)
+              .then((result) => {
+                if (result && mainWindow && !mainWindow.isDestroyed()) {
+                  mainWindow.webContents.send('smart-renamed', {
+                    fileId: data.fileId,
+                    newName: result.suggestedName,
+                  });
+                }
+              })
+              .catch(() => {}); // Silent failure
+          }
+        },
       });
       serverPort = result.port;
       serverInstance = result.server;
@@ -417,6 +460,10 @@ async function startApp() {
     } else {
       console.log('Liquid Relay ready in client mode');
     }
+    // Auto-launch Ollama if smart naming is enabled (non-blocking)
+    if (getSmartNamingSetting()) {
+      ensureOllamaRunning().catch(() => {});
+    }
   } catch (error) {
     console.error('Failed to start Liquid Relay:', error);
     app.quit();
@@ -426,6 +473,9 @@ async function startApp() {
 // Graceful shutdown
 function gracefulShutdown() {
   console.log('Liquid Relay shutting down...');
+
+  // Stop Ollama if we started it
+  stopOllama();
 
   // Stop P2P connections
   const peerMgr = getPeerManager();
@@ -645,6 +695,83 @@ ipcMain.handle('open-file', async (_event, filename: string) => {
   const result = await shell.openPath(filePath);
   return { success: result === '', error: result || undefined };
 });
+
+// Smart Naming IPC handlers
+ipcMain.handle('get-smart-naming', () => getSmartNamingSetting());
+ipcMain.handle('set-smart-naming', (_event, enabled: boolean) => {
+  saveSmartNamingSetting(enabled);
+  // Expose to server process via env var
+  process.env.SNAPSEND_SMART_NAMING = enabled ? 'true' : 'false';
+  // Auto-launch Ollama when enabling
+  if (enabled) {
+    ensureOllamaRunning().catch(() => {});
+  }
+});
+ipcMain.handle('check-ollama-status', async () => {
+  const status = await checkOllamaStatus();
+  if (!status.running) {
+    // Try to auto-launch if binary exists
+    const launched = await ensureOllamaRunning();
+    if (launched) return checkOllamaStatus();
+  }
+  return status;
+});
+ipcMain.handle('pull-ollama-model', async (_event, modelName: string) => {
+  return pullModel(modelName, (progress) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('ollama-pull-progress', { model: modelName, ...progress });
+    }
+  });
+});
+ipcMain.handle('smart-rename-file', async (_event, fileId: number, filePath: string, mimeType: string, originalName: string) => {
+  const context: SmartNameContext = {
+    fileId,
+    filename: path.basename(filePath),
+    mimeType,
+    originalName,
+    size: 0,
+    isClipboard: false,
+    fromDeviceName: '',
+  };
+  // Try to get file size
+  try {
+    const fs = require('fs') as typeof import('fs');
+    const stat = fs.statSync(filePath);
+    context.size = stat.size;
+  } catch {}
+  const result = await generateSmartName(filePath, context);
+  if (result) {
+    // Notify renderer so UI can update
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('smart-renamed', { fileId, newName: result.suggestedName });
+    }
+  }
+  return result;
+});
+
+// Prompt config/log IPC handlers
+ipcMain.handle('get-prompt-config-path', () => getPromptConfigPath());
+ipcMain.handle('get-prompt-log-path', () => getPromptLogPath());
+ipcMain.handle('open-prompt-config', async () => {
+  const configPath = getPromptConfigPath();
+  // Ensure file exists before opening
+  const fs = require('fs') as typeof import('fs');
+  if (!fs.existsSync(configPath)) {
+    resetPromptConfig();
+  }
+  return shell.openPath(configPath);
+});
+ipcMain.handle('open-prompt-log', async () => {
+  const logPath = getPromptLogPath();
+  // Ensure file exists before opening
+  const fs = require('fs') as typeof import('fs');
+  if (!fs.existsSync(logPath)) {
+    fs.writeFileSync(logPath, '', 'utf-8');
+  }
+  return shell.openPath(logPath);
+});
+ipcMain.handle('clear-prompt-log', () => clearPromptLog());
+ipcMain.handle('reset-prompt-config', () => resetPromptConfig());
 
 app.whenReady().then(startApp);
 

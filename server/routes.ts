@@ -54,6 +54,7 @@ const upload = multer({
 export interface RouteOptions {
   onP2PFileReceived?: (data: { file: any; fromDevice: string; isClipboard: boolean; clipboardContent?: string }) => void;
   onPeerHandshake?: (ws: any, peerId: string, peerName: string) => void;
+  onFileSaved?: (data: { fileId: number; filename: string; mimeType: string; originalName: string; size: number; isClipboard: boolean; fromDeviceName: string }) => void;
 }
 
 export async function registerRoutes(app: Express, options?: RouteOptions): Promise<Server> {
@@ -239,6 +240,7 @@ export async function registerRoutes(app: Express, options?: RouteOptions): Prom
               fromDeviceName: fileData.fromName || 'Unknown',
               toDeviceName: 'local',
             });
+            notifyFileSaved(savedFile);
 
             // Forward to local renderer
             connectedClients.forEach((client) => {
@@ -321,6 +323,7 @@ export async function registerRoutes(app: Express, options?: RouteOptions): Prom
               fromDeviceName: peerNameMap.get(peerId!) || fileTransferData.fromName || 'Unknown',
               toDeviceName: clientNameMap.get(targetClientId) || 'Unknown',
             });
+            notifyFileSaved(savedFile);
 
             // Forward to the specific browser client
             if (targetWs && targetWs.readyState === WebSocket.OPEN) {
@@ -682,6 +685,7 @@ export async function registerRoutes(app: Express, options?: RouteOptions): Prom
                 connectionId: connection.id,
                 isClipboard: message.data.isClipboard ? 1 : 0,
               });
+              notifyFileSaved(file);
 
               const partnerClient = connectedClients.get(partnerId.toString());
               if (partnerClient && partnerClient.readyState === WebSocket.OPEN) {
@@ -881,6 +885,7 @@ export async function registerRoutes(app: Express, options?: RouteOptions): Prom
                 fromDeviceName: device.name,
                 toDeviceName: null,
               });
+              notifyFileSaved(savedFile);
 
               // Forward to connected devices (same logic as regular file transfer)
               const targetPeerId = (transfer as any).targetPeerId;
@@ -1026,6 +1031,21 @@ export async function registerRoutes(app: Express, options?: RouteOptions): Prom
         client.send(JSON.stringify(message));
       }
     });
+  }
+
+  // Notify Electron main process about saved files (for smart naming)
+  function notifyFileSaved(savedFile: any) {
+    if (options?.onFileSaved && savedFile?.id && savedFile?.filename) {
+      options.onFileSaved({
+        fileId: savedFile.id,
+        filename: savedFile.filename,
+        mimeType: savedFile.mimeType || '',
+        originalName: savedFile.originalName || savedFile.filename,
+        size: savedFile.size || 0,
+        isClipboard: savedFile.isClipboard === 1,
+        fromDeviceName: savedFile.fromDeviceName || '',
+      });
+    }
   }
 
   // API Routes
@@ -1206,6 +1226,7 @@ export async function registerRoutes(app: Express, options?: RouteOptions): Prom
         connectionId: null,
         isClipboard: 0,
       });
+      notifyFileSaved(savedFile);
 
       res.json(savedFile);
     } catch (error) {
