@@ -41,6 +41,7 @@ function LiquidDropletIcon({ className }: { className?: string }) {
   );
 }
 import { useFileTransfer } from '@/hooks/useFileTransfer';
+import { useScreenshot } from '@/hooks/useScreenshot';
 import { MistAnimation } from './MistAnimation';
 import { ScreenshotCropper } from './ScreenshotCropper';
 import { type File, type Device } from '@shared/schema';
@@ -84,13 +85,14 @@ export function MinimalDropWindow({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const dragCounterRef = useRef(0);
-  const [screenshotData, setScreenshotData] = useState<{
-    dataURL: string;
-    width: number;
-    height: number;
-  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { readFileAsText, readFileAsDataURL } = useFileTransfer();
+  const {
+    showScreenshotPicker, setShowScreenshotPicker,
+    screenshotData, windowSources, displayInfo, isMultiMonitor,
+    handleScreenshotSelectArea, handleScreenshotWindow, handleScreenshotFullScreen,
+    handleScreenshotCrop, handleScreenshotCancel, handleWindowSourceSelect,
+  } = useScreenshot({ onSendFile, onShowMist: () => setShowMist(true) });
 
   const selectedTargetName = selectedTargetId === LOCAL_DEVICE_ID
     ? `${currentDevice?.name || 'This Device'} (This Device)`
@@ -297,93 +299,6 @@ export function MinimalDropWindow({
     document.addEventListener('paste', handlePaste);
     return () => document.removeEventListener('paste', handlePaste);
   }, [onSendFile]);
-
-  const [showScreenshotPicker, setShowScreenshotPicker] = useState(false);
-
-  const captureScreen = useCallback(async (surfaceHint?: string): Promise<{ dataURL: string; width: number; height: number } | null> => {
-    try {
-      // Use Electron desktopCapturer when available
-      if (window.electronAPI?.captureScreenshot) {
-        const mode = surfaceHint === 'window' ? 'window' : 'fullscreen';
-        return await window.electronAPI.captureScreenshot(mode);
-      }
-
-      // Fallback: browser getDisplayMedia API
-      if (!navigator.mediaDevices?.getDisplayMedia) return null;
-
-      const constraints: any = { video: true };
-      if (surfaceHint) {
-        constraints.video = { displaySurface: surfaceHint };
-      }
-      const stream = await navigator.mediaDevices.getDisplayMedia(constraints);
-      return new Promise((resolve) => {
-        const video = document.createElement('video');
-        video.srcObject = stream;
-        video.play();
-        video.addEventListener('loadedmetadata', () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(video, 0, 0);
-          stream.getTracks().forEach(track => track.stop());
-          setTimeout(() => window.focus(), 100);
-          resolve({
-            dataURL: canvas.toDataURL('image/png'),
-            width: video.videoWidth,
-            height: video.videoHeight,
-          });
-        });
-      });
-    } catch {
-      return null;
-    }
-  }, []);
-
-  const sendScreenshot = useCallback(async (dataURL: string) => {
-    const filename = `screenshot-${Date.now()}.png`;
-    const base64Length = dataURL.split(',')[1].length;
-    const sizeInBytes = Math.round(base64Length * 0.75);
-
-    await onSendFile({
-      filename,
-      originalName: filename,
-      mimeType: 'image/png',
-      size: sizeInBytes,
-      content: dataURL,
-      isClipboard: false,
-    });
-    setShowMist(true);
-  }, [onSendFile]);
-
-  const handleScreenshotWindow = useCallback(async () => {
-    setShowScreenshotPicker(false);
-    const result = await captureScreen('window');
-    if (result) await sendScreenshot(result.dataURL);
-  }, [captureScreen, sendScreenshot]);
-
-  const handleScreenshotFullScreen = useCallback(async () => {
-    setShowScreenshotPicker(false);
-    const result = await captureScreen('monitor');
-    if (result) await sendScreenshot(result.dataURL);
-  }, [captureScreen, sendScreenshot]);
-
-  const handleScreenshotCropMode = useCallback(async () => {
-    setShowScreenshotPicker(false);
-    const result = await captureScreen('monitor');
-    if (result) {
-      setScreenshotData(result);
-    }
-  }, [captureScreen]);
-
-  const handleScreenshotCrop = useCallback(async (croppedDataURL: string) => {
-    setScreenshotData(null);
-    await sendScreenshot(croppedDataURL);
-  }, [sendScreenshot]);
-
-  const handleScreenshotCancel = useCallback(() => {
-    setScreenshotData(null);
-  }, []);
 
   return (
     <div className="w-80 bg-white rounded-xl shadow-2xl border border-primary/30 overflow-hidden">
@@ -603,28 +518,69 @@ export function MinimalDropWindow({
         </div>
 
         {showScreenshotPicker && (
-          <div className="flex rounded-lg border border-primary/20 overflow-hidden">
-            <button
-              onClick={handleScreenshotWindow}
-              className="flex-1 flex flex-col items-center gap-1 py-2.5 px-1 text-xs font-medium hover:bg-primary/10 transition-colors border-r border-primary/10"
-            >
-              <Monitor className="w-4 h-4 text-primary" />
-              Window
-            </button>
-            <button
-              onClick={handleScreenshotFullScreen}
-              className="flex-1 flex flex-col items-center gap-1 py-2.5 px-1 text-xs font-medium hover:bg-primary/10 transition-colors border-r border-primary/10"
-            >
-              <Maximize className="w-4 h-4 text-primary" />
-              Full
-            </button>
-            <button
-              onClick={handleScreenshotCropMode}
-              className="flex-1 flex flex-col items-center gap-1 py-2.5 px-1 text-xs font-medium hover:bg-primary/10 transition-colors"
-            >
-              <Crop className="w-4 h-4 text-primary" />
-              Select Area
-            </button>
+          <div className="space-y-2">
+            <div className="flex rounded-lg border border-primary/20 overflow-hidden">
+              <button
+                onClick={handleScreenshotWindow}
+                className="flex-1 flex flex-col items-center gap-1 py-2.5 px-1 text-xs font-medium hover:bg-primary/10 transition-colors border-r border-primary/10"
+              >
+                <Monitor className="w-4 h-4 text-primary" />
+                Window
+              </button>
+              <button
+                onClick={() => handleScreenshotFullScreen()}
+                className="flex-1 flex flex-col items-center gap-1 py-2.5 px-1 text-xs font-medium hover:bg-primary/10 transition-colors border-r border-primary/10"
+              >
+                <Maximize className="w-4 h-4 text-primary" />
+                Full
+              </button>
+              <button
+                onClick={handleScreenshotSelectArea}
+                className="flex-1 flex flex-col items-center gap-1 py-2.5 px-1 text-xs font-medium hover:bg-primary/10 transition-colors"
+              >
+                <Crop className="w-4 h-4 text-primary" />
+                Select Area
+              </button>
+            </div>
+            {isMultiMonitor && displayInfo && (
+              <div className="flex flex-wrap gap-1">
+                {displayInfo.map((d) => (
+                  <button
+                    key={d.id}
+                    onClick={() => handleScreenshotFullScreen(d.index)}
+                    className="flex-1 min-w-0 py-1.5 px-2 text-[10px] font-medium rounded border border-primary/15 hover:bg-primary/10 transition-colors text-muted-foreground"
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Windows window picker (thumbnail grid) */}
+        {windowSources && (
+          <div className="rounded-lg border border-primary/20 p-2 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">Select a window</span>
+              <button onClick={handleScreenshotCancel} className="text-xs text-muted-foreground hover:text-foreground">Cancel</button>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto">
+              {windowSources.map((source) => (
+                <button
+                  key={source.id}
+                  onClick={() => handleWindowSourceSelect(source)}
+                  className="flex flex-col items-center gap-1 p-1.5 rounded hover:bg-primary/10 transition-colors"
+                >
+                  <img
+                    src={source.thumbnailDataURL}
+                    alt={source.name}
+                    className="w-full h-auto rounded border border-primary/10"
+                  />
+                  <span className="text-[10px] text-muted-foreground truncate w-full text-center">{source.name}</span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>

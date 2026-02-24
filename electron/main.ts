@@ -1,9 +1,18 @@
-import { app, BrowserWindow, ipcMain, desktopCapturer, shell, clipboard } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, clipboard } from 'electron';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { DiscoveryManager } from './discovery';
 import { registerDiscoveryIPC, registerP2PIPC, getPeerManager } from './ipc-handlers';
 import { activateLicense, validateLicense, deactivateLicense, getLicenseStatus } from './license';
+import {
+  captureSelectArea,
+  captureWindowNative,
+  listWindowSources,
+  captureWindowBySourceId,
+  captureFullscreen,
+  getDisplayInfo,
+  cleanupScreenshotTemp,
+} from './screenshot';
 import {
   getSmartNamingSetting,
   saveSmartNamingSetting,
@@ -497,6 +506,9 @@ function gracefulShutdown() {
     serverInstance.close();
     serverInstance = null;
   }
+
+  // Clean up screenshot temp files and overlays
+  cleanupScreenshotTemp();
 }
 
 // IPC handlers
@@ -637,32 +649,31 @@ ipcMain.handle('get-lan-addresses', () => {
   return addresses;
 });
 
-// Screenshot IPC handler
-ipcMain.handle('capture-screenshot', async (_event, mode: 'fullscreen' | 'window') => {
-  try {
-    const types: ('screen' | 'window')[] = mode === 'window' ? ['window'] : ['screen'];
-    const sources = await desktopCapturer.getSources({
-      types,
-      thumbnailSize: { width: 3840, height: 2160 },
-    });
-
-    if (sources.length === 0) return null;
-
-    // For fullscreen, take the first screen; for window, take the first window
-    const source = sources[0];
-    const thumbnail = source.thumbnail;
-    if (thumbnail.isEmpty()) return null;
-
-    return {
-      dataURL: thumbnail.toDataURL(),
-      width: thumbnail.getSize().width,
-      height: thumbnail.getSize().height,
-    };
-  } catch (err) {
-    console.error('Screenshot capture failed:', err);
-    return null;
-  }
+// Screenshot IPC handlers
+ipcMain.handle('screenshot-select-area', async () => {
+  if (!mainWindow) return null;
+  return captureSelectArea(mainWindow);
 });
+
+ipcMain.handle('screenshot-window-native', async () => {
+  if (!mainWindow) return null;
+  return captureWindowNative(mainWindow);
+});
+
+ipcMain.handle('screenshot-list-windows', async () => {
+  return listWindowSources();
+});
+
+ipcMain.handle('screenshot-window-by-id', async (_e, sourceId: string, fullResDataURL: string, width: number, height: number) => {
+  return captureWindowBySourceId(sourceId, fullResDataURL, width, height);
+});
+
+ipcMain.handle('screenshot-fullscreen', async (_e, displayId?: number | string) => {
+  if (!mainWindow) return null;
+  return captureFullscreen(mainWindow, displayId);
+});
+
+ipcMain.handle('get-display-info', () => getDisplayInfo());
 
 // License IPC handlers
 ipcMain.handle('activate-license', (_event, key: string) => activateLicense(key));

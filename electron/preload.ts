@@ -71,7 +71,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAllEnabledDevices: () => ipcRenderer.invoke('get-all-enabled-devices'),
 
   // Screenshot
-  captureScreenshot: (mode: 'fullscreen' | 'window') => ipcRenderer.invoke('capture-screenshot', mode),
+  screenshotSelectArea: () => ipcRenderer.invoke('screenshot-select-area'),
+  screenshotWindowNative: () => ipcRenderer.invoke('screenshot-window-native'),
+  screenshotListWindows: () => ipcRenderer.invoke('screenshot-list-windows'),
+  screenshotWindowById: (sourceId: string, fullResDataURL: string, width: number, height: number) =>
+    ipcRenderer.invoke('screenshot-window-by-id', sourceId, fullResDataURL, width, height),
+  screenshotFullscreen: (displayId?: number | string) => ipcRenderer.invoke('screenshot-fullscreen', displayId),
+  getDisplayInfo: () => ipcRenderer.invoke('get-display-info'),
 
   // Clipboard
   readClipboardImage: () => ipcRenderer.invoke('read-clipboard-image'),

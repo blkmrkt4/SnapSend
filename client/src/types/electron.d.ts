@@ -44,7 +44,12 @@ export interface ElectronAPI {
   getConnectedPeers?: () => Promise<PeerInfo[]>;
 
   // Screenshot
-  captureScreenshot: (mode: 'fullscreen' | 'window') => Promise<{ dataURL: string; width: number; height: number } | null>;
+  screenshotSelectArea: () => Promise<ScreenshotResult | null>;
+  screenshotWindowNative: () => Promise<ScreenshotResult | null>;
+  screenshotListWindows: () => Promise<WindowSource[]>;
+  screenshotWindowById: (sourceId: string, fullResDataURL: string, width: number, height: number) => Promise<ScreenshotResult | null>;
+  screenshotFullscreen: (displayId?: number | string) => Promise<ScreenshotResult | null>;
+  getDisplayInfo: () => Promise<DisplayInfo[]>;
 
   // Clipboard
   readClipboardImage: () => Promise<{ dataURL: string; width: number; height: number } | null>;
@@ -142,6 +147,30 @@ export interface PeerInfo {
   name: string;
   host: string;
   port: number;
+}
+
+export type ScreenshotResult =
+  | { dataURL: string; width: number; height: number; error?: undefined }
+  | { error: 'permission' | 'cancelled'; dataURL?: undefined; width?: undefined; height?: undefined };
+
+export interface WindowSource {
+  id: string;
+  name: string;
+  thumbnailDataURL: string;
+  fullResDataURL: string;
+  fullResWidth: number;
+  fullResHeight: number;
+  appIconDataURL: string | null;
+}
+
+export interface DisplayInfo {
+  id: string;
+  index: number;
+  width: number;
+  height: number;
+  scaleFactor: number;
+  isPrimary: boolean;
+  label: string;
 }
 
 declare global {

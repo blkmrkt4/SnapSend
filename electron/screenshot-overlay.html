@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: transparent;
+      cursor: crosshair;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    #dimensions {
+      position: absolute;
+      background: rgba(0,0,0,0.75);
+      color: white;
+      font-family: -apple-system, 'Segoe UI', sans-serif;
+      font-size: 12px;
+      padding: 3px 8px;
+      border-radius: 3px;
+      pointer-events: none;
+      display: none;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div id="dimensions"></div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const dimLabel = document.getElementById('dimensions');
+
+    let displays = [];
+    let images = [];
+    let mode = 'area';
+    let resultChannel = '';
+    let isDrawing = false;
+    let startX = 0, startY = 0;
+    let currentX = 0, currentY = 0;
+    let imagesLoaded = 0;
+    let totalImages = 0;
+
+    // Receive screenshot data from main process
+    window.overlayAPI.onSetScreenshot((data) => {
+      displays = data.displays;
+      mode = data.mode;
+      resultChannel = data.resultChannel;
+      totalImages = displays.length;
+      imagesLoaded = 0;
+      images = [];
+
+      // Load all display images
+      displays.forEach((d, i) => {
+        const img = new Image();
+        img.onload = () => {
+          images[i] = img;
+          imagesLoaded++;
+          if (imagesLoaded === totalImages) {
+            onAllImagesLoaded();
+          }
+        };
+        img.onerror = () => {
+          images[i] = null;
+          imagesLoaded++;
+          if (imagesLoaded === totalImages) {
+            onAllImagesLoaded();
+          }
+        };
+        img.src = d.dataURL;
+      });
+    });
+
+    function onAllImagesLoaded() {
+      // Size canvas to window
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      drawBase();
+
+      if (mode === 'fullscreen') {
+        // Auto-capture: send the full composite immediately
+        const dataURL = canvas.toDataURL('image/png');
+        window.overlayAPI.sendResult(resultChannel, {
+          dataURL,
+          width: canvas.width,
+          height: canvas.height,
+        });
+      }
+    }
+
+    function drawBase() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Draw each display's screenshot at its correct position
+      displays.forEach((d, i) => {
+        if (images[i]) {
+          ctx.drawImage(images[i], d.x, d.y, d.width, d.height);
+        }
+      });
+    }
+
+    function draw() {
+      drawBase();
+
+      if (!isDrawing) {
+        // Dim the entire screen when not yet selecting
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        return;
+      }
+
+      const x = Math.min(startX, currentX);
+      const y = Math.min(startY, currentY);
+      const w = Math.abs(currentX - startX);
+      const h = Math.abs(currentY - startY);
+
+      // Dim outside selection
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      // Top
+      ctx.fillRect(0, 0, canvas.width, y);
+      // Bottom
+      ctx.fillRect(0, y + h, canvas.width, canvas.height - y - h);
+      // Left
+      ctx.fillRect(0, y, x, h);
+      // Right
+      ctx.fillRect(x + w, y, canvas.width - x - w, h);
+
+      // Selection border
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([5, 5]);
+      ctx.strokeRect(x + 0.5, y + 0.5, w, h);
+      ctx.setLineDash([]);
+
+      // Dimensions label
+      if (w > 10 || h > 10) {
+        dimLabel.style.display = 'block';
+        dimLabel.textContent = `${Math.round(w)} × ${Math.round(h)}`;
+        // Position below selection, or above if near bottom
+        let labelX = x + w / 2 - 30;
+        let labelY = y + h + 8;
+        if (labelY + 24 > canvas.height) labelY = y - 24;
+        if (labelX < 4) labelX = 4;
+        dimLabel.style.left = labelX + 'px';
+        dimLabel.style.top = labelY + 'px';
+      } else {
+        dimLabel.style.display = 'none';
+      }
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+      isDrawing = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      currentX = e.clientX;
+      currentY = e.clientY;
+      draw();
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (!isDrawing) return;
+      currentX = e.clientX;
+      currentY = e.clientY;
+      draw();
+    });
+
+    canvas.addEventListener('mouseup', (e) => {
+      if (!isDrawing) return;
+      isDrawing = false;
+
+      const x = Math.min(startX, currentX);
+      const y = Math.min(startY, currentY);
+      const w = Math.abs(currentX - startX);
+      const h = Math.abs(currentY - startY);
+
+      // Require minimum selection size
+      if (w < 5 && h < 5) {
+        // Click without meaningful drag — cancel
+        window.overlayAPI.sendResult(resultChannel, null);
+        return;
+      }
+
+      // Crop from the base (undimmed) composite
+      drawBase();
+      const cropCanvas = document.createElement('canvas');
+      cropCanvas.width = w;
+      cropCanvas.height = h;
+      const cropCtx = cropCanvas.getContext('2d');
+      cropCtx.drawImage(canvas, x, y, w, h, 0, 0, w, h);
+
+      const dataURL = cropCanvas.toDataURL('image/png');
+      window.overlayAPI.sendResult(resultChannel, {
+        dataURL,
+        width: Math.round(w),
+        height: Math.round(h),
+      });
+    });
+
+    // Escape to cancel
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        window.overlayAPI.sendResult(resultChannel, null);
+      }
+    });
+
+    // Initial dim on load
+    window.addEventListener('load', () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    });
+  </script>
+</body>
+</html>
