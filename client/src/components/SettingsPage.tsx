@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Settings, Monitor, KeyRound, Wifi, Pencil, Check, Pin, Ghost, Sparkles, FileText, ScrollText, Trash2, RotateCcw } from 'lucide-react';
+import { Settings, Monitor, KeyRound, Wifi, Pencil, Check, Pin, Ghost, Sparkles, FileText, ScrollText, Trash2, RotateCcw, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { LicenseStatus, OllamaStatus } from '@/types/electron';
 import { SmartNamingSetupModal } from './SmartNamingSetupModal';
@@ -25,12 +25,14 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
   const [isSavingMode, setIsSavingMode] = useState(false);
   const [lanAddresses, setLanAddresses] = useState<string[]>([]);
   const [alwaysOnTop, setAlwaysOnTop] = useState(false);
-  const [ghostMode, setGhostMode] = useState(false);
-  const [ghostOpacity, setGhostOpacity] = useState(0.25);
   const [smartNaming, setSmartNaming] = useState(false);
   const [ollamaStatus, setOllamaStatus] = useState<OllamaStatus | null>(null);
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [imageModel, setImageModel] = useState<string>('llava');
+  const [smartNamingOpen, setSmartNamingOpen] = useState(false);
+  const [connectionModeOpen, setConnectionModeOpen] = useState(true);
+  const [windowOpen, setWindowOpen] = useState(false);
+  const [licenseOpen, setLicenseOpen] = useState(false);
 
   const isElectronProd = window.electronAPI?.isElectron && !window.electronAPI?.isDev;
 
@@ -42,8 +44,6 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
       window.electronAPI!.getRemoteServerUrl().then(setRemoteServerUrl).catch(() => {});
       window.electronAPI!.getLanAddresses().then(setLanAddresses).catch(() => {});
       window.electronAPI!.getAlwaysOnTop().then(setAlwaysOnTop).catch(() => {});
-      window.electronAPI!.getGhostMode().then(setGhostMode).catch(() => {});
-      window.electronAPI!.getWindowOpacity().then(setGhostOpacity).catch(() => {});
       window.electronAPI!.getSmartNaming().then(setSmartNaming).catch(() => {});
       window.electronAPI!.checkOllamaStatus().then(setOllamaStatus).catch(() => {});
       window.electronAPI!.getImageModel?.().then((m) => { if (m) setImageModel(m); }).catch(() => {});
@@ -74,7 +74,7 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div className="max-w-4xl mx-auto p-6 space-y-6 overflow-y-auto h-full">
       <div className="flex items-center gap-3 mb-6">
         <Settings className="h-6 w-6 text-primary" />
         <div>
@@ -133,312 +133,21 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
         )}
       </div>
 
-      {/* Window */}
+      {/* Connection Mode — Collapsible, starts open */}
       <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
-        <div className="flex items-center gap-2 px-4 py-3 border-b bg-muted/30">
-          <Pin className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-semibold text-foreground">Window</span>
-        </div>
-        <div className="flex items-center justify-between gap-3 px-4 py-3">
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium text-foreground">Always on Top</div>
-            <div className="text-xs text-muted-foreground">Keep window above other applications for easy drag-and-drop</div>
-          </div>
-          <Switch
-            checked={alwaysOnTop}
-            onCheckedChange={async (checked) => {
-              setAlwaysOnTop(checked);
-              try {
-                await window.electronAPI!.setAlwaysOnTop(checked);
-                toast({
-                  title: checked ? 'Window pinned' : 'Window unpinned',
-                  description: checked
-                    ? 'Window will stay above other apps.'
-                    : 'Window returned to normal stacking.',
-                });
-              } catch {
-                setAlwaysOnTop(!checked);
-                toast({
-                  title: 'Failed to update',
-                  description: 'Could not change always-on-top setting.',
-                  variant: 'destructive',
-                });
-              }
-            }}
-          />
-        </div>
-
-        <div className="border-t">
-          <div className="flex items-center justify-between gap-3 px-4 py-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                <Ghost className="h-4 w-4" />
-                Ghost Mode
-              </div>
-              <div className="text-xs text-muted-foreground">Make the window translucent so you can see through to apps behind it</div>
-            </div>
-            <Switch
-              checked={ghostMode}
-              onCheckedChange={async (checked) => {
-                setGhostMode(checked);
-                try {
-                  await window.electronAPI!.setGhostMode(checked);
-                  toast({
-                    title: checked ? 'Ghost Mode enabled' : 'Ghost Mode disabled',
-                    description: checked
-                      ? 'Window is now translucent and floating.'
-                      : 'Window restored to normal.',
-                  });
-                } catch {
-                  setGhostMode(!checked);
-                  toast({
-                    title: 'Failed to update',
-                    description: 'Could not change ghost mode setting.',
-                    variant: 'destructive',
-                  });
-                }
-              }}
-            />
-          </div>
-
-          {ghostMode && (
-            <div className="px-4 pb-3">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs text-muted-foreground">Ghost Opacity</span>
-                <span className="text-xs font-mono font-semibold text-foreground">{Math.round(ghostOpacity * 100)}%</span>
-              </div>
-              <input
-                type="range"
-                min="0.10"
-                max="0.50"
-                step="0.05"
-                value={ghostOpacity}
-                onChange={async (e) => {
-                  const val = parseFloat(e.target.value);
-                  setGhostOpacity(val);
-                  try {
-                    await window.electronAPI!.setWindowOpacity(val);
-                  } catch {}
-                }}
-                className="w-full h-1.5 bg-muted rounded-full appearance-none cursor-pointer accent-primary"
-              />
-              <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
-                <span>10%</span>
-                <span>50%</span>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* AI / Smart Naming */}
-      <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
-        <div className="flex items-center gap-2 px-4 py-3 border-b bg-muted/30">
-          <Sparkles className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-semibold text-foreground">AI / Smart Naming</span>
-          {ollamaStatus && (
-            <Badge className={`ml-auto text-xs ${ollamaStatus.running ? 'bg-green-600' : 'bg-red-600'}`}>
-              {ollamaStatus.running ? 'Ollama Connected' : 'Ollama Not Running'}
-            </Badge>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between gap-3 px-4 py-3">
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium text-foreground">Smart Naming</div>
-            <div className="text-xs text-muted-foreground">Use local AI to auto-suggest descriptive names for transferred files</div>
-          </div>
-          <Switch
-            checked={smartNaming}
-            onCheckedChange={async (checked) => {
-              setSmartNaming(checked);
-              try {
-                await window.electronAPI!.setSmartNaming(checked);
-                toast({
-                  title: checked ? 'Smart Naming enabled' : 'Smart Naming disabled',
-                  description: checked
-                    ? 'Files will be renamed with AI-suggested names.'
-                    : 'Files will keep their original names.',
-                });
-              } catch {
-                setSmartNaming(!checked);
-                toast({
-                  title: 'Failed to update',
-                  description: 'Could not change Smart Naming setting.',
-                  variant: 'destructive',
-                });
-              }
-            }}
-          />
-        </div>
-
-        {ollamaStatus?.running && (
-          <div className="border-t px-4 py-3 space-y-3">
-            <div className="text-xs font-medium text-muted-foreground">Vision Model</div>
-            <div className="flex gap-2">
-              {[
-                { value: 'llava' as const, label: 'LLaVA', desc: 'Better accuracy, ~8GB RAM', minRam: '16GB+ RAM' },
-                { value: 'moondream' as const, label: 'Moondream', desc: 'Lightweight, ~3GB RAM', minRam: '8GB+ RAM' },
-              ].map(({ value, label, desc, minRam }) => (
-                <button
-                  key={value}
-                  onClick={async () => {
-                    setImageModel(value);
-                    try {
-                      await window.electronAPI?.setImageModel?.(value);
-                      toast({ title: `Vision model set to ${label}` });
-                    } catch {
-                      toast({ title: 'Failed to update model', variant: 'destructive' });
-                    }
-                  }}
-                  className={`flex-1 rounded-lg border-2 p-2 text-left transition-colors ${
-                    imageModel === value
-                      ? 'border-primary bg-primary/5'
-                      : 'border-muted hover:border-muted-foreground/30'
-                  }`}
-                >
-                  <div className="text-xs font-semibold text-foreground">{label}</div>
-                  <div className="text-[10px] text-muted-foreground mt-0.5">{desc}</div>
-                  <div className="text-[10px] text-amber-600 mt-0.5">Needs {minRam}</div>
-                </button>
-              ))}
-            </div>
-
-            <div className="text-xs font-medium text-muted-foreground mt-3">Model Status</div>
-            {[
-              { name: imageModel, label: `${imageModel === 'llava' ? 'LLaVA' : 'Moondream'} (Vision)` },
-              { name: 'phi3:mini', label: 'Phi-3 Mini (Text)' },
-            ].map(({ name, label }) => {
-              const available = ollamaStatus.models.some(
-                (m) => m === name || m.startsWith(`${name}:`)
-              );
-              return (
-                <div key={name} className="flex items-center justify-between">
-                  <span className="text-sm text-foreground">{label}</span>
-                  <Badge className={`text-xs ${available ? 'bg-green-600' : ''}`} variant={available ? 'default' : 'secondary'}>
-                    {available ? 'Available' : 'Not Pulled'}
-                  </Badge>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Prompt Config & Debug */}
-        <div className="border-t px-4 py-3 space-y-3">
-          <div className="text-xs font-medium text-muted-foreground">Prompt Configuration</div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 text-xs gap-1.5"
-              onClick={async () => {
-                try {
-                  await window.electronAPI?.openPromptConfig();
-                } catch {
-                  toast({ title: 'Failed to open config', variant: 'destructive' });
-                }
-              }}
-            >
-              <FileText className="h-3.5 w-3.5" />
-              Open Prompt Config
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 text-xs gap-1.5"
-              onClick={async () => {
-                try {
-                  await window.electronAPI?.openPromptLog();
-                } catch {
-                  toast({ title: 'Failed to open log', variant: 'destructive' });
-                }
-              }}
-            >
-              <ScrollText className="h-3.5 w-3.5" />
-              Open Prompt Log
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 text-xs gap-1.5"
-              onClick={async () => {
-                try {
-                  await window.electronAPI?.clearPromptLog();
-                  toast({ title: 'Prompt log cleared' });
-                } catch {
-                  toast({ title: 'Failed to clear log', variant: 'destructive' });
-                }
-              }}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Clear Log
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 text-xs gap-1.5"
-              onClick={async () => {
-                try {
-                  await window.electronAPI?.resetPromptConfig();
-                  toast({ title: 'Prompt config reset to defaults' });
-                } catch {
-                  toast({ title: 'Failed to reset config', variant: 'destructive' });
-                }
-              }}
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              Reset to Defaults
-            </Button>
-          </div>
-          <div className="text-xs text-muted-foreground leading-relaxed">
-            Edit the config JSON to customize prompts and models. Available template variables:{' '}
-            <code className="text-[10px] bg-muted px-1 rounded">{'{{original_name}}'}</code>{' '}
-            <code className="text-[10px] bg-muted px-1 rounded">{'{{file_extension}}'}</code>{' '}
-            <code className="text-[10px] bg-muted px-1 rounded">{'{{file_stem}}'}</code>{' '}
-            <code className="text-[10px] bg-muted px-1 rounded">{'{{mime_type}}'}</code>{' '}
-            <code className="text-[10px] bg-muted px-1 rounded">{'{{file_size}}'}</code>{' '}
-            <code className="text-[10px] bg-muted px-1 rounded">{'{{file_size_human}}'}</code>{' '}
-            <code className="text-[10px] bg-muted px-1 rounded">{'{{is_clipboard}}'}</code>{' '}
-            <code className="text-[10px] bg-muted px-1 rounded">{'{{from_device}}'}</code>{' '}
-            <code className="text-[10px] bg-muted px-1 rounded">{'{{text_preview}}'}</code> (text files only).
-            Changes take effect on the next file transfer.
-          </div>
-        </div>
-
-        <div className="border-t px-4 py-3">
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs"
-            onClick={() => setShowSetupModal(true)}
-          >
-            {smartNaming ? 'Re-run Setup' : 'Run Setup Wizard'}
-          </Button>
-        </div>
-      </div>
-
-      <SmartNamingSetupModal open={showSetupModal} onOpenChange={(open) => {
-        setShowSetupModal(open);
-        if (!open) {
-          // Refresh state when modal closes
-          window.electronAPI?.getSmartNaming().then(setSmartNaming).catch(() => {});
-          window.electronAPI?.checkOllamaStatus().then(setOllamaStatus).catch(() => {});
-          window.electronAPI?.getImageModel?.().then((m) => { if (m) setImageModel(m); }).catch(() => {});
-        }
-      }} />
-
-      {/* Connection Mode */}
-      <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
-        <div className="flex items-center gap-2 px-4 py-3 border-b bg-muted/30">
+        <button
+          onClick={() => setConnectionModeOpen(!connectionModeOpen)}
+          className="flex items-center gap-2 px-4 py-3 w-full bg-muted/30 hover:bg-muted/50 transition-colors"
+        >
+          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${connectionModeOpen ? 'rotate-180' : ''}`} />
           <Wifi className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-semibold text-foreground">Connection Mode</span>
           <Badge variant="secondary" className="ml-auto text-xs">
             {connectionMode === 'server' ? 'Server' : 'Client'}
           </Badge>
-        </div>
+        </button>
 
-        <div className="divide-y">
+        {connectionModeOpen && <div className="border-t divide-y">
           <label className="flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-muted/20">
             <input
               type="radio"
@@ -563,13 +272,277 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
             </Button>
             <span className="text-xs text-muted-foreground">Restart Liquid Relay for changes to take effect</span>
           </div>
-        </div>
+        </div>}
       </div>
 
-      {/* License */}
+      {/* AI / Smart Naming — Collapsible */}
+      <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+        <div className="flex items-center gap-2 px-4 py-3 bg-muted/30">
+          <button
+            onClick={() => setSmartNamingOpen(!smartNamingOpen)}
+            className="flex items-center gap-2 flex-1 min-w-0 hover:opacity-80 transition-opacity"
+          >
+            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${smartNamingOpen ? 'rotate-180' : ''}`} />
+            <Sparkles className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-semibold text-foreground">AI / Smart Naming</span>
+            {ollamaStatus && (
+              <Badge className={`ml-auto mr-2 text-xs ${ollamaStatus.running ? 'bg-green-600' : 'bg-red-600'}`}>
+                {ollamaStatus.running ? 'Ollama Connected' : 'Ollama Not Running'}
+              </Badge>
+            )}
+          </button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs flex-shrink-0"
+            onClick={() => setShowSetupModal(true)}
+          >
+            {smartNaming ? 'Re-run Setup' : 'Run Setup'}
+          </Button>
+        </div>
+
+        {smartNamingOpen && (
+          <>
+            <div className="border-t flex items-center justify-between gap-3 px-4 py-3">
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-foreground">Smart Naming</div>
+                <div className="text-xs text-muted-foreground">Use local AI to auto-suggest descriptive names for transferred files</div>
+              </div>
+              <Switch
+                checked={smartNaming}
+                onCheckedChange={async (checked) => {
+                  setSmartNaming(checked);
+                  try {
+                    await window.electronAPI!.setSmartNaming(checked);
+                    toast({
+                      title: checked ? 'Smart Naming enabled' : 'Smart Naming disabled',
+                      description: checked
+                        ? 'Files will be renamed with AI-suggested names.'
+                        : 'Files will keep their original names.',
+                    });
+                  } catch {
+                    setSmartNaming(!checked);
+                    toast({
+                      title: 'Failed to update',
+                      description: 'Could not change Smart Naming setting.',
+                      variant: 'destructive',
+                    });
+                  }
+                }}
+              />
+            </div>
+
+            {ollamaStatus?.running && (
+              <div className="border-t px-4 py-3 space-y-3">
+                <div className="text-xs font-medium text-muted-foreground">Vision Model</div>
+                <div className="flex gap-2">
+                  {[
+                    { value: 'llava' as const, label: 'LLaVA', desc: 'Better accuracy, ~8GB RAM', minRam: '16GB+ RAM' },
+                    { value: 'moondream' as const, label: 'Moondream', desc: 'Lightweight, ~3GB RAM', minRam: '8GB+ RAM' },
+                  ].map(({ value, label, desc, minRam }) => (
+                    <button
+                      key={value}
+                      onClick={async () => {
+                        setImageModel(value);
+                        try {
+                          await window.electronAPI?.setImageModel?.(value);
+                          toast({ title: `Vision model set to ${label}` });
+                        } catch {
+                          toast({ title: 'Failed to update model', variant: 'destructive' });
+                        }
+                      }}
+                      className={`flex-1 rounded-lg border-2 p-2 text-left transition-colors ${
+                        imageModel === value
+                          ? 'border-primary bg-primary/5'
+                          : 'border-muted hover:border-muted-foreground/30'
+                      }`}
+                    >
+                      <div className="text-xs font-semibold text-foreground">{label}</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">{desc}</div>
+                      <div className="text-[10px] text-amber-600 mt-0.5">Needs {minRam}</div>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="text-xs font-medium text-muted-foreground mt-3">Model Status</div>
+                {[
+                  { name: imageModel, label: `${imageModel === 'llava' ? 'LLaVA' : 'Moondream'} (Vision)` },
+                  { name: 'phi3:mini', label: 'Phi-3 Mini (Text)' },
+                ].map(({ name, label }) => {
+                  const available = ollamaStatus.models.some(
+                    (m) => m === name || m.startsWith(`${name}:`)
+                  );
+                  return (
+                    <div key={name} className="flex items-center justify-between">
+                      <span className="text-sm text-foreground">{label}</span>
+                      <Badge className={`text-xs ${available ? 'bg-green-600' : ''}`} variant={available ? 'default' : 'secondary'}>
+                        {available ? 'Available' : 'Not Pulled'}
+                      </Badge>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Prompt Config & Debug */}
+            <div className="border-t px-4 py-3 space-y-3">
+              <div className="text-xs font-medium text-muted-foreground">Prompt Configuration</div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs gap-1.5"
+                  onClick={async () => {
+                    try {
+                      await window.electronAPI?.openPromptConfig();
+                    } catch {
+                      toast({ title: 'Failed to open config', variant: 'destructive' });
+                    }
+                  }}
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  Open Prompt Config
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs gap-1.5"
+                  onClick={async () => {
+                    try {
+                      await window.electronAPI?.openPromptLog();
+                    } catch {
+                      toast({ title: 'Failed to open log', variant: 'destructive' });
+                    }
+                  }}
+                >
+                  <ScrollText className="h-3.5 w-3.5" />
+                  Open Prompt Log
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs gap-1.5"
+                  onClick={async () => {
+                    try {
+                      await window.electronAPI?.clearPromptLog();
+                      toast({ title: 'Prompt log cleared' });
+                    } catch {
+                      toast({ title: 'Failed to clear log', variant: 'destructive' });
+                    }
+                  }}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Clear Log
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs gap-1.5"
+                  onClick={async () => {
+                    try {
+                      await window.electronAPI?.resetPromptConfig();
+                      toast({ title: 'Prompt config reset to defaults' });
+                    } catch {
+                      toast({ title: 'Failed to reset config', variant: 'destructive' });
+                    }
+                  }}
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Reset to Defaults
+                </Button>
+              </div>
+              <div className="text-xs text-muted-foreground leading-relaxed">
+                Edit the config JSON to customize prompts and models. Available template variables:{' '}
+                <code className="text-[10px] bg-muted px-1 rounded">{'{{original_name}}'}</code>{' '}
+                <code className="text-[10px] bg-muted px-1 rounded">{'{{file_extension}}'}</code>{' '}
+                <code className="text-[10px] bg-muted px-1 rounded">{'{{file_stem}}'}</code>{' '}
+                <code className="text-[10px] bg-muted px-1 rounded">{'{{mime_type}}'}</code>{' '}
+                <code className="text-[10px] bg-muted px-1 rounded">{'{{file_size}}'}</code>{' '}
+                <code className="text-[10px] bg-muted px-1 rounded">{'{{file_size_human}}'}</code>{' '}
+                <code className="text-[10px] bg-muted px-1 rounded">{'{{is_clipboard}}'}</code>{' '}
+                <code className="text-[10px] bg-muted px-1 rounded">{'{{from_device}}'}</code>{' '}
+                <code className="text-[10px] bg-muted px-1 rounded">{'{{text_preview}}'}</code> (text files only).
+                Changes take effect on the next file transfer.
+              </div>
+            </div>
+
+          </>
+        )}
+      </div>
+
+      <SmartNamingSetupModal open={showSetupModal} onOpenChange={(open) => {
+        setShowSetupModal(open);
+        if (!open) {
+          // Refresh state when modal closes
+          window.electronAPI?.getSmartNaming().then(setSmartNaming).catch(() => {});
+          window.electronAPI?.checkOllamaStatus().then(setOllamaStatus).catch(() => {});
+          window.electronAPI?.getImageModel?.().then((m) => { if (m) setImageModel(m); }).catch(() => {});
+        }
+      }} />
+
+      {/* Window — Collapsible */}
+      <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+        <button
+          onClick={() => setWindowOpen(!windowOpen)}
+          className="flex items-center gap-2 px-4 py-3 w-full bg-muted/30 hover:bg-muted/50 transition-colors"
+        >
+          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${windowOpen ? 'rotate-180' : ''}`} />
+          <Pin className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-semibold text-foreground">Window</span>
+        </button>
+
+        {windowOpen && (
+          <>
+            <div className="border-t flex items-center justify-between gap-3 px-4 py-3">
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-foreground">Always on Top</div>
+                <div className="text-xs text-muted-foreground">Keep window above other applications for easy drag-and-drop</div>
+              </div>
+              <Switch
+                checked={alwaysOnTop}
+                onCheckedChange={async (checked) => {
+                  setAlwaysOnTop(checked);
+                  try {
+                    await window.electronAPI!.setAlwaysOnTop(checked);
+                    toast({
+                      title: checked ? 'Window pinned' : 'Window unpinned',
+                      description: checked
+                        ? 'Window will stay above other apps.'
+                        : 'Window returned to normal stacking.',
+                    });
+                  } catch {
+                    setAlwaysOnTop(!checked);
+                    toast({
+                      title: 'Failed to update',
+                      description: 'Could not change always-on-top setting.',
+                      variant: 'destructive',
+                    });
+                  }
+                }}
+              />
+            </div>
+
+            <div className="border-t">
+              <div className="flex items-start gap-3 px-4 py-3">
+                <Ghost className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-foreground">Ghost Mode</div>
+                  <div className="text-xs text-muted-foreground">Click on the 'Ghost' in the main interface to make the window translucent, so you can see through to apps behind it.</div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* License — Collapsible */}
       {licenseStatus && (
         <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-3 border-b bg-muted/30">
+          <button
+            onClick={() => setLicenseOpen(!licenseOpen)}
+            className="flex items-center gap-2 px-4 py-3 w-full bg-muted/30 hover:bg-muted/50 transition-colors"
+          >
+            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${licenseOpen ? 'rotate-180' : ''}`} />
             <KeyRound className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-semibold text-foreground">License</span>
             {licenseStatus.isActivated ? (
@@ -577,58 +550,60 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
             ) : (
               <Badge variant="destructive" className="ml-auto text-xs">Inactive</Badge>
             )}
-          </div>
+          </button>
 
-          <div className="divide-y">
-            <div className="flex items-center gap-3 px-4 py-3">
-              <span className="text-xs text-muted-foreground flex-shrink-0">Key:</span>
-              <code className="text-sm font-mono text-foreground truncate">
-                {licenseStatus.key
-                  ? licenseStatus.key.slice(0, 8) + '...' + licenseStatus.key.slice(-4)
-                  : 'N/A'}
-              </code>
-            </div>
-
-            {licenseStatus.customerName && (
+          {licenseOpen && (
+            <div className="border-t divide-y">
               <div className="flex items-center gap-3 px-4 py-3">
-                <span className="text-xs text-muted-foreground flex-shrink-0">Customer:</span>
-                <span className="text-sm font-medium text-foreground">{licenseStatus.customerName}</span>
+                <span className="text-xs text-muted-foreground flex-shrink-0">Key:</span>
+                <code className="text-sm font-mono text-foreground truncate">
+                  {licenseStatus.key
+                    ? licenseStatus.key.slice(0, 8) + '...' + licenseStatus.key.slice(-4)
+                    : 'N/A'}
+                </code>
               </div>
-            )}
 
-            {licenseStatus.isActivated && (
-              <div className="px-4 py-3">
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  className="h-7 text-xs"
-                  disabled={isDeactivating}
-                  onClick={async () => {
-                    if (!isElectronProd) return;
-                    setIsDeactivating(true);
-                    try {
-                      await window.electronAPI!.deactivateLicense();
-                      toast({
-                        title: 'License deactivated',
-                        description: 'This seat has been freed. The app will close.',
-                      });
-                      setTimeout(() => window.location.reload(), 1500);
-                    } catch {
-                      toast({
-                        title: 'Deactivation failed',
-                        description: 'Could not deactivate license. Try again.',
-                        variant: 'destructive',
-                      });
-                    } finally {
-                      setIsDeactivating(false);
-                    }
-                  }}
-                >
-                  {isDeactivating ? 'Deactivating...' : 'Deactivate License'}
-                </Button>
-              </div>
-            )}
-          </div>
+              {licenseStatus.customerName && (
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <span className="text-xs text-muted-foreground flex-shrink-0">Customer:</span>
+                  <span className="text-sm font-medium text-foreground">{licenseStatus.customerName}</span>
+                </div>
+              )}
+
+              {licenseStatus.isActivated && (
+                <div className="px-4 py-3">
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="h-7 text-xs"
+                    disabled={isDeactivating}
+                    onClick={async () => {
+                      if (!isElectronProd) return;
+                      setIsDeactivating(true);
+                      try {
+                        await window.electronAPI!.deactivateLicense();
+                        toast({
+                          title: 'License deactivated',
+                          description: 'This seat has been freed. The app will close.',
+                        });
+                        setTimeout(() => window.location.reload(), 1500);
+                      } catch {
+                        toast({
+                          title: 'Deactivation failed',
+                          description: 'Could not deactivate license. Try again.',
+                          variant: 'destructive',
+                        });
+                      } finally {
+                        setIsDeactivating(false);
+                      }
+                    }}
+                  >
+                    {isDeactivating ? 'Deactivating...' : 'Deactivate License'}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
