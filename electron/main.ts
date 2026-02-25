@@ -587,7 +587,7 @@ ipcMain.handle('set-ghost-mode', (_event, enabled: boolean) => {
     const ghostOpacity = getGhostOpacitySetting();
     mainWindow.setOpacity(ghostOpacity);
     mainWindow.setAlwaysOnTop(true, 'floating');
-    mainWindow.setSize(320, 535);
+    mainWindow.setSize(320, 555);
   } else {
     // Restore opacity and always-on-top only — renderer handles window sizing
     mainWindow.setOpacity(1.0);

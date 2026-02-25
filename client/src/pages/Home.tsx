@@ -244,10 +244,6 @@ export default function Home() {
         allTags={allTags}
       />
 
-      {/* Version badge */}
-      <div className="fixed bottom-2 left-2 text-[10px] text-muted-foreground/50 select-none pointer-events-none z-50">
-        Liquid <em>Relay</em> v{__APP_VERSION__}
-      </div>
     </div>
   );
 }

@@ -529,23 +529,25 @@ export function LeftSidebar({
       style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
     >
       {/* Header with branding and controls */}
-      {/* Top row: spacer for macOS traffic lights */}
+      {/* Top spacer for macOS traffic lights */}
       <div
         className="h-8 flex-shrink-0"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       />
-      {/* Main header row */}
+      {/* Branding row — left-aligned under traffic lights */}
       <div
-        className="flex items-center gap-1.5 px-3 pb-3 pl-[76px] border-b border-primary/20"
+        className="flex items-center justify-between px-3 pb-2 border-b border-primary/20"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
-        {/* Branding — water drop aligned under red traffic light */}
-        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+        <div className="flex items-center gap-1.5">
           <LiquidDropletIcon className="text-primary w-5 h-5 flex-shrink-0" />
-          <span className="text-sm font-bold text-foreground">
+          <span className="text-sm font-bold text-foreground whitespace-nowrap">
             Liquid <em>Relay</em>
           </span>
         </div>
+
+        {/* Header icons — right side */}
+        <div className="flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
 
         {/* Hamburger menu */}
         <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
@@ -614,6 +616,8 @@ export function LeftSidebar({
             <PanelRightOpen className={`w-4 h-4 ${isGhostMode ? '' : 'text-muted-foreground'}`} />
           )}
         </button>
+
+        </div>{/* end header icons */}
       </div>
 
       {/* Scrollable content */}

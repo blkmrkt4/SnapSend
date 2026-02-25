@@ -606,6 +606,10 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
           )}
         </div>
       )}
+      {/* Version */}
+      <div className="text-center text-[11px] text-muted-foreground/50 pt-4 pb-2 select-none">
+        Liquid <em>Relay</em> v{__APP_VERSION__}
+      </div>
     </div>
   );
 }
