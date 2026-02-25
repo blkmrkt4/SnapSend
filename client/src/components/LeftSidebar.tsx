@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { ArrowDown, Clipboard, Camera, FileImage, Monitor, Maximize, Crop, Wifi, WifiOff, PanelRightOpen, PanelRightClose, Ghost } from 'lucide-react';
+import { ArrowDown, Clipboard, Camera, FileImage, Monitor, Maximize, Crop, Wifi, WifiOff, PanelRightOpen, PanelRightClose, Ghost, FileText } from 'lucide-react';
 import { HamburgerMenu } from './HamburgerMenu';
 import { useFileTransfer } from '@/hooks/useFileTransfer';
 import { useScreenshot } from '@/hooks/useScreenshot';
@@ -529,11 +529,17 @@ export function LeftSidebar({
       style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
     >
       {/* Header with branding and controls */}
+      {/* Top row: spacer for macOS traffic lights */}
       <div
-        className="flex items-center gap-2 px-3 py-3 border-b border-primary/20 pl-20"
+        className="h-3 flex-shrink-0"
+        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+      />
+      {/* Main header row */}
+      <div
+        className="flex items-center gap-1.5 px-3 pb-3 border-b border-primary/20"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
-        {/* Branding - right after traffic light space */}
+        {/* Branding — water drop aligned under red traffic light */}
         <div className="flex items-center gap-1.5 flex-1 min-w-0">
           <LiquidDropletIcon className="text-primary w-5 h-5 flex-shrink-0" />
           <span className="text-sm font-bold text-foreground">
@@ -551,6 +557,25 @@ export function LeftSidebar({
           />
         </div>
 
+        {/* Files shortcut — opens right panel to Files section */}
+        <button
+          onClick={() => {
+            onSectionChange('files');
+            if (!showFilesPanel) {
+              onToggleFilesPanel();
+            }
+          }}
+          className={`p-1.5 rounded-md transition-colors ${
+            activeSection === 'files' && showFilesPanel
+              ? 'bg-primary/10 text-primary'
+              : 'hover:bg-muted/50 text-muted-foreground'
+          }`}
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+          title="Files"
+        >
+          <FileText className="w-4 h-4" />
+        </button>
+
         {/* Ghost mode toggle - only in Electron */}
         {window.electronAPI?.isElectron && onToggleGhostMode && (
           <button
@@ -567,11 +592,10 @@ export function LeftSidebar({
           </button>
         )}
 
-        {/* Files panel toggle */}
+        {/* Right panel toggle */}
         <button
           onClick={() => {
             if (!showFilesPanel) {
-              // Opening panel - also switch to Files section
               onSectionChange('files');
             }
             onToggleFilesPanel();
@@ -582,7 +606,7 @@ export function LeftSidebar({
               : 'hover:bg-muted/50'
           }`}
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-          title={showFilesPanel ? 'Hide panel' : 'Show files'}
+          title={showFilesPanel ? 'Hide panel' : 'Show panel'}
         >
           {showFilesPanel ? (
             <PanelRightClose className={`w-4 h-4 ${isGhostMode ? '' : 'text-muted-foreground'}`} />
