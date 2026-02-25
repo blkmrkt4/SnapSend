@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, clipboard } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, clipboard, powerMonitor } from 'electron';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { DiscoveryManager } from './discovery';
@@ -34,6 +34,7 @@ let mainWindow: BrowserWindow | null = null;
 let serverPort: number = 5000;
 let discovery: DiscoveryManager | null = null;
 let serverInstance: any = null;
+let reconnectDisconnectedPeers: (() => void) | null = null;
 
 const isDev = !app.isPackaged;
 
@@ -463,10 +464,26 @@ async function startApp() {
       discovery = new DiscoveryManager(deviceId, deviceName, serverPort);
 
       if (mainWindow) {
-        registerDiscoveryIPC(mainWindow, discovery);
+        const discoveryIPC = registerDiscoveryIPC(mainWindow, discovery);
+        reconnectDisconnectedPeers = discoveryIPC.reconnectDisconnectedPeers;
         const uploadsDir = process.env.SNAPSEND_UPLOADS_DIR || path.join(process.cwd(), 'uploads');
         registerP2PIPC(mainWindow, discovery, deviceId, deviceName, serverPort, uploadsDir);
       }
+
+      // Wake recovery: restart discovery and reconnect peers after system resume
+      powerMonitor.on('resume', () => {
+        console.log('[Power] System resumed from sleep — restarting discovery');
+        if (discovery) {
+          discovery.restart();
+        }
+        // Delay reconnect to let discovery re-populate peers
+        setTimeout(() => {
+          if (reconnectDisconnectedPeers) {
+            console.log('[Power] Attempting peer reconnection after wake');
+            reconnectDisconnectedPeers();
+          }
+        }, 5000);
+      });
 
       console.log(`Liquid Relay ready: device="${deviceName}" id=${deviceId} port=${serverPort}`);
     } else {

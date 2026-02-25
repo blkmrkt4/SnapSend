@@ -7,6 +7,7 @@ import { isDeviceEnabled } from './main';
 const CHUNK_THRESHOLD = 70 * 1024 * 1024; // 70MB
 
 let peerManager: PeerConnectionManager | null = null;
+let reconnectInterval: ReturnType<typeof setInterval> | null = null;
 
 export function registerDiscoveryIPC(
   mainWindow: BrowserWindow,
@@ -23,6 +24,23 @@ export function registerDiscoveryIPC(
   ipcMain.handle('restart-discovery', () => {
     discovery.restart();
   });
+
+  // Reconnect to any discovered peers that are enabled but not connected
+  function reconnectDisconnectedPeers() {
+    if (!peerManager) return;
+    const discoveredPeers = discovery.getPeers();
+    for (const peer of discoveredPeers) {
+      const hasValidAddress = peer.host && peer.port > 0;
+      if (hasValidAddress && !peerManager.isConnected(peer.id) && isDeviceEnabled(peer.id)) {
+        console.log(`[IPC] Reconnecting to peer: ${peer.name} at ${peer.host}:${peer.port}`);
+        peerManager.connectToPeer(peer);
+      }
+    }
+  }
+
+  // Safety net: periodically check for disconnected peers and reconnect
+  if (reconnectInterval) clearInterval(reconnectInterval);
+  reconnectInterval = setInterval(reconnectDisconnectedPeers, 30000);
 
   // Wire discovery events to renderer
   discovery.start({
@@ -64,6 +82,8 @@ export function registerDiscoveryIPC(
       }
     },
   });
+
+  return { reconnectDisconnectedPeers };
 }
 
 export function registerP2PIPC(

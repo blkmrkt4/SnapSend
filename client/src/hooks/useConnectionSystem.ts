@@ -72,6 +72,8 @@ interface PendingFile {
   id: number;
   fileData: any;
   queuedAt: Date;
+  targetPeerId: string;
+  targetName: string;
 }
 
 export interface ChunkedTransferProgress {
@@ -728,6 +730,26 @@ export function useConnectionSystem() {
     };
   }, [connect, isElectron]);
 
+  // Restore pending files from localStorage on mount
+  useEffect(() => {
+    const savedPending = localStorage.getItem('snapsend-pending-files');
+    if (!savedPending) return;
+
+    try {
+      const parsed = JSON.parse(savedPending);
+      const restored = parsed
+        .filter((pf: any) => !pf.fileData?.contentLost)
+        .map((pf: any) => ({
+          ...pf,
+          queuedAt: new Date(pf.queuedAt),
+        }));
+      if (restored.length > 0) {
+        setState(prev => ({ ...prev, pendingFiles: restored }));
+      }
+    } catch {}
+    localStorage.removeItem('snapsend-pending-files');
+  }, []);
+
   // ────────────────────────────────────────────
   // Track known devices (persist across sessions)
   // ────────────────────────────────────────────
@@ -1113,7 +1135,13 @@ export function useConnectionSystem() {
 
           setState(prev => ({
             ...prev,
-            pendingFiles: [...prev.pendingFiles, { id: fileId, fileData, queuedAt: new Date() }],
+            pendingFiles: [...prev.pendingFiles, {
+              id: fileId,
+              fileData,
+              queuedAt: new Date(),
+              targetPeerId: targetId,
+              targetName,
+            }],
             files: [{
               ...(savedFile || {
                 id: fileId,
@@ -1137,7 +1165,7 @@ export function useConnectionSystem() {
               id: Date.now(),
               type: 'file-queued',
               title: 'File queued',
-              message: `${fileData.originalName} queued for delivery`,
+              message: `${fileData.originalName} queued for ${targetName}`,
               timestamp: new Date(),
             }],
           }));
@@ -1341,7 +1369,7 @@ export function useConnectionSystem() {
               // Determine transfer direction: check DB device IDs first, then P2P name fields
               const isSent = file.fromDeviceId != null
                 ? file.fromDeviceId === currentId
-                : file.fromDeviceName === currentName || file.toDeviceName === 'local';
+                : file.fromDeviceName === 'local' || file.fromDeviceName === currentName || file.toDeviceName === 'local';
               const fromName = file.fromDeviceId != null
                 ? deviceMap.get(file.fromDeviceId) || file.fromDeviceName || 'Unknown'
                 : file.fromDeviceName || 'Unknown';
@@ -1548,49 +1576,112 @@ export function useConnectionSystem() {
     return device?.enabled ?? true; // Default to enabled if not found
   }, [state.knownDevices]);
 
-  // Auto-flush pending files when a matching connection appears
-  // NOTE: Only flushes for specific device targets, NOT for "All Devices" (security)
+  // Auto-flush pending files when their intended target connects
+  // Each pending file tracks its own targetPeerId — no dependency on selectedTargetId
   useEffect(() => {
     if (state.pendingFiles.length === 0 || state.connections.length === 0) return;
 
-    const targetId = state.selectedTargetId;
+    // Find pending files whose target is now connected
+    const connectedPeerIds = new Set(state.connections.map((c: any) => c.peerId));
+    const filesToSend = state.pendingFiles.filter(pf => connectedPeerIds.has(pf.targetPeerId));
 
-    // Never auto-flush for LOCAL_DEVICE_ID or null (All Devices)
-    // - LOCAL_DEVICE_ID files are saved locally, never queued
-    // - null (All Devices) files are saved locally when no connections; we don't want
-    //   files to auto-send to whoever connects later (security protection)
-    if (!targetId || targetId === LOCAL_DEVICE_ID) return;
+    if (filesToSend.length === 0) return;
 
-    // A specific target is selected — check if it's now connected
-    const targetConn = state.connections.find(
-      (c: any) => c.peerId === targetId || c.id === targetId || String(c.id) === targetId
-    );
-    if (!targetConn) return; // Target not yet connected
+    const sendingIds = new Set(filesToSend.map(f => f.id));
 
-    // Flush all pending files to this target
-    const filesToSend = [...state.pendingFiles];
-    const pendingIds = filesToSend.map(p => p.id);
-
-    // Clear pending files from state first
+    // Remove files we're about to send from pending list and queued file entries
     setState(prev => ({
       ...prev,
-      pendingFiles: prev.pendingFiles.filter(p => !pendingIds.includes(p.id)),
-      // Remove the "pending" file entries — they'll be re-added by the send confirmation
-      files: prev.files.filter(f => !pendingIds.includes(f.id)),
+      pendingFiles: prev.pendingFiles.filter(pf => !sendingIds.has(pf.id)),
+      files: prev.files.filter(f => !sendingIds.has(f.id)),
     }));
 
-    // Send each queued file
-    for (const pending of filesToSend) {
+    // Send each file to its intended target
+    for (const pf of filesToSend) {
+      const targetConn = state.connections.find((c: any) => c.peerId === pf.targetPeerId);
+      if (!targetConn) continue;
+
       if (window.electronAPI?.sendFile) {
-        window.electronAPI.sendFile(targetConn.peerId, pending.fileData);
+        window.electronAPI.sendFile(pf.targetPeerId, pf.fileData).then(async (sent) => {
+          if (sent) {
+            try {
+              const response = await fetch('/api/files/record-sent', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  filename: pf.fileData.filename,
+                  originalName: pf.fileData.originalName,
+                  mimeType: pf.fileData.mimeType,
+                  size: pf.fileData.size,
+                  content: pf.fileData.content,
+                  isClipboard: pf.fileData.isClipboard,
+                  toDeviceName: pf.targetName,
+                }),
+              });
+              const savedFile = response.ok ? await response.json() : null;
+
+              setState(prev => ({
+                ...prev,
+                files: [{
+                  ...(savedFile || {
+                    id: Date.now() + Math.random(),
+                    filename: pf.fileData.filename,
+                    originalName: pf.fileData.originalName,
+                    mimeType: pf.fileData.mimeType,
+                    size: pf.fileData.size,
+                    isClipboard: pf.fileData.isClipboard ? 1 : 0,
+                    transferredAt: new Date().toISOString(),
+                    fromDeviceId: null,
+                    toDeviceId: null,
+                    connectionId: null,
+                    fromDeviceName: null,
+                    toDeviceName: pf.targetName,
+                    content: null,
+                  }),
+                  transferType: 'sent' as const,
+                  fromDevice: undefined,
+                } as ExtendedFile, ...prev.files],
+                notifications: [...prev.notifications, {
+                  id: Date.now(),
+                  type: 'file-sent',
+                  title: 'Queued file sent',
+                  message: `${pf.fileData.originalName} sent to ${pf.targetName}`,
+                  timestamp: new Date(),
+                }],
+              }));
+            } catch (error) {
+              console.error('Error persisting queued file send:', error);
+            }
+          }
+        });
       } else if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({
           type: 'file-transfer',
-          data: { ...pending.fileData, targetConnectionId: targetConn.id }
+          data: { ...pf.fileData, targetConnectionId: targetConn.id }
         }));
       }
     }
-  }, [state.connections, state.selectedTargetId, state.pendingFiles, isElectron]);
+  }, [state.connections, state.pendingFiles]);
+
+  // Persist pending files to localStorage (survives refresh/crash)
+  useEffect(() => {
+    if (state.pendingFiles.length > 0) {
+      localStorage.setItem('snapsend-pending-files', JSON.stringify(
+        state.pendingFiles.map(pf => ({
+          ...pf,
+          queuedAt: pf.queuedAt instanceof Date ? pf.queuedAt.toISOString() : pf.queuedAt,
+          // Strip content for files > 5MB to avoid filling localStorage
+          fileData: pf.fileData.size <= 5 * 1024 * 1024 ? pf.fileData : {
+            ...pf.fileData,
+            content: null,
+            contentLost: true,
+          },
+        }))
+      ));
+    } else {
+      localStorage.removeItem('snapsend-pending-files');
+    }
+  }, [state.pendingFiles]);
 
   return {
     ...state,
