@@ -72,9 +72,19 @@ export class PeerConnectionManager {
   }
 
   connectToPeer(peer: PeerInfo): void {
-    if (this.connections.has(peer.id)) {
-      console.log(`[P2P] Already connected to ${peer.name}`);
+    // Skip if we already have a healthy (OPEN) connection
+    const existing = this.connections.get(peer.id);
+    if (existing && existing.readyState === WebSocket.OPEN) {
+      console.log(`[P2P] Already connected to ${peer.name} (OPEN)`);
       return;
+    }
+
+    // If there's a stale/connecting WS, remove it so we can reconnect
+    if (existing) {
+      console.log(`[P2P] Replacing stale connection to ${peer.name} (readyState=${existing.readyState})`);
+      this.connections.delete(peer.id);
+      this.peerInfo.delete(peer.id);
+      try { existing.close(); } catch {}
     }
 
     // Validate peer has a valid address
@@ -89,6 +99,11 @@ export class PeerConnectionManager {
     const ws = new WebSocket(wsUrl);
 
     ws.on('open', () => {
+      // Store the connection only once it's actually open
+      this.connections.set(peer.id, ws);
+      this.peerInfo.set(peer.id, peer);
+      console.log(`[P2P] Outgoing connection to ${peer.name} is OPEN`);
+
       // Send handshake
       ws.send(JSON.stringify({
         type: 'peer-handshake',
@@ -106,24 +121,26 @@ export class PeerConnectionManager {
     });
 
     ws.on('close', () => {
-      this.connections.delete(peer.id);
-      this.peerInfo.delete(peer.id);
-      const wasHandshaked = this.handshaked.has(peer.id);
-      this.handshaked.delete(peer.id);
-      if (wasHandshaked) {
-        console.log(`[P2P] Disconnected from ${peer.name}`);
-        this.callbacks.onPeerDisconnected(peer.id);
+      // Only clean up if this WS is still the active one (it may have been replaced)
+      if (this.connections.get(peer.id) === ws) {
+        this.connections.delete(peer.id);
+        this.peerInfo.delete(peer.id);
+        const wasHandshaked = this.handshaked.has(peer.id);
+        this.handshaked.delete(peer.id);
+        if (wasHandshaked) {
+          console.log(`[P2P] Disconnected from ${peer.name}`);
+          this.callbacks.onPeerDisconnected(peer.id);
+        } else {
+          console.log(`[P2P] Connection to ${peer.name} failed (pre-handshake)`);
+        }
       } else {
-        console.log(`[P2P] Connection to ${peer.name} failed (pre-handshake)`);
+        console.log(`[P2P] Stale outgoing WS to ${peer.name} closed (already replaced)`);
       }
     });
 
     ws.on('error', (err: any) => {
       console.warn(`[P2P] Connection error with ${peer.name}: ${err.message || err.code || err}`);
     });
-
-    this.connections.set(peer.id, ws);
-    this.peerInfo.set(peer.id, peer);
   }
 
   disconnectFromPeer(peerId: string): void {
@@ -320,18 +337,28 @@ export class PeerConnectionManager {
     const alreadyConnected = this.connections.has(peerId);
     const alreadyHandshaked = this.handshaked.has(peerId);
 
-    console.log(`[P2P] handleIncomingHandshake: peer=${peerName} (${peerId}), alreadyConnected=${alreadyConnected}, alreadyHandshaked=${alreadyHandshaked}`);
+    const existingWs = this.connections.get(peerId);
+    const existingIsOpen = existingWs?.readyState === WebSocket.OPEN;
+    console.log(`[P2P] handleIncomingHandshake: peer=${peerName} (${peerId}), alreadyConnected=${alreadyConnected}, existingIsOpen=${existingIsOpen}, alreadyHandshaked=${alreadyHandshaked}`);
 
-    // Store this as an active connection (prefer incoming WebSocket for bidirectional comms)
-    if (!alreadyConnected) {
+    // Store this incoming WS if we don't have one, or if the existing one isn't OPEN.
+    // The incoming WS is guaranteed to be working (it just delivered a handshake message).
+    if (!alreadyConnected || !existingIsOpen) {
+      if (alreadyConnected && !existingIsOpen) {
+        console.log(`[P2P] Replacing non-OPEN outgoing WS (readyState=${existingWs?.readyState}) with working incoming WS for ${peerName}`);
+        try { existingWs?.close(); } catch {}
+      }
       this.connections.set(peerId, ws);
       this.peerInfo.set(peerId, peer);
 
       ws.on('close', () => {
-        this.connections.delete(peerId);
-        this.peerInfo.delete(peerId);
-        this.handshaked.delete(peerId);
-        this.callbacks.onPeerDisconnected(peerId);
+        // Only clean up if this WS is still the active one
+        if (this.connections.get(peerId) === ws) {
+          this.connections.delete(peerId);
+          this.peerInfo.delete(peerId);
+          this.handshaked.delete(peerId);
+          this.callbacks.onPeerDisconnected(peerId);
+        }
       });
     }
 
