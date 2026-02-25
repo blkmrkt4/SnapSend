@@ -402,11 +402,14 @@ async function startApp() {
       const result = await serverModule.startServer({
         port: configuredPort,
         onP2PFileReceived: (data: any) => {
+          console.log(`[Main] onP2PFileReceived: file="${data.file?.originalName}" from="${data.fromDevice}"`);
           if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('file-received', {
               file: data.file,
               fromDevice: data.fromDevice,
             });
+          } else {
+            console.warn(`[Main] onP2PFileReceived: mainWindow missing or destroyed!`);
           }
         },
         onPeerHandshake: (ws: any, peerId: string, peerName: string) => {

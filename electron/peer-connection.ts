@@ -141,10 +141,12 @@ export class PeerConnectionManager {
       ws.send(JSON.stringify(message));
       return true;
     }
+    console.warn(`[P2P] sendToPeer FAILED for ${peerId}: ws=${ws ? 'exists' : 'missing'}, readyState=${ws?.readyState ?? 'N/A'}, type=${message.type}`);
     return false;
   }
 
   sendFileToPeer(peerId: string, fileData: any): boolean {
+    console.log(`[P2P] sendFileToPeer called: peerId=${peerId}, file=${fileData.originalName}, connections=[${Array.from(this.connections.keys()).join(', ')}]`);
     return this.sendToPeer(peerId, {
       type: 'file-transfer',
       data: {
@@ -317,6 +319,8 @@ export class PeerConnectionManager {
     const peer: PeerInfo = { id: peerId, name: peerName, host: '', port: 0 };
     const alreadyConnected = this.connections.has(peerId);
     const alreadyHandshaked = this.handshaked.has(peerId);
+
+    console.log(`[P2P] handleIncomingHandshake: peer=${peerName} (${peerId}), alreadyConnected=${alreadyConnected}, alreadyHandshaked=${alreadyHandshaked}`);
 
     // Store this as an active connection (prefer incoming WebSocket for bidirectional comms)
     if (!alreadyConnected) {
