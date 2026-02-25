@@ -531,12 +531,12 @@ export function LeftSidebar({
       {/* Header with branding and controls */}
       {/* Top row: spacer for macOS traffic lights */}
       <div
-        className="h-3 flex-shrink-0"
+        className="h-8 flex-shrink-0"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       />
       {/* Main header row */}
       <div
-        className="flex items-center gap-1.5 px-3 pb-3 border-b border-primary/20"
+        className="flex items-center gap-1.5 px-3 pb-3 pl-[76px] border-b border-primary/20"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
         {/* Branding — water drop aligned under red traffic light */}
