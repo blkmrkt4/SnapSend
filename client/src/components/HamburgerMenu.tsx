@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Home, ArrowLeftRight, FileText, Settings } from 'lucide-react';
+import { Menu, X, Home, ArrowLeftRight, FileText, Settings, HelpCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface HamburgerMenuProps {
-  activeSection: 'home' | 'connections' | 'files' | 'settings';
-  onSectionChange: (section: 'home' | 'connections' | 'files' | 'settings') => void;
+  activeSection: 'home' | 'connections' | 'files' | 'settings' | 'help';
+  onSectionChange: (section: 'home' | 'connections' | 'files' | 'settings' | 'help') => void;
   connectionCount: number;
   fileCount: number;
 }
@@ -44,6 +44,12 @@ export function HamburgerMenu({
       label: 'Settings',
       badge: 0,
     },
+    {
+      id: 'help' as const,
+      icon: HelpCircle,
+      label: 'Help',
+      badge: 0,
+    },
   ];
 
   // Close menu on click outside
@@ -80,7 +86,7 @@ export function HamburgerMenu({
     };
   }, [isOpen]);
 
-  const handleItemClick = (id: 'home' | 'connections' | 'files' | 'settings') => {
+  const handleItemClick = (id: 'home' | 'connections' | 'files' | 'settings' | 'help') => {
     onSectionChange(id);
     setIsOpen(false);
   };

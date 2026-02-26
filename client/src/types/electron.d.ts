@@ -117,6 +117,7 @@ export interface ElectronAPI {
   exportDiagnostics?: () => Promise<{ success: boolean; filePath?: string; reason?: string }>;
   openLogFile?: () => Promise<string>;
   fixWindowsFirewall?: () => Promise<{ success: boolean; reason?: string }>;
+  checkFirewall?: () => Promise<{ success: boolean; results: Array<{ ip: string; reachable: boolean; error?: string }>; message: string }>;
 }
 
 export interface LicenseStatus {

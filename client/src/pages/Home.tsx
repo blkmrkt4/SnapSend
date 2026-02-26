@@ -4,12 +4,13 @@ import { ConnectionManager } from '@/components/ConnectionManager';
 import { FileExplorer } from '@/components/FileExplorer';
 import { FilePreviewModal } from '@/components/FilePreviewModal';
 import { HomePage } from '@/components/HomePage';
+import { HelpPage } from '@/components/HelpPage';
 import { LeftSidebar } from '@/components/LeftSidebar';
 import { useConnectionSystem } from '@/hooks/useConnectionSystem';
 import { type File } from '@shared/schema';
 
 export default function Home() {
-  const [activeSection, setActiveSection] = useState<'home' | 'connections' | 'files' | 'settings'>('files');
+  const [activeSection, setActiveSection] = useState<'home' | 'connections' | 'files' | 'settings' | 'help'>('files');
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [showFilesPanel, setShowFilesPanel] = useState(true);
   const [isGhostMode, setIsGhostMode] = useState(false);
@@ -170,6 +171,9 @@ export default function Home() {
             onDeviceNameUpdate={handleDeviceNameUpdate}
           />
         );
+
+      case 'help':
+        return <HelpPage />;
 
       default:
         return null;

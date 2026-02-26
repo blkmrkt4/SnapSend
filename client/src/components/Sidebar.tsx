@@ -5,8 +5,8 @@ import {
 import { HamburgerMenu } from './HamburgerMenu';
 
 interface SidebarProps {
-  activeSection: 'home' | 'connections' | 'files' | 'settings';
-  onSectionChange: (section: 'home' | 'connections' | 'files' | 'settings') => void;
+  activeSection: 'home' | 'connections' | 'files' | 'settings' | 'help';
+  onSectionChange: (section: 'home' | 'connections' | 'files' | 'settings' | 'help') => void;
   connectionCount: number;
   fileCount: number;
   deviceName?: string;

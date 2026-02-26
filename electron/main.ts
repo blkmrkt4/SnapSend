@@ -1020,6 +1020,53 @@ ipcMain.handle('fix-windows-firewall', async () => {
   }
 });
 
+// Check Firewall — self-probe from each LAN IP
+ipcMain.handle('check-firewall', async () => {
+  if (process.platform !== 'win32') {
+    return { success: true, results: [], message: 'Not Windows — no firewall check needed' };
+  }
+  const http = require('http') as typeof import('http');
+  const nets = os.networkInterfaces();
+  const lanIPs: string[] = [];
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name] || []) {
+      if (net.family === 'IPv4' && !net.internal) {
+        lanIPs.push(net.address);
+      }
+    }
+  }
+  if (lanIPs.length === 0) {
+    return { success: false, results: [], message: 'No LAN interfaces found' };
+  }
+
+  const probeResults = await Promise.all(
+    lanIPs.map((ip) =>
+      new Promise<{ ip: string; reachable: boolean; error?: string }>((resolve) => {
+        let done = false;
+        const finish = (reachable: boolean, error?: string) => {
+          if (done) return;
+          done = true;
+          req.destroy();
+          resolve({ ip, reachable, error });
+        };
+        const req = http.get(`http://${ip}:${serverPort}/health`, { timeout: 3000 }, (res) => {
+          res.resume();
+          finish(true);
+        });
+        req.on('timeout', () => finish(false, 'timeout'));
+        req.on('error', (err: any) => finish(false, err.code || err.message));
+      })
+    )
+  );
+
+  const allReachable = probeResults.every((r) => r.reachable);
+  const message = allReachable
+    ? `All ${probeResults.length} interface(s) reachable — firewall is not blocking.`
+    : `${probeResults.filter((r) => !r.reachable).length} of ${probeResults.length} interface(s) blocked.`;
+
+  return { success: allReachable, results: probeResults, message };
+});
+
 app.whenReady().then(startApp);
 
 app.on('window-all-closed', () => {
