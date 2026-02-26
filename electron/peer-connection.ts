@@ -1,4 +1,5 @@
 import WebSocket from 'ws';
+import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import { type PeerInfo } from './discovery';
@@ -85,6 +86,30 @@ export class PeerConnectionManager {
     this.pingInterval = setInterval(() => this.sendPings(), 15000);
   }
 
+  /**
+   * Lightweight HTTP health probe. Returns { ok, reason } so the caller
+   * can decide whether to skip the heavier WebSocket attempt.
+   */
+  private probeHealth(host: string, port: number): Promise<{ ok: boolean; reason?: string }> {
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = (result: { ok: boolean; reason?: string }) => {
+        if (done) return;
+        done = true;
+        req.destroy();
+        resolve(result);
+      };
+
+      const req = http.get(`http://${host}:${port}/health`, { timeout: 3000 }, (res) => {
+        res.resume();
+        finish({ ok: true });
+      });
+
+      req.on('timeout', () => finish({ ok: false, reason: 'timeout' }));
+      req.on('error', (err: any) => finish({ ok: false, reason: err.code || err.message }));
+    });
+  }
+
   connectToPeer(peer: PeerInfo): void {
     // Skip if we already have a healthy (OPEN) connection
     const existing = this.connections.get(peer.id);
@@ -125,6 +150,24 @@ export class PeerConnectionManager {
     this.connectingStartTimes.set(peer.id, Date.now());
 
     const ws = new WebSocket(wsUrl);
+
+    // Run health probe as a preflight diagnostic hint (runs concurrently with WS handshake)
+    this.probeHealth(peer.host, peer.port).then(({ ok, reason }) => {
+      if (ok) {
+        console.log(`[P2P] Health probe OK for ${peer.host}:${peer.port}`);
+      } else {
+        console.log(`[P2P] Health probe failed for ${peer.host}:${peer.port} (${reason})`);
+        // On hard ECONNREFUSED, the peer is definitely not listening — abort early
+        if (reason === 'ECONNREFUSED') {
+          console.log(`[P2P] Aborting WS connect to ${peer.name} — peer not listening`);
+          this.connectingPeers.delete(peer.id);
+          this.connectingStartTimes.delete(peer.id);
+          try { ws.terminate(); } catch {}
+          return;
+        }
+        // On timeout or other errors, proceed — the WS timeout is the real gate
+      }
+    });
 
     // 20s connection timeout
     const connectTimeout = setTimeout(() => {

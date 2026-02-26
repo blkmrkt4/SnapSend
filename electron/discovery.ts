@@ -346,55 +346,14 @@ export class DiscoveryManager {
       this.bonjour = new Bonjour();
 
       this.browser = this.bonjour.find({ type: 'liquidrelay' }, (service: any) => {
+        this.handleFallbackService(service);
+      });
+
+      console.log(`[Discovery] Browser created, update available: ${typeof this.browser.update === 'function'}`);
+
+      this.browser.on('up', (service: any) => {
         const txt = service.txt as Record<string, string> | undefined;
-        const peerId = txt?.id;
-        const peerName = txt?.deviceName || service.name;
-        const txtIP = txt?.ip; // IP from TXT record
-        if (!peerId || peerId === this.localId) return;
-
-        const existingPeer = this.peers.get(peerId);
-
-        // Prefer IP from TXT record (cross-platform compatibility)
-        if (txtIP && /^\d+\.\d+\.\d+\.\d+$/.test(txtIP)) {
-          if (existingPeer) {
-            existingPeer.host = txtIP;
-            existingPeer.port = service.port;
-            existingPeer.name = peerName;
-            console.log(`[Discovery] Updated peer: ${peerName} at ${txtIP}:${service.port}`);
-            this.onPeerDiscovered?.(existingPeer);
-          } else {
-            console.log(`[Discovery] Using IP from TXT record: ${txtIP}`);
-            const peer: PeerInfo = { id: peerId, name: peerName, host: txtIP, port: service.port };
-            this.peers.set(peerId, peer);
-            console.log(`[Discovery] Peer discovered: ${peerName} at ${txtIP}:${service.port}`);
-            this.onPeerDiscovered?.(peer);
-          }
-          return;
-        }
-
-        // Fallback: resolve hostname to IP
-        const rawHost = service.host;
-        dnsLookup(rawHost, { family: 4 }, (err, ip) => {
-          const host = (!err && ip) ? ip : rawHost;
-          if (!err && ip) {
-            console.log(`[Discovery] Resolved ${rawHost} → ${ip}`);
-          }
-          const currentPeer = this.peers.get(peerId);
-          if (currentPeer) {
-            if (host && service.port > 0) {
-              currentPeer.host = host;
-              currentPeer.port = service.port;
-              currentPeer.name = peerName;
-              console.log(`[Discovery] Updated peer: ${peerName} at ${host}:${service.port}`);
-              this.onPeerDiscovered?.(currentPeer);
-            }
-          } else {
-            const peer: PeerInfo = { id: peerId, name: peerName, host, port: service.port };
-            this.peers.set(peerId, peer);
-            console.log(`[Discovery] Peer discovered: ${peerName} at ${host}:${service.port}`);
-            this.onPeerDiscovered?.(peer);
-          }
-        });
+        console.log(`[Discovery] Browser UP: ${txt?.deviceName || service.name} ${service.host} ${service.port}`);
       });
 
       this.browser.on('down', (service: any) => {
@@ -419,55 +378,70 @@ export class DiscoveryManager {
       console.log(`[Discovery] Fallback: publishing _liquidrelay._tcp on port ${this.localPort} (IP: ${localIP || 'unknown'})`);
 
       this.refreshTimer = setInterval(() => {
-        if (this.started && this.bonjour) {
-          if (this.browser) { try { this.browser.stop(); } catch {} }
-          this.browser = this.bonjour.find({ type: 'liquidrelay' }, (service: any) => {
-            const txt = service.txt as Record<string, string> | undefined;
-            const peerId = txt?.id;
-            const peerName = txt?.deviceName || service.name;
-            const txtIP = txt?.ip;
-            if (!peerId || peerId === this.localId) return;
-
-            const existingPeer = this.peers.get(peerId);
-
-            // Prefer IP from TXT record
-            if (txtIP && /^\d+\.\d+\.\d+\.\d+$/.test(txtIP)) {
-              if (existingPeer) {
-                existingPeer.host = txtIP;
-                existingPeer.port = service.port;
-                existingPeer.name = peerName;
-                this.onPeerDiscovered?.(existingPeer);
-              } else {
-                const peer: PeerInfo = { id: peerId, name: peerName, host: txtIP, port: service.port };
-                this.peers.set(peerId, peer);
-                this.onPeerDiscovered?.(peer);
-              }
-              return;
-            }
-
-            const rawHost = service.host;
-            dnsLookup(rawHost, { family: 4 }, (err, ip) => {
-              const host = (!err && ip) ? ip : rawHost;
-              const currentPeer = this.peers.get(peerId);
-              if (currentPeer) {
-                if (host && service.port > 0) {
-                  currentPeer.host = host;
-                  currentPeer.port = service.port;
-                  currentPeer.name = peerName;
-                  this.onPeerDiscovered?.(currentPeer);
-                }
-              } else {
-                const peer: PeerInfo = { id: peerId, name: peerName, host, port: service.port };
-                this.peers.set(peerId, peer);
-                this.onPeerDiscovered?.(peer);
-              }
-            });
-          });
+        if (this.started && this.browser) {
+          if (typeof this.browser.update === 'function') {
+            this.browser.update();
+            console.log('[Discovery] Fallback: sent refresh query via update()');
+          } else {
+            console.log('[Discovery] Fallback: browser.update() not available, relying on passive listening');
+          }
         }
-      }, 10000);
+      }, 30000);
     } catch (err: any) {
       console.error('[Discovery] Fallback failed to start:', err.message);
     }
+  }
+
+  private handleFallbackService(service: any): void {
+    const txt = service.txt as Record<string, string> | undefined;
+    const peerId = txt?.id;
+    const peerName = txt?.deviceName || service.name;
+    const txtIP = txt?.ip;
+    if (!peerId || peerId === this.localId) return;
+
+    const existingPeer = this.peers.get(peerId);
+
+    // Prefer IP from TXT record (cross-platform compatibility)
+    if (txtIP && /^\d+\.\d+\.\d+\.\d+$/.test(txtIP)) {
+      if (existingPeer) {
+        existingPeer.host = txtIP;
+        existingPeer.port = service.port;
+        existingPeer.name = peerName;
+        console.log(`[Discovery] Updated peer: ${peerName} at ${txtIP}:${service.port}`);
+        this.onPeerDiscovered?.(existingPeer);
+      } else {
+        console.log(`[Discovery] Using IP from TXT record: ${txtIP}`);
+        const peer: PeerInfo = { id: peerId, name: peerName, host: txtIP, port: service.port };
+        this.peers.set(peerId, peer);
+        console.log(`[Discovery] Peer discovered: ${peerName} at ${txtIP}:${service.port}`);
+        this.onPeerDiscovered?.(peer);
+      }
+      return;
+    }
+
+    // Fallback: resolve hostname to IP
+    const rawHost = service.host;
+    dnsLookup(rawHost, { family: 4 }, (err, ip) => {
+      const host = (!err && ip) ? ip : rawHost;
+      if (!err && ip) {
+        console.log(`[Discovery] Resolved ${rawHost} → ${ip}`);
+      }
+      const currentPeer = this.peers.get(peerId);
+      if (currentPeer) {
+        if (host && service.port > 0) {
+          currentPeer.host = host;
+          currentPeer.port = service.port;
+          currentPeer.name = peerName;
+          console.log(`[Discovery] Updated peer: ${peerName} at ${host}:${service.port}`);
+          this.onPeerDiscovered?.(currentPeer);
+        }
+      } else {
+        const peer: PeerInfo = { id: peerId, name: peerName, host, port: service.port };
+        this.peers.set(peerId, peer);
+        console.log(`[Discovery] Peer discovered: ${peerName} at ${host}:${service.port}`);
+        this.onPeerDiscovered?.(peer);
+      }
+    });
   }
 
   // ─── Public API (unchanged) ───────────────────────────────────────────

@@ -161,21 +161,40 @@ export function registerP2PIPC(
     },
   }, uploadsDir);
 
-  ipcMain.handle('connect-to-peer', (_event, peerId: string) => {
+  ipcMain.handle('connect-to-peer', async (_event, peerId: string) => {
     // Skip if already connected
     if (peerManager && peerManager.isConnected(peerId)) {
       console.log(`[IPC] Already connected to peer: ${peerId}`);
-      return;
+      return { status: 'already-connected' };
     }
+
+    // Reset retry backoff for this peer so the reconnect loop doesn't block it
+    peerRetryCount.delete(peerId);
+    peerLastAttempt.delete(peerId);
+    console.log(`[IPC] Retry: reset backoff for ${peerId}`);
+
+    // Restart discovery to refresh mDNS and get updated host/port
+    discovery.restart();
+    console.log(`[IPC] Retry: restarted discovery, waiting 2s for refresh`);
+
+    // Wait 2 seconds for discovery to settle and find fresh addresses
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // Re-fetch peer from discovery to get freshest address
     const peers = discovery.getPeers();
     const peer = peers.find(p => p.id === peerId);
     if (peer && peerManager) {
       // Skip if peer has invalid address (incoming peer that connected to us)
       if (!peer.host || peer.port <= 0) {
         console.log(`[IPC] Cannot connect to ${peer.name}: no valid address (they connected to us)`);
-        return;
+        return { status: 'no-address' };
       }
+      console.log(`[IPC] Retry: connecting to ${peer.name} at ${peer.host}:${peer.port}`);
       peerManager.connectToPeer(peer);
+      return { status: 'connecting' };
+    } else {
+      console.log(`[IPC] Retry: peer ${peerId} not found in discovery after refresh`);
+      return { status: 'not-found' };
     }
   });
 

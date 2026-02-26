@@ -60,6 +60,11 @@ export interface RouteOptions {
 export async function registerRoutes(app: Express, options?: RouteOptions): Promise<Server> {
   const httpServer = createServer(app);
 
+  // Health check endpoint (used by peer-connection probeHealth)
+  app.get('/health', (_req, res) => {
+    res.json({ status: 'ok' });
+  });
+
   // WebSocket server setup
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
 

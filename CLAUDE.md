@@ -94,6 +94,16 @@ B → A: { type: "file-received-ack", data: { filename } }
 
 Server-side `routes.ts` distinguishes peer connections (start with `peer-handshake`) from local renderer clients (start with `device-setup`).
 
+## Test Environment
+
+File transfers and P2P connections have been **successfully tested between all three machines** on the local network:
+
+- **Mac Mini** (macOS, arm64) — uses native `dns-sd` for mDNS discovery
+- **Windows PC** — uses `bonjour-service` fallback for mDNS discovery
+- **Windows Laptop** — uses `bonjour-service` fallback for mDNS discovery
+
+All three machines connect and transfer files over port 53000. **There are no firewall issues blocking port 53000 on any of these machines.** Do not suggest firewalls as a cause when troubleshooting connectivity problems between them.
+
 ## Important Constraints
 
 - **No cloud anything.** No external database, no external API calls, no analytics, no telemetry. All data on local disk.
