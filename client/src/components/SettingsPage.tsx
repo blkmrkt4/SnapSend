@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Settings, Monitor, KeyRound, Wifi, Pencil, Check, Pin, Ghost, Sparkles, FileText, ScrollText, Trash2, RotateCcw, ChevronDown, Bug, Download } from 'lucide-react';
+import { Settings, Monitor, KeyRound, Wifi, Pencil, Check, Pin, Ghost, Sparkles, FileText, ScrollText, Trash2, RotateCcw, ChevronDown, Bug, Download, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { LicenseStatus, OllamaStatus } from '@/types/electron';
 import { SmartNamingSetupModal } from './SmartNamingSetupModal';
@@ -34,12 +34,15 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
   const [windowOpen, setWindowOpen] = useState(false);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isFixingFirewall, setIsFixingFirewall] = useState(false);
+  const [platform, setPlatform] = useState('');
   const [licenseOpen, setLicenseOpen] = useState(false);
 
   const isElectronProd = window.electronAPI?.isElectron && !window.electronAPI?.isDev;
 
   useEffect(() => {
     if (isElectronProd) {
+      window.electronAPI!.getPlatform().then(setPlatform).catch(() => {});
       window.electronAPI!.getLicenseStatus().then(setLicenseStatus).catch(() => {});
       window.electronAPI!.getPortSetting().then((port) => setPortSetting(String(port))).catch(() => {});
       window.electronAPI!.getConnectionMode().then((mode) => setConnectionMode(mode as 'server' | 'client')).catch(() => {});
@@ -594,6 +597,40 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
                 Open Log File
               </Button>
             </div>
+
+            {/* Windows Firewall Fix — only visible on Windows */}
+            {platform === 'win32' && (
+              <div className="border-t pt-3 mt-1">
+                <div className="text-xs text-muted-foreground mb-2">
+                  If other devices can't connect to this machine, Windows Firewall may be blocking inbound connections.
+                  This adds a firewall rule to allow Liquid Relay on your current port.
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs gap-1.5"
+                  disabled={isFixingFirewall}
+                  onClick={async () => {
+                    setIsFixingFirewall(true);
+                    try {
+                      const result = await window.electronAPI?.fixWindowsFirewall?.();
+                      if (result?.success) {
+                        toast({ title: 'Firewall rule added', description: 'Other devices should now be able to connect to this machine.' });
+                      } else if (result?.reason) {
+                        toast({ title: 'Firewall fix failed', description: result.reason, variant: 'destructive' });
+                      }
+                    } catch {
+                      toast({ title: 'Firewall fix failed', variant: 'destructive' });
+                    } finally {
+                      setIsFixingFirewall(false);
+                    }
+                  }}
+                >
+                  <Shield className="h-3.5 w-3.5" />
+                  {isFixingFirewall ? 'Fixing...' : 'Fix Windows Firewall'}
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>

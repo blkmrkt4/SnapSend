@@ -975,6 +975,51 @@ ipcMain.handle('open-log-file', async () => {
   return shell.openPath(logFile);
 });
 
+// Windows Firewall fix IPC handler
+ipcMain.handle('fix-windows-firewall', async () => {
+  if (process.platform !== 'win32') {
+    return { success: false, reason: 'Not Windows' };
+  }
+  try {
+    const exePath = app.getPath('exe');
+    const port = serverPort;
+    const ruleName = 'Liquid Relay';
+
+    // Build a script that:
+    // 1. Removes any stale rules with our name (idempotent, ignores errors)
+    // 2. Removes old "electron" rules that may be blocking
+    // 3. Adds fresh inbound TCP allow rule for our exe
+    const script = [
+      `netsh advfirewall firewall delete rule name="${ruleName}" >nul 2>&1`,
+      `netsh advfirewall firewall delete rule name="electron" program="${exePath}" >nul 2>&1`,
+      `netsh advfirewall firewall add rule name="${ruleName}" dir=in action=allow program="${exePath}" protocol=TCP localport=${port} enable=yes profile=private,domain`,
+    ].join(' & ');
+
+    // Use PowerShell Start-Process -Verb RunAs to trigger UAC elevation
+    const psCommand = `Start-Process cmd.exe -ArgumentList '/c ${script.replace(/"/g, '\\"')}' -Verb RunAs -Wait`;
+
+    const { exec } = require('child_process') as typeof import('child_process');
+    return new Promise((resolve) => {
+      exec(`powershell -Command "${psCommand.replace(/"/g, '\\"')}"`, { timeout: 30000 }, (err) => {
+        if (err) {
+          console.error('[Firewall] Fix failed:', err.message);
+          if (err.message.includes('canceled') || err.message.includes('cancelled') || (err as any).code === 1) {
+            resolve({ success: false, reason: 'UAC prompt was cancelled' });
+          } else {
+            resolve({ success: false, reason: err.message });
+          }
+        } else {
+          console.log('[Firewall] Rules updated successfully');
+          resolve({ success: true });
+        }
+      });
+    });
+  } catch (err: any) {
+    console.error('[Firewall] Fix error:', err);
+    return { success: false, reason: err.message };
+  }
+});
+
 app.whenReady().then(startApp);
 
 app.on('window-all-closed', () => {

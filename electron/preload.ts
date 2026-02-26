@@ -133,4 +133,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Diagnostics
   exportDiagnostics: () => ipcRenderer.invoke('export-diagnostics'),
   openLogFile: () => ipcRenderer.invoke('open-log-file'),
+  fixWindowsFirewall: () => ipcRenderer.invoke('fix-windows-firewall'),
 });
