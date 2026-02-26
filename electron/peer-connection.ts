@@ -863,6 +863,36 @@ export class PeerConnectionManager {
     return (transfer.receivedChunks / transfer.totalChunks) * 100;
   }
 
+  getDebugState() {
+    const connections: { peerId: string; name: string; readyState: number; handshaked: boolean }[] = [];
+    this.connections.forEach((ws, peerId) => {
+      const info = this.peerInfo.get(peerId);
+      connections.push({
+        peerId,
+        name: info?.name || peerId,
+        readyState: ws.readyState,
+        handshaked: this.handshaked.has(peerId),
+      });
+    });
+
+    return {
+      connectionCount: this.connections.size,
+      connections,
+      handshakedPeers: Array.from(this.handshaked),
+      connectingPeers: Array.from(this.connectingPeers),
+      pendingAckCount: this.pendingAcks.size,
+      pendingAckKeys: Array.from(this.pendingAcks.keys()),
+      activeTransferCount: this.inProgressTransfers.size,
+      activeTransfers: Array.from(this.inProgressTransfers.values()).map(t => ({
+        transferId: t.transferId,
+        originalName: t.originalName,
+        progress: t.totalChunks > 0 ? Math.round((t.receivedChunks / t.totalChunks) * 100) : 0,
+        peerId: t.peerId,
+      })),
+      relayDeviceCount: this.relayDeviceToHub.size,
+    };
+  }
+
   // Get all active transfers
   getActiveTransfers(): ChunkedTransferState[] {
     return Array.from(this.inProgressTransfers.values()).map(t => ({

@@ -252,8 +252,8 @@ export function LeftSidebar({
 
     if (internalFileData) {
       // Internal file from shared files section - requires a remote device
-      if (!selectedTargetId || selectedTargetId === LOCAL_DEVICE_ID) {
-        // No remote device selected - show message
+      if (selectedTargetId === LOCAL_DEVICE_ID) {
+        // Local device selected - can't re-share to self
         setShowNoDeviceMessage(true);
         setTimeout(() => setShowNoDeviceMessage(false), 3000);
         return;

@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Settings, Monitor, KeyRound, Wifi, Pencil, Check, Pin, Ghost, Sparkles, FileText, ScrollText, Trash2, RotateCcw, ChevronDown } from 'lucide-react';
+import { Settings, Monitor, KeyRound, Wifi, Pencil, Check, Pin, Ghost, Sparkles, FileText, ScrollText, Trash2, RotateCcw, ChevronDown, Bug, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { LicenseStatus, OllamaStatus } from '@/types/electron';
 import { SmartNamingSetupModal } from './SmartNamingSetupModal';
@@ -32,6 +32,8 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
   const [smartNamingOpen, setSmartNamingOpen] = useState(false);
   const [connectionModeOpen, setConnectionModeOpen] = useState(true);
   const [windowOpen, setWindowOpen] = useState(false);
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [licenseOpen, setLicenseOpen] = useState(false);
 
   const isElectronProd = window.electronAPI?.isElectron && !window.electronAPI?.isDev;
@@ -532,6 +534,67 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
               </div>
             </div>
           </>
+        )}
+      </div>
+
+      {/* Diagnostics — Collapsible */}
+      <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+        <button
+          onClick={() => setDiagnosticsOpen(!diagnosticsOpen)}
+          className="flex items-center gap-2 px-4 py-3 w-full bg-muted/30 hover:bg-muted/50 transition-colors"
+        >
+          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${diagnosticsOpen ? 'rotate-180' : ''}`} />
+          <Bug className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-semibold text-foreground">Diagnostics</span>
+        </button>
+
+        {diagnosticsOpen && (
+          <div className="border-t px-4 py-3 space-y-3">
+            <div className="text-xs text-muted-foreground">
+              Export a snapshot of device info, discovery state, connections, and recent logs for troubleshooting.
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs gap-1.5"
+                disabled={isExporting}
+                onClick={async () => {
+                  setIsExporting(true);
+                  try {
+                    const result = await window.electronAPI?.exportDiagnostics?.();
+                    if (result?.success) {
+                      toast({ title: 'Diagnostics exported', description: result.filePath });
+                    } else if (result?.reason !== 'cancelled') {
+                      toast({ title: 'Export failed', description: result?.reason || 'Unknown error', variant: 'destructive' });
+                    }
+                  } catch {
+                    toast({ title: 'Export failed', variant: 'destructive' });
+                  } finally {
+                    setIsExporting(false);
+                  }
+                }}
+              >
+                <Download className="h-3.5 w-3.5" />
+                {isExporting ? 'Exporting...' : 'Export Diagnostics'}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs gap-1.5"
+                onClick={async () => {
+                  try {
+                    await window.electronAPI?.openLogFile?.();
+                  } catch {
+                    toast({ title: 'Failed to open log file', variant: 'destructive' });
+                  }
+                }}
+              >
+                <ScrollText className="h-3.5 w-3.5" />
+                Open Log File
+              </Button>
+            </div>
+          </div>
         )}
       </div>
 

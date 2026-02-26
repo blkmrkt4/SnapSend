@@ -1,9 +1,12 @@
-import { app, BrowserWindow, ipcMain, shell, clipboard, powerMonitor } from 'electron';
+import './logger'; // Must be first — patches console to capture all output
+import { app, BrowserWindow, ipcMain, shell, clipboard, powerMonitor, dialog } from 'electron';
+import os from 'os';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { DiscoveryManager } from './discovery';
 import { registerDiscoveryIPC, registerP2PIPC, getPeerManager, resetPeerRetries } from './ipc-handlers';
 import { activateLicense, validateLicense, deactivateLicense, getLicenseStatus } from './license';
+import { readRecentLogLines, getLogPath, closeLogStream } from './logger';
 import {
   captureSelectArea,
   captureWindowNative,
@@ -564,6 +567,9 @@ function gracefulShutdown() {
 
   // Clean up screenshot temp files and overlays
   cleanupScreenshotTemp();
+
+  // Close log stream
+  closeLogStream();
 }
 
 // IPC handlers
@@ -908,6 +914,66 @@ ipcMain.handle('clear-prompt-log', () => clearPromptLog());
 ipcMain.handle('reset-prompt-config', () => resetPromptConfig());
 ipcMain.handle('get-image-model', () => getConfigImageModel());
 ipcMain.handle('set-image-model', (_event, model: string) => setConfigImageModel(model));
+
+// Diagnostics IPC handlers
+ipcMain.handle('export-diagnostics', async () => {
+  try {
+    const pm = getPeerManager();
+    const diagData = {
+      exportedAt: new Date().toISOString(),
+      platform: {
+        os: process.platform,
+        arch: process.arch,
+        hostname: os.hostname(),
+        release: os.release(),
+        networkInterfaces: os.networkInterfaces(),
+      },
+      app: {
+        version: app.getVersion(),
+        electron: process.versions.electron,
+        node: process.versions.node,
+      },
+      device: {
+        id: getOrCreateDeviceId(),
+        name: getDeviceName(),
+        port: serverPort,
+        mode: getConnectionMode(),
+      },
+      discovery: discovery?.getDebugState() || null,
+      connections: pm?.getDebugState() || null,
+      enabledDevices: Object.fromEntries(enabledDevicesCache),
+      logs: readRecentLogLines(500),
+    };
+
+    const result = await dialog.showSaveDialog({
+      title: 'Export Diagnostics',
+      defaultPath: path.join(app.getPath('desktop'), `liquid-relay-diagnostics-${Date.now()}.json`),
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    });
+
+    if (result.canceled || !result.filePath) {
+      return { success: false, reason: 'cancelled' };
+    }
+
+    const fs = require('fs') as typeof import('fs');
+    fs.writeFileSync(result.filePath, JSON.stringify(diagData, null, 2), 'utf-8');
+    return { success: true, filePath: result.filePath };
+  } catch (err: any) {
+    console.error('[Diagnostics] Export failed:', err);
+    return { success: false, reason: err.message };
+  }
+});
+
+ipcMain.handle('open-log-file', async () => {
+  const logFile = getLogPath();
+  const fs = require('fs') as typeof import('fs');
+  // Ensure file exists before opening
+  if (!fs.existsSync(logFile)) {
+    fs.mkdirSync(path.dirname(logFile), { recursive: true });
+    fs.writeFileSync(logFile, '', 'utf-8');
+  }
+  return shell.openPath(logFile);
+});
 
 app.whenReady().then(startApp);
 

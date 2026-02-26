@@ -112,6 +112,10 @@ export interface ElectronAPI {
   resetPromptConfig: () => Promise<void>;
   getImageModel?: () => Promise<string>;
   setImageModel?: (model: string) => Promise<void>;
+
+  // Diagnostics
+  exportDiagnostics?: () => Promise<{ success: boolean; filePath?: string; reason?: string }>;
+  openLogFile?: () => Promise<string>;
 }
 
 export interface LicenseStatus {

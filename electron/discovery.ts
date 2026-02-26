@@ -3,18 +3,37 @@ import { lookup as dnsLookup } from 'dns';
 import { networkInterfaces } from 'os';
 
 /**
- * Get the local IPv4 address (non-internal, first match)
+ * Get the best local IPv4 address for LAN communication.
+ * Scores interfaces to prefer real adapters over virtual/VPN ones.
  */
 function getLocalIPv4(): string | null {
   const nets = networkInterfaces();
-  for (const name of Object.keys(nets)) {
-    for (const net of nets[name] || []) {
-      if (net.family === 'IPv4' && !net.internal) {
-        return net.address;
-      }
+  const candidates: { address: string; name: string; score: number }[] = [];
+
+  for (const [name, addrs] of Object.entries(nets)) {
+    for (const net of addrs || []) {
+      if (net.family !== 'IPv4' || net.internal) continue;
+      let score = 0;
+      const lo = name.toLowerCase();
+      // Penalize known virtual adapters
+      if (/vethernet|vmnet|docker|vbox|hyper-v|wsl|virtualbox|vmware/i.test(lo)) score -= 10;
+      if (/vpn|tun|tap|tailscale|zt|wireguard/i.test(lo)) score -= 10;
+      // Prefer common real adapter names
+      if (/^(ethernet|wi-fi|en\d|eth\d|wlan\d)/i.test(lo)) score += 5;
+      // Prefer 192.168.x.x (typical home/office LAN)
+      if (net.address.startsWith('192.168.')) score += 3;
+      // 10.x.x.x is ambiguous but still better than 172.x.x.x (Docker often uses 172.17+)
+      if (net.address.startsWith('10.')) score += 1;
+      candidates.push({ address: net.address, name, score });
     }
   }
-  return null;
+
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => b.score - a.score);
+  if (candidates.length > 1) {
+    console.log(`[Discovery] IP candidates: ${candidates.map(c => `${c.address}(${c.name},${c.score})`).join(', ')}`);
+  }
+  return candidates[0].address;
 }
 
 export interface PeerInfo {
@@ -499,6 +518,23 @@ export class DiscoveryManager {
       this.stopNative();
       this.startNative();
     }
+  }
+
+  getDebugState() {
+    return {
+      started: this.started,
+      useFallback: this.useFallback,
+      localId: this.localId,
+      localName: this.localName,
+      localPort: this.localPort,
+      peerCount: this.peers.size,
+      peers: Array.from(this.peers.values()),
+      registerProcAlive: !!this.registerProc && !this.registerProc.killed,
+      browseProcAlive: !!this.browseProc && !this.browseProc.killed,
+      lookupProcsCount: this.lookupProcs.size,
+      bonjourActive: !!this.bonjour,
+      browserActive: !!this.browser,
+    };
   }
 
   stop() {
