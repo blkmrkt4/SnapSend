@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, shell, clipboard, powerMonitor } from 'ele
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { DiscoveryManager } from './discovery';
-import { registerDiscoveryIPC, registerP2PIPC, getPeerManager } from './ipc-handlers';
+import { registerDiscoveryIPC, registerP2PIPC, getPeerManager, resetPeerRetries } from './ipc-handlers';
 import { activateLicense, validateLicense, deactivateLicense, getLicenseStatus } from './license';
 import {
   captureSelectArea,
@@ -473,20 +473,35 @@ async function startApp() {
         registerP2PIPC(mainWindow, discovery, deviceId, deviceName, serverPort, uploadsDir);
       }
 
-      // Wake recovery: restart discovery and reconnect peers after system resume
-      powerMonitor.on('resume', () => {
-        console.log('[Power] System resumed from sleep — restarting discovery');
+      // Wake/unlock recovery: clean up dead connections, restart discovery, reconnect
+      const handleWakeRecovery = (source: string) => {
+        console.log(`[Power] ${source} — cleaning up dead connections and restarting discovery`);
+
+        // 1. Close all dead WebSocket connections
+        const pm = getPeerManager();
+        if (pm) {
+          pm.disconnectAll();
+        }
+
+        // 2. Reset retry backoff for fresh start
+        resetPeerRetries();
+
+        // 3. Restart mDNS discovery
         if (discovery) {
           discovery.restart();
         }
-        // Delay reconnect to let discovery re-populate peers
+
+        // 4. Delay reconnect to let discovery re-populate peers
         setTimeout(() => {
           if (reconnectDisconnectedPeers) {
-            console.log('[Power] Attempting peer reconnection after wake');
+            console.log(`[Power] Attempting peer reconnection after ${source}`);
             reconnectDisconnectedPeers();
           }
         }, 5000);
-      });
+      };
+
+      powerMonitor.on('resume', () => handleWakeRecovery('System resumed from sleep'));
+      powerMonitor.on('unlock-screen', () => handleWakeRecovery('Screen unlocked'));
 
       console.log(`Liquid Relay ready: device="${deviceName}" id=${deviceId} port=${serverPort}`);
     } else {

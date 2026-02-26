@@ -255,23 +255,33 @@ export class DiscoveryManager {
       const txtIP = txt.ip; // IP address from TXT record (Windows advertises this)
 
       if (peerId === this.localId) return;
-      if (this.peers.has(peerId)) return;
+
+      // If peer already exists, update host/port/name if we have better data
+      const existingPeer = this.peers.get(peerId);
+      const isRediscovery = !!existingPeer;
 
       // If TXT record contains an IP, use it directly (Windows peers)
       if (txtIP && /^\d+\.\d+\.\d+\.\d+$/.test(txtIP)) {
         console.log(`[Discovery] Using IP from TXT record: ${txtIP}`);
-        const peer: PeerInfo = { id: peerId, name: peerName, host: txtIP, port };
-        this.peers.set(peerId, peer);
-        console.log(`[Discovery] Peer discovered: ${peerName} at ${txtIP}:${port}`);
-        this.onPeerDiscovered?.(peer);
+        if (isRediscovery) {
+          // Update existing peer with better info
+          existingPeer!.host = txtIP;
+          existingPeer!.port = port;
+          existingPeer!.name = peerName;
+          console.log(`[Discovery] Updated peer: ${peerName} at ${txtIP}:${port}`);
+          this.onPeerDiscovered?.(existingPeer!);
+        } else {
+          const peer: PeerInfo = { id: peerId, name: peerName, host: txtIP, port };
+          this.peers.set(peerId, peer);
+          console.log(`[Discovery] Peer discovered: ${peerName} at ${txtIP}:${port}`);
+          this.onPeerDiscovered?.(peer);
+        }
         return;
       }
 
       // Resolve .local hostname to IP address — Node's ws/http client
       // doesn't reliably resolve mDNS hostnames on all machines.
       dnsLookup(rawHost, { family: 4 }, (dnsErr, ip) => {
-        if (this.peers.has(peerId)) return; // Another resolution beat us
-
         const host = (!dnsErr && ip) ? ip : rawHost;
         if (!dnsErr && ip) {
           console.log(`[Discovery] Resolved ${rawHost} → ${ip}`);
@@ -279,10 +289,22 @@ export class DiscoveryManager {
           console.warn(`[Discovery] Could not resolve ${rawHost}: ${dnsErr?.message}, using hostname`);
         }
 
-        const peer: PeerInfo = { id: peerId, name: peerName, host, port };
-        this.peers.set(peerId, peer);
-        console.log(`[Discovery] Peer discovered: ${peerName} at ${host}:${port}`);
-        this.onPeerDiscovered?.(peer);
+        const currentPeer = this.peers.get(peerId);
+        if (currentPeer) {
+          // Update existing peer with better host/port
+          if (host && port > 0) {
+            currentPeer.host = host;
+            currentPeer.port = port;
+            currentPeer.name = peerName;
+            console.log(`[Discovery] Updated peer: ${peerName} at ${host}:${port}`);
+            this.onPeerDiscovered?.(currentPeer);
+          }
+        } else {
+          const peer: PeerInfo = { id: peerId, name: peerName, host, port };
+          this.peers.set(peerId, peer);
+          console.log(`[Discovery] Peer discovered: ${peerName} at ${host}:${port}`);
+          this.onPeerDiscovered?.(peer);
+        }
       });
     });
 
@@ -328,30 +350,50 @@ export class DiscoveryManager {
         const peerId = txt?.id;
         const peerName = txt?.deviceName || service.name;
         const txtIP = txt?.ip; // IP from TXT record
-        if (!peerId || peerId === this.localId || this.peers.has(peerId)) return;
+        if (!peerId || peerId === this.localId) return;
+
+        const existingPeer = this.peers.get(peerId);
 
         // Prefer IP from TXT record (cross-platform compatibility)
         if (txtIP && /^\d+\.\d+\.\d+\.\d+$/.test(txtIP)) {
-          console.log(`[Discovery] Using IP from TXT record: ${txtIP}`);
-          const peer: PeerInfo = { id: peerId, name: peerName, host: txtIP, port: service.port };
-          this.peers.set(peerId, peer);
-          console.log(`[Discovery] Peer discovered: ${peerName} at ${txtIP}:${service.port}`);
-          this.onPeerDiscovered?.(peer);
+          if (existingPeer) {
+            existingPeer.host = txtIP;
+            existingPeer.port = service.port;
+            existingPeer.name = peerName;
+            console.log(`[Discovery] Updated peer: ${peerName} at ${txtIP}:${service.port}`);
+            this.onPeerDiscovered?.(existingPeer);
+          } else {
+            console.log(`[Discovery] Using IP from TXT record: ${txtIP}`);
+            const peer: PeerInfo = { id: peerId, name: peerName, host: txtIP, port: service.port };
+            this.peers.set(peerId, peer);
+            console.log(`[Discovery] Peer discovered: ${peerName} at ${txtIP}:${service.port}`);
+            this.onPeerDiscovered?.(peer);
+          }
           return;
         }
 
         // Fallback: resolve hostname to IP
         const rawHost = service.host;
         dnsLookup(rawHost, { family: 4 }, (err, ip) => {
-          if (this.peers.has(peerId)) return;
           const host = (!err && ip) ? ip : rawHost;
           if (!err && ip) {
             console.log(`[Discovery] Resolved ${rawHost} → ${ip}`);
           }
-          const peer: PeerInfo = { id: peerId, name: peerName, host, port: service.port };
-          this.peers.set(peerId, peer);
-          console.log(`[Discovery] Peer discovered: ${peerName} at ${host}:${service.port}`);
-          this.onPeerDiscovered?.(peer);
+          const currentPeer = this.peers.get(peerId);
+          if (currentPeer) {
+            if (host && service.port > 0) {
+              currentPeer.host = host;
+              currentPeer.port = service.port;
+              currentPeer.name = peerName;
+              console.log(`[Discovery] Updated peer: ${peerName} at ${host}:${service.port}`);
+              this.onPeerDiscovered?.(currentPeer);
+            }
+          } else {
+            const peer: PeerInfo = { id: peerId, name: peerName, host, port: service.port };
+            this.peers.set(peerId, peer);
+            console.log(`[Discovery] Peer discovered: ${peerName} at ${host}:${service.port}`);
+            this.onPeerDiscovered?.(peer);
+          }
         });
       });
 
@@ -384,23 +426,41 @@ export class DiscoveryManager {
             const peerId = txt?.id;
             const peerName = txt?.deviceName || service.name;
             const txtIP = txt?.ip;
-            if (!peerId || peerId === this.localId || this.peers.has(peerId)) return;
+            if (!peerId || peerId === this.localId) return;
+
+            const existingPeer = this.peers.get(peerId);
 
             // Prefer IP from TXT record
             if (txtIP && /^\d+\.\d+\.\d+\.\d+$/.test(txtIP)) {
-              const peer: PeerInfo = { id: peerId, name: peerName, host: txtIP, port: service.port };
-              this.peers.set(peerId, peer);
-              this.onPeerDiscovered?.(peer);
+              if (existingPeer) {
+                existingPeer.host = txtIP;
+                existingPeer.port = service.port;
+                existingPeer.name = peerName;
+                this.onPeerDiscovered?.(existingPeer);
+              } else {
+                const peer: PeerInfo = { id: peerId, name: peerName, host: txtIP, port: service.port };
+                this.peers.set(peerId, peer);
+                this.onPeerDiscovered?.(peer);
+              }
               return;
             }
 
             const rawHost = service.host;
             dnsLookup(rawHost, { family: 4 }, (err, ip) => {
-              if (this.peers.has(peerId)) return;
               const host = (!err && ip) ? ip : rawHost;
-              const peer: PeerInfo = { id: peerId, name: peerName, host, port: service.port };
-              this.peers.set(peerId, peer);
-              this.onPeerDiscovered?.(peer);
+              const currentPeer = this.peers.get(peerId);
+              if (currentPeer) {
+                if (host && service.port > 0) {
+                  currentPeer.host = host;
+                  currentPeer.port = service.port;
+                  currentPeer.name = peerName;
+                  this.onPeerDiscovered?.(currentPeer);
+                }
+              } else {
+                const peer: PeerInfo = { id: peerId, name: peerName, host, port: service.port };
+                this.peers.set(peerId, peer);
+                this.onPeerDiscovered?.(peer);
+              }
             });
           });
         }
@@ -434,7 +494,16 @@ export class DiscoveryManager {
    * them through the handshake. This adds them to the discovered peers list.
    */
   addIncomingPeer(peerId: string, peerName: string): void {
-    if (peerId === this.localId || this.peers.has(peerId)) return;
+    if (peerId === this.localId) return;
+
+    const existingPeer = this.peers.get(peerId);
+    if (existingPeer) {
+      // Peer already known — update name but DON'T overwrite valid host/port with empty values
+      existingPeer.name = peerName;
+      console.log(`[Discovery] Updated incoming peer name: ${peerName} (${peerId}), keeping host=${existingPeer.host}:${existingPeer.port}`);
+      this.onPeerDiscovered?.(existingPeer);
+      return;
+    }
 
     // We don't know their host/port since they connected to us, but we can
     // still add them to the list so the UI shows them.

@@ -196,6 +196,18 @@ export async function registerRoutes(app: Express, options?: RouteOptions): Prom
             return;
           }
 
+          // ─── P2P Health Ping/Pong ───
+          if (isPeerConnection && message.type === 'peer-ping') {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: 'peer-pong', data: {} }));
+            }
+            return;
+          }
+          if (isPeerConnection && (message.type === 'peer-pong' || message.type === 'file-received-ack' || message.type === 'peer-handshake-ack')) {
+            // Handled by PeerConnectionManager via its own message listener
+            return;
+          }
+
           // ─── P2P File Transfer from remote peer ───
           if (isPeerConnection && message.type === 'file-transfer') {
             const fileData = message.data;

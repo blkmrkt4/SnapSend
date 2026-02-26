@@ -1102,6 +1102,22 @@ export function useConnectionSystem() {
               } catch (error) {
                 console.error('Error persisting sent file:', error);
               }
+            } else {
+              // Send failed or ack timed out — notify user
+              toast({
+                title: 'Send failed',
+                description: `${fileData.originalName} was not delivered to ${targetConn.partnerName || 'device'}`,
+              });
+              setState(prev => ({
+                ...prev,
+                notifications: [...prev.notifications, {
+                  id: Date.now(),
+                  type: 'error',
+                  title: 'Send failed',
+                  message: `${fileData.originalName} was not delivered to ${targetConn.partnerName || 'device'}`,
+                  timestamp: new Date(),
+                }],
+              }));
             }
           });
         } else if (wsRef.current?.readyState === WebSocket.OPEN) {

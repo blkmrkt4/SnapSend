@@ -49,6 +49,17 @@ export class PeerConnectionManager {
   private inProgressTransfers: Map<string, InProgressChunkTransfer> = new Map(); // transferId → transfer state
   private uploadsDir: string;
 
+  // Ack-confirmed delivery: pending acks keyed by filename
+  private pendingAcks: Map<string, { resolve: (v: boolean) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }> = new Map();
+
+  // In-flight connection protection
+  private connectingPeers: Set<string> = new Set();
+  private connectingStartTimes: Map<string, number> = new Map();
+
+  // Health ping
+  private pingInterval: ReturnType<typeof setInterval> | null = null;
+  private pongTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+
   constructor(
     localId: string,
     localName: string,
@@ -69,6 +80,9 @@ export class PeerConnectionManager {
 
     // Clean up stale transfers after 5 minutes of inactivity
     setInterval(() => this.cleanupStaleTransfers(), 60000);
+
+    // Health ping: every 15s, ping all connected peers
+    this.pingInterval = setInterval(() => this.sendPings(), 15000);
   }
 
   connectToPeer(peer: PeerInfo): void {
@@ -77,6 +91,16 @@ export class PeerConnectionManager {
     if (existing && existing.readyState === WebSocket.OPEN) {
       console.log(`[P2P] Already connected to ${peer.name} (OPEN)`);
       return;
+    }
+
+    // In-flight protection: skip if already connecting (unless stale >20s)
+    if (this.connectingPeers.has(peer.id)) {
+      const startTime = this.connectingStartTimes.get(peer.id) || 0;
+      if (Date.now() - startTime < 20000) {
+        console.log(`[P2P] Already connecting to ${peer.name} (in-flight), skipping`);
+        return;
+      }
+      console.log(`[P2P] Stale in-flight connection to ${peer.name} (>20s), retrying`);
     }
 
     // If there's a stale/connecting WS, remove it so we can reconnect
@@ -96,9 +120,25 @@ export class PeerConnectionManager {
     const wsUrl = `ws://${peer.host}:${peer.port}/ws`;
     console.log(`[P2P] Connecting to ${peer.name} at ${wsUrl}`);
 
+    // Mark as in-flight
+    this.connectingPeers.add(peer.id);
+    this.connectingStartTimes.set(peer.id, Date.now());
+
     const ws = new WebSocket(wsUrl);
 
+    // 20s connection timeout
+    const connectTimeout = setTimeout(() => {
+      if (ws.readyState === WebSocket.CONNECTING) {
+        console.log(`[P2P] Connection timeout for ${peer.name} (20s), terminating`);
+        ws.terminate();
+      }
+    }, 20000);
+
     ws.on('open', () => {
+      clearTimeout(connectTimeout);
+      this.connectingPeers.delete(peer.id);
+      this.connectingStartTimes.delete(peer.id);
+
       // Store the connection only once it's actually open
       this.connections.set(peer.id, ws);
       this.peerInfo.set(peer.id, peer);
@@ -121,10 +161,15 @@ export class PeerConnectionManager {
     });
 
     ws.on('close', () => {
+      clearTimeout(connectTimeout);
+      this.connectingPeers.delete(peer.id);
+      this.connectingStartTimes.delete(peer.id);
+
       // Only clean up if this WS is still the active one (it may have been replaced)
       if (this.connections.get(peer.id) === ws) {
         this.connections.delete(peer.id);
         this.peerInfo.delete(peer.id);
+        this.cancelPongTimer(peer.id);
         const wasHandshaked = this.handshaked.has(peer.id);
         this.handshaked.delete(peer.id);
         if (wasHandshaked) {
@@ -139,6 +184,9 @@ export class PeerConnectionManager {
     });
 
     ws.on('error', (err: any) => {
+      clearTimeout(connectTimeout);
+      this.connectingPeers.delete(peer.id);
+      this.connectingStartTimes.delete(peer.id);
       console.warn(`[P2P] Connection error with ${peer.name}: ${err.message || err.code || err}`);
     });
   }
@@ -162,15 +210,31 @@ export class PeerConnectionManager {
     return false;
   }
 
-  sendFileToPeer(peerId: string, fileData: any): boolean {
+  sendFileToPeer(peerId: string, fileData: any): Promise<boolean> {
     console.log(`[P2P] sendFileToPeer called: peerId=${peerId}, file=${fileData.originalName}, connections=[${Array.from(this.connections.keys()).join(', ')}]`);
-    return this.sendToPeer(peerId, {
+    const sent = this.sendToPeer(peerId, {
       type: 'file-transfer',
       data: {
         ...fileData,
         fromId: this.localId,
         fromName: this.localName,
       },
+    });
+
+    if (!sent) {
+      return Promise.resolve(false);
+    }
+
+    // Wait for file-received-ack from peer (keyed by filename)
+    const ackKey = fileData.filename;
+    return new Promise<boolean>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pendingAcks.delete(ackKey);
+        console.warn(`[P2P] Ack timeout for ${fileData.originalName} to peer ${peerId}`);
+        resolve(false); // Resolve false instead of reject to avoid unhandled promise
+      }, 12000);
+
+      this.pendingAcks.set(ackKey, { resolve, reject, timer });
     });
   }
 
@@ -351,11 +415,27 @@ export class PeerConnectionManager {
       this.connections.set(peerId, ws);
       this.peerInfo.set(peerId, peer);
 
+      // CRITICAL: Add message handler on incoming WS so responses (file-received-ack,
+      // peer-pong, chunk-ack, etc.) are processed when this WS is the active connection.
+      ws.on('message', (data: WebSocket.RawData) => {
+        try {
+          const message = JSON.parse(data.toString());
+          this.handleMessage(peerId, message);
+        } catch (err) {
+          console.error(`[P2P] Error parsing message from incoming ${peerName}:`, err);
+        }
+      });
+
+      ws.on('error', (err: any) => {
+        console.warn(`[P2P] Incoming WS error from ${peerName}: ${err.message || err.code || err}`);
+      });
+
       ws.on('close', () => {
         // Only clean up if this WS is still the active one
         if (this.connections.get(peerId) === ws) {
           this.connections.delete(peerId);
           this.peerInfo.delete(peerId);
+          this.cancelPongTimer(peerId);
           this.handshaked.delete(peerId);
           this.callbacks.onPeerDisconnected(peerId);
         }
@@ -405,9 +485,17 @@ export class PeerConnectionManager {
         break;
       }
 
-      case 'file-received-ack':
-        console.log(`[P2P] File ack from peer: ${message.data.filename}`);
+      case 'file-received-ack': {
+        const ackFilename = message.data.filename;
+        console.log(`[P2P] File ack from peer: ${ackFilename}`);
+        const pending = this.pendingAcks.get(ackFilename);
+        if (pending) {
+          clearTimeout(pending.timer);
+          this.pendingAcks.delete(ackFilename);
+          pending.resolve(true);
+        }
         break;
+      }
 
       case 'relay-devices': {
         // Hub server is telling us about its browser clients
@@ -577,6 +665,16 @@ export class PeerConnectionManager {
         this.cleanupTransfer(transferId);
         break;
       }
+
+      case 'peer-ping':
+        // Respond immediately with pong
+        this.sendToPeer(peerId, { type: 'peer-pong', data: {} });
+        break;
+
+      case 'peer-pong':
+        // Peer is alive — cancel the dead-connection timer
+        this.cancelPongTimer(peerId);
+        break;
     }
   }
 
@@ -630,17 +728,69 @@ export class PeerConnectionManager {
 
   disconnectAll(): void {
     this.connections.forEach((ws) => {
-      ws.close();
+      try { ws.close(); } catch {}
     });
     this.connections.clear();
     this.peerInfo.clear();
     this.relayDeviceToHub.clear();
     this.handshaked.clear();
+    this.connectingPeers.clear();
+    this.connectingStartTimes.clear();
+
+    // Cancel all pending acks
+    this.pendingAcks.forEach(({ timer }) => clearTimeout(timer));
+    this.pendingAcks.clear();
+
+    // Cancel all pong timers
+    this.pongTimers.forEach((timer) => clearTimeout(timer));
+    this.pongTimers.clear();
 
     // Clean up all in-progress transfers
     this.inProgressTransfers.forEach((_, transferId) => {
       this.cleanupTransfer(transferId);
     });
+  }
+
+  // ─── Health Ping ────────────────────────────────────────────────────
+
+  private sendPings(): void {
+    this.connections.forEach((ws, peerId) => {
+      if (ws.readyState !== WebSocket.OPEN) return;
+      if (!this.handshaked.has(peerId)) return;
+
+      // Send ping
+      try {
+        ws.send(JSON.stringify({ type: 'peer-ping', data: {} }));
+      } catch {
+        return;
+      }
+
+      // Start 5s pong timeout (only if not already waiting)
+      if (!this.pongTimers.has(peerId)) {
+        const timer = setTimeout(() => {
+          this.pongTimers.delete(peerId);
+          const currentWs = this.connections.get(peerId);
+          if (currentWs === ws) {
+            const peerName = this.peerInfo.get(peerId)?.name || peerId;
+            console.warn(`[P2P] No pong from ${peerName} within 5s — closing dead connection`);
+            this.connections.delete(peerId);
+            this.peerInfo.delete(peerId);
+            this.handshaked.delete(peerId);
+            try { ws.terminate(); } catch {}
+            this.callbacks.onPeerDisconnected(peerId);
+          }
+        }, 5000);
+        this.pongTimers.set(peerId, timer);
+      }
+    });
+  }
+
+  private cancelPongTimer(peerId: string): void {
+    const timer = this.pongTimers.get(peerId);
+    if (timer) {
+      clearTimeout(timer);
+      this.pongTimers.delete(peerId);
+    }
   }
 
   // Clean up transfers from a specific peer when they disconnect

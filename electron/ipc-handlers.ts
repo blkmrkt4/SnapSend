@@ -9,6 +9,19 @@ const CHUNK_THRESHOLD = 70 * 1024 * 1024; // 70MB
 let peerManager: PeerConnectionManager | null = null;
 let reconnectInterval: ReturnType<typeof setInterval> | null = null;
 
+// Reconnect backoff state
+const peerRetryCount: Map<string, number> = new Map();
+const peerLastAttempt: Map<string, number> = new Map();
+const MAX_RETRIES = 10;
+const BASE_DELAY_MS = 5000; // 5s base
+const MAX_DELAY_MS = 5 * 60 * 1000; // 5 min cap
+
+export function resetPeerRetries(): void {
+  peerRetryCount.clear();
+  peerLastAttempt.clear();
+  console.log('[IPC] Peer retry counters reset');
+}
+
 export function registerDiscoveryIPC(
   mainWindow: BrowserWindow,
   discovery: DiscoveryManager
@@ -25,16 +38,33 @@ export function registerDiscoveryIPC(
     discovery.restart();
   });
 
-  // Reconnect to any discovered peers that are enabled but not connected
+  // Reconnect to any discovered peers that are enabled but not connected (with backoff)
   function reconnectDisconnectedPeers() {
     if (!peerManager) return;
     const discoveredPeers = discovery.getPeers();
+    const now = Date.now();
+
     for (const peer of discoveredPeers) {
       const hasValidAddress = peer.host && peer.port > 0;
-      if (hasValidAddress && !peerManager.isConnected(peer.id) && isDeviceEnabled(peer.id)) {
-        console.log(`[IPC] Reconnecting to peer: ${peer.name} at ${peer.host}:${peer.port}`);
-        peerManager.connectToPeer(peer);
+      if (!hasValidAddress || peerManager.isConnected(peer.id) || !isDeviceEnabled(peer.id)) continue;
+
+      // Check retry backoff
+      const retries = peerRetryCount.get(peer.id) || 0;
+      if (retries >= MAX_RETRIES) {
+        // Maxed out — skip until fresh discovery or wake resets counters
+        continue;
       }
+
+      const lastAttempt = peerLastAttempt.get(peer.id) || 0;
+      const delay = Math.min(BASE_DELAY_MS * Math.pow(2, retries), MAX_DELAY_MS);
+      if (now - lastAttempt < delay) {
+        continue; // Too soon — backoff not elapsed
+      }
+
+      console.log(`[IPC] Reconnecting to peer: ${peer.name} at ${peer.host}:${peer.port} (retry ${retries + 1}/${MAX_RETRIES})`);
+      peerRetryCount.set(peer.id, retries + 1);
+      peerLastAttempt.set(peer.id, now);
+      peerManager.connectToPeer(peer);
     }
   }
 
@@ -48,6 +78,11 @@ export function registerDiscoveryIPC(
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('peer-discovered', peer);
       }
+
+      // Fresh discovery resets retry backoff for this peer
+      peerRetryCount.delete(peer.id);
+      peerLastAttempt.delete(peer.id);
+
       // Auto-connect: try to establish a P2P connection immediately.
       // Skip if:
       // - Already connected (incoming connection already established)
@@ -96,6 +131,10 @@ export function registerP2PIPC(
 ) {
   peerManager = new PeerConnectionManager(localId, localName, localPort, {
     onPeerConnected: (peer: PeerInfo) => {
+      // Successful connection resets retry backoff
+      peerRetryCount.delete(peer.id);
+      peerLastAttempt.delete(peer.id);
+
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('peer-connected', peer);
       }
@@ -146,7 +185,7 @@ export function registerP2PIPC(
     }
   });
 
-  ipcMain.handle('send-file-to-peer', (_event, peerId: string, fileData: any) => {
+  ipcMain.handle('send-file-to-peer', async (_event, peerId: string, fileData: any) => {
     if (peerManager) {
       return peerManager.sendFileToPeer(peerId, fileData);
     }
