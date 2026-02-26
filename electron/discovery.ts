@@ -514,8 +514,9 @@ export class DiscoveryManager {
   }
 
   restart() {
-    console.log('[Discovery] Manual restart requested');
-    this.peers.clear();
+    console.log('[Discovery] Restart requested — preserving known peers');
+    // DON'T clear peers — keep existing peer info so reconnect can use it
+    // immediately. mDNS will re-confirm or update entries as they're found.
 
     if (this.useFallback) {
       this.stopFallback();

@@ -727,8 +727,14 @@ export class PeerConnectionManager {
   }
 
   disconnectAll(): void {
+    // Notify renderer for each handshaked peer BEFORE clearing maps.
+    // ws.on('close') won't fire the callback because we clear() synchronously
+    // before the async close event, so we must notify explicitly here.
+    const disconnectedPeerIds: string[] = [];
+    this.handshaked.forEach(peerId => disconnectedPeerIds.push(peerId));
+
     this.connections.forEach((ws) => {
-      try { ws.close(); } catch {}
+      try { ws.terminate(); } catch {} // terminate() is immediate, no lingering
     });
     this.connections.clear();
     this.peerInfo.clear();
@@ -749,6 +755,11 @@ export class PeerConnectionManager {
     this.inProgressTransfers.forEach((_, transferId) => {
       this.cleanupTransfer(transferId);
     });
+
+    // Fire disconnect callbacks after cleanup so renderer state is in sync
+    for (const peerId of disconnectedPeerIds) {
+      this.callbacks.onPeerDisconnected(peerId);
+    }
   }
 
   // ─── Health Ping ────────────────────────────────────────────────────

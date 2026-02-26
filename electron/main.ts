@@ -473,11 +473,21 @@ async function startApp() {
         registerP2PIPC(mainWindow, discovery, deviceId, deviceName, serverPort, uploadsDir);
       }
 
-      // Wake/unlock recovery: clean up dead connections, restart discovery, reconnect
+      // Wake/unlock recovery: clean up dead connections, restart discovery, reconnect.
+      // Debounced: resume + unlock-screen often fire within seconds of each other.
+      let lastWakeRecovery = 0;
+      let wakeReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
       const handleWakeRecovery = (source: string) => {
+        const now = Date.now();
+        if (now - lastWakeRecovery < 10000) {
+          console.log(`[Power] ${source} — skipping (debounced, last recovery ${Math.round((now - lastWakeRecovery) / 1000)}s ago)`);
+          return;
+        }
+        lastWakeRecovery = now;
         console.log(`[Power] ${source} — cleaning up dead connections and restarting discovery`);
 
-        // 1. Close all dead WebSocket connections
+        // 1. Close all dead WebSocket connections + notify renderer
         const pm = getPeerManager();
         if (pm) {
           pm.disconnectAll();
@@ -486,18 +496,28 @@ async function startApp() {
         // 2. Reset retry backoff for fresh start
         resetPeerRetries();
 
-        // 3. Restart mDNS discovery
+        // 3. Restart mDNS discovery (peers preserved for immediate reconnect)
         if (discovery) {
           discovery.restart();
         }
 
-        // 4. Delay reconnect to let discovery re-populate peers
-        setTimeout(() => {
+        // 4. Delay reconnect to let network come back and discovery re-confirm peers.
+        //    Cancel any pending timer from a previous event.
+        if (wakeReconnectTimer) clearTimeout(wakeReconnectTimer);
+        wakeReconnectTimer = setTimeout(() => {
+          wakeReconnectTimer = null;
           if (reconnectDisconnectedPeers) {
             console.log(`[Power] Attempting peer reconnection after ${source}`);
             reconnectDisconnectedPeers();
           }
-        }, 5000);
+          // Second wave at 20s — network may still be settling
+          setTimeout(() => {
+            if (reconnectDisconnectedPeers) {
+              console.log('[Power] Second reconnection wave');
+              reconnectDisconnectedPeers();
+            }
+          }, 10000);
+        }, 10000);
       };
 
       powerMonitor.on('resume', () => handleWakeRecovery('System resumed from sleep'));
