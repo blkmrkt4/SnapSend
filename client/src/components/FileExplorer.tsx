@@ -30,7 +30,10 @@ import {
   CalendarDays,
   Pencil,
   Tag,
-  ChevronDown
+  ChevronDown,
+  Eraser,
+  ListRestart,
+  Sparkles
 } from 'lucide-react';
 
 // Question mark with down caret icon for metadata toggle
@@ -76,7 +79,6 @@ interface FileExplorerProps {
   files: ExtendedFile[];
   onPreviewFile: (file: ExtendedFile) => void;
   onRefresh: () => void;
-  onClearAll: () => void;
   onDeleteFile: (fileId: number) => void;
   onRenameFile: (fileId: number, newName: string) => void;
   onUpdateTags: (fileId: number, tags: string[]) => void;
@@ -93,7 +95,6 @@ export function FileExplorer({
   files,
   onPreviewFile,
   onRefresh,
-  onClearAll,
   onDeleteFile,
   onRenameFile,
   onUpdateTags,
@@ -113,6 +114,8 @@ export function FileExplorer({
   const [editingName, setEditingName] = useState('');
   const [expandedFileIds, setExpandedFileIds] = useState<Set<number>>(new Set());
   const [showSmartNamingSetup, setShowSmartNamingSetup] = useState(false);
+  const [isListCleared, setIsListCleared] = useState(false);
+  const [smartRenamingFileId, setSmartRenamingFileId] = useState<number | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
   const editingNameRef = useRef('');
 
@@ -145,6 +148,23 @@ export function FileExplorer({
 
   const cancelEditing = () => {
     setEditingFileId(null);
+  };
+
+  const handleSmartRename = async (file: ExtendedFile) => {
+    if (!window.electronAPI?.smartRenameFile) return;
+    setSmartRenamingFileId(file.id);
+    try {
+      await window.electronAPI.smartRenameFile(
+        file.id,
+        file.filename,
+        file.mimeType || '',
+        file.originalName
+      );
+    } catch (err) {
+      console.error('Smart rename failed:', err);
+    } finally {
+      setTimeout(() => setSmartRenamingFileId(null), 2000);
+    }
   };
 
   const toggleExpanded = (fileId: number) => {
@@ -483,15 +503,27 @@ export function FileExplorer({
               <RefreshCw className="h-4 w-4 mr-1" />
               Refresh
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onClearAll}
-              className="border-red-300 text-red-600 hover:bg-red-50 shadow-sm bg-white/20"
-            >
-              <Trash2 className="h-4 w-4 mr-1" />
-              Clear All
-            </Button>
+            {isListCleared ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setIsListCleared(false); onRefresh(); }}
+                className="border-secondary-foreground/30 text-secondary-foreground hover:bg-secondary-foreground/10 shadow-sm bg-white/10"
+              >
+                <ListRestart className="h-4 w-4 mr-1" />
+                Show Files
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsListCleared(true)}
+                className="border-secondary-foreground/30 text-secondary-foreground/70 hover:bg-secondary-foreground/10 shadow-sm bg-white/10"
+              >
+                <Eraser className="h-4 w-4 mr-1" />
+                Clear List
+              </Button>
+            )}
           </div>
         </div>
 
@@ -704,7 +736,13 @@ export function FileExplorer({
           <SmartNamingBanner onSetup={() => setShowSmartNamingSetup(true)} />
         )}
         <div className="space-y-2 flex-1 overflow-y-auto">
-          {filteredFiles.length === 0 ? (
+          {isListCleared ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Eraser className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>List cleared</p>
+              <p className="text-sm">Click <strong>Show Files</strong> to restore your files.</p>
+            </div>
+          ) : filteredFiles.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <File className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>No files to display</p>
@@ -894,6 +932,25 @@ export function FileExplorer({
                           >
                             <ExternalLink className="h-4 w-4" />
                           </Button>
+
+                          {window.electronAPI?.isElectron && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSmartRename(file);
+                              }}
+                              title="AI smart rename"
+                              disabled={smartRenamingFileId === file.id}
+                            >
+                              {smartRenamingFileId === file.id ? (
+                                <RefreshCw className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Sparkles className="h-4 w-4" />
+                              )}
+                            </Button>
+                          )}
 
                           <Button
                             variant="ghost"

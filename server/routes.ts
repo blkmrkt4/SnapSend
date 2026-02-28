@@ -1213,6 +1213,37 @@ export async function registerRoutes(app: Express, options?: RouteOptions): Prom
     }
   });
 
+  // Record a received file (for P2P mode when file comes via PeerConnectionManager callback)
+  app.post('/api/files/record-received', async (req, res) => {
+    try {
+      const { filename, originalName, mimeType, size, content, isClipboard, fromDeviceName } = req.body;
+
+      if (!originalName || !mimeType) {
+        return res.status(400).json({ error: 'Missing required fields' });
+      }
+
+      const savedFile = await storage.createFile({
+        filename: filename || `${Date.now()}_${originalName}`,
+        originalName,
+        mimeType,
+        size: size || 0,
+        content: isClipboard ? content : null,
+        fromDeviceId: null,
+        toDeviceId: null,
+        connectionId: null,
+        isClipboard: isClipboard ? 1 : 0,
+        fromDeviceName: fromDeviceName || 'Unknown',
+        toDeviceName: 'local',
+      });
+      notifyFileSaved(savedFile);
+
+      res.json(savedFile);
+    } catch (error) {
+      console.error('Error recording received file:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // File upload endpoint
   app.post('/api/upload', upload.single('file'), async (req, res) => {
     try {

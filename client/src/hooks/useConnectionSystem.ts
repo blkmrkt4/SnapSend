@@ -1383,9 +1383,11 @@ export function useConnectionSystem() {
             ...prev,
             files: fetchedFiles.map((file: any) => {
               // Determine transfer direction: check DB device IDs first, then P2P name fields
+              // fromDeviceName === 'local' means this machine sent the file
+              // toDeviceName === 'local' means this machine received the file
               const isSent = file.fromDeviceId != null
                 ? file.fromDeviceId === currentId
-                : file.fromDeviceName === 'local' || file.fromDeviceName === currentName || file.toDeviceName === 'local';
+                : file.fromDeviceName === 'local' || file.fromDeviceName === currentName;
               const fromName = file.fromDeviceId != null
                 ? deviceMap.get(file.fromDeviceId) || file.fromDeviceName || 'Unknown'
                 : file.fromDeviceName || 'Unknown';
@@ -1425,6 +1427,10 @@ export function useConnectionSystem() {
   }, [state.isSetup, refreshFiles, refreshTags]);
 
   const deleteFile = useCallback(async (fileId: number) => {
+    if (!fileId || isNaN(fileId)) {
+      toast({ title: 'Cannot delete', description: 'File has no database record yet. Try refreshing first.', variant: 'destructive' });
+      return;
+    }
     try {
       const response = await fetch(`/api/files/${fileId}`, { method: 'DELETE' });
       if (response.ok) {
@@ -1439,9 +1445,14 @@ export function useConnectionSystem() {
             timestamp: new Date()
           }]
         }));
+      } else {
+        const body = await response.json().catch(() => ({}));
+        console.error('Delete failed:', response.status, body);
+        toast({ title: 'Delete failed', description: body.error || `Server returned ${response.status}`, variant: 'destructive' });
       }
     } catch (error) {
       console.error('Error deleting file:', error);
+      toast({ title: 'Delete failed', description: 'Network error', variant: 'destructive' });
     }
   }, []);
 

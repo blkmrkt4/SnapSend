@@ -144,9 +144,46 @@ export function registerP2PIPC(
         mainWindow.webContents.send('peer-disconnected', peerId);
       }
     },
-    onFileReceived: (data) => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('file-received', data);
+    onFileReceived: async (data) => {
+      // Persist to DB via local server before notifying renderer
+      try {
+        const http = require('http') as typeof import('http');
+        const body = JSON.stringify({
+          filename: data.file.filename,
+          originalName: data.file.originalName,
+          mimeType: data.file.mimeType,
+          size: data.file.size,
+          content: data.file.content,
+          isClipboard: data.file.isClipboard,
+          fromDeviceName: data.fromDevice,
+        });
+        const savedFile = await new Promise<any>((resolve, reject) => {
+          const req = http.request(`http://127.0.0.1:${localPort}/api/files/record-received`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+            timeout: 5000,
+          }, (res) => {
+            let chunks = '';
+            res.on('data', (chunk: string) => { chunks += chunk; });
+            res.on('end', () => {
+              try { resolve(JSON.parse(chunks)); } catch { reject(new Error('Invalid JSON')); }
+            });
+          });
+          req.on('error', reject);
+          req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
+          req.write(body);
+          req.end();
+        });
+        // Send persisted file (with real DB id) to renderer
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('file-received', { file: savedFile, fromDevice: data.fromDevice });
+        }
+      } catch (err) {
+        console.error('[P2P] Failed to persist received file, sending unpersisted:', err);
+        // Fallback: send original data so user still sees the file
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('file-received', data);
+        }
       }
     },
     onRelayDevicesUpdated: (devices) => {

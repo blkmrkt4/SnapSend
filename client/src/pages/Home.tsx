@@ -47,7 +47,6 @@ export default function Home() {
     terminateConnection,
     sendFile,
     setSelectedTarget,
-    clearAllFiles,
     refreshFiles,
     deleteFile,
     renameFile,
@@ -153,7 +152,6 @@ export default function Home() {
             files={files}
             onPreviewFile={(file: File) => setPreviewFile(file)}
             onRefresh={refreshFiles}
-            onClearAll={clearAllFiles}
             onDeleteFile={deleteFile}
             onRenameFile={renameFile}
             onUpdateTags={updateFileTags}

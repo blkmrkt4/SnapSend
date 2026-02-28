@@ -432,6 +432,13 @@ async function startApp() {
           console.log(`onFileSaved: id=${data.fileId} file="${data.filename}" mime=${data.mimeType} clipboard=${data.isClipboard} smartNaming=${process.env.SNAPSEND_SMART_NAMING}`);
           // Async smart rename — non-blocking, silent failure
           if (process.env.SNAPSEND_SMART_NAMING === 'true') {
+            // Only auto-rename clipboard items and screenshots
+            const isScreenshot = data.originalName.startsWith('screenshot-');
+            const shouldAutoRename = data.isClipboard || isScreenshot;
+            if (!shouldAutoRename) {
+              console.log(`Smart Naming: skipping auto-rename for "${data.originalName}" (not clipboard/screenshot)`);
+              return;
+            }
             const uploadsDir = process.env.SNAPSEND_UPLOADS_DIR || path.join(process.cwd(), 'uploads');
             const filePath = path.join(uploadsDir, data.filename);
             const context: SmartNameContext = {
@@ -886,10 +893,12 @@ ipcMain.handle('pull-ollama-model', async (_event, modelName: string) => {
     }
   });
 });
-ipcMain.handle('smart-rename-file', async (_event, fileId: number, filePath: string, mimeType: string, originalName: string) => {
+ipcMain.handle('smart-rename-file', async (_event, fileId: number, filename: string, mimeType: string, originalName: string) => {
+  const uploadsDir = process.env.SNAPSEND_UPLOADS_DIR || path.join(process.cwd(), 'uploads');
+  const filePath = path.join(uploadsDir, filename);
   const context: SmartNameContext = {
     fileId,
-    filename: path.basename(filePath),
+    filename,
     mimeType,
     originalName,
     size: 0,
