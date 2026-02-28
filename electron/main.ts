@@ -600,6 +600,29 @@ ipcMain.handle('set-always-on-top', (_event, enabled: boolean) => {
   }
 });
 
+// Hidden app screenshot — resize to 1440x900, capture, restore
+ipcMain.handle('capture-app-screenshot', async () => {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return { success: false, reason: 'No window' };
+  }
+  const [origWidth, origHeight] = mainWindow.getSize();
+  try {
+    mainWindow.setSize(1440, 900);
+    // Wait for resize + render to settle
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    const image = await mainWindow.webContents.capturePage();
+    const screenshotDir = path.join(os.homedir(), 'Desktop');
+    const screenshotPath = path.join(screenshotDir, `LiquidRelay-${Date.now()}.png`);
+    const fs = require('fs') as typeof import('fs');
+    fs.writeFileSync(screenshotPath, image.toPNG());
+    return { success: true, filePath: screenshotPath };
+  } catch (err: any) {
+    return { success: false, reason: err.message };
+  } finally {
+    mainWindow.setSize(origWidth, origHeight);
+  }
+});
+
 // Window size IPC handler
 ipcMain.handle('set-window-size', (_event, width: number, height: number) => {
   if (mainWindow && !mainWindow.isDestroyed()) {

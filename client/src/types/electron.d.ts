@@ -84,6 +84,7 @@ export interface ElectronAPI {
   // Window size
   setWindowSize: (width: number, height: number) => Promise<void>;
   getWindowSize: () => Promise<{ width: number; height: number }>;
+  captureAppScreenshot?: () => Promise<{ success: boolean; filePath?: string; reason?: string }>;
 
   // Ghost mode
   getGhostMode: () => Promise<boolean>;

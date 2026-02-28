@@ -540,7 +540,20 @@ export function LeftSidebar({
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
         <div className="flex items-center gap-1.5">
-          <LiquidDropletIcon className="text-primary w-5 h-5 flex-shrink-0" />
+          <button
+            className="flex-shrink-0 cursor-pointer hover:opacity-70 transition-opacity"
+            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+            onClick={async () => {
+              if (!window.electronAPI?.captureAppScreenshot) return;
+              const result = await window.electronAPI.captureAppScreenshot();
+              if (result?.success && result.filePath) {
+                console.log('[Screenshot] Saved to', result.filePath);
+              }
+            }}
+            title=""
+          >
+            <LiquidDropletIcon className="text-primary w-5 h-5" />
+          </button>
           <span className="text-sm font-bold text-foreground whitespace-nowrap">
             Liquid <em>Relay</em>
           </span>

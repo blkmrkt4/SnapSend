@@ -96,6 +96,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Window size
   setWindowSize: (width: number, height: number) => ipcRenderer.invoke('set-window-size', width, height),
   getWindowSize: () => ipcRenderer.invoke('get-window-size'),
+  captureAppScreenshot: () => ipcRenderer.invoke('capture-app-screenshot'),
 
   // Ghost mode
   getGhostMode: () => ipcRenderer.invoke('get-ghost-mode'),
