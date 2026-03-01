@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Settings, Monitor, KeyRound, Wifi, Pencil, Check, Pin, Ghost, Sparkles, FileText, ScrollText, Trash2, RotateCcw, ChevronDown, Bug, Download, Shield, SearchCheck, CheckCircle2, XCircle } from 'lucide-react';
+import { Settings, Monitor, KeyRound, Wifi, Pencil, Check, Pin, Ghost, Sparkles, ScrollText, Trash2, ChevronDown, Bug, Download, Shield, SearchCheck, CheckCircle2, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { LicenseStatus, OllamaStatus } from '@/types/electron';
 import { SmartNamingSetupModal } from './SmartNamingSetupModal';
@@ -391,88 +391,6 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
               </div>
             )}
 
-            {/* Prompt Config & Debug */}
-            <div className="border-t px-4 py-3 space-y-3">
-              <div className="text-xs font-medium text-muted-foreground">Prompt Configuration</div>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs gap-1.5"
-                  onClick={async () => {
-                    try {
-                      await window.electronAPI?.openPromptConfig();
-                    } catch {
-                      toast({ title: 'Failed to open config', variant: 'destructive' });
-                    }
-                  }}
-                >
-                  <FileText className="h-3.5 w-3.5" />
-                  Open Prompt Config
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs gap-1.5"
-                  onClick={async () => {
-                    try {
-                      await window.electronAPI?.openPromptLog();
-                    } catch {
-                      toast({ title: 'Failed to open log', variant: 'destructive' });
-                    }
-                  }}
-                >
-                  <ScrollText className="h-3.5 w-3.5" />
-                  Open Prompt Log
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs gap-1.5"
-                  onClick={async () => {
-                    try {
-                      await window.electronAPI?.clearPromptLog();
-                      toast({ title: 'Prompt log cleared' });
-                    } catch {
-                      toast({ title: 'Failed to clear log', variant: 'destructive' });
-                    }
-                  }}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Clear Log
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs gap-1.5"
-                  onClick={async () => {
-                    try {
-                      await window.electronAPI?.resetPromptConfig();
-                      toast({ title: 'Prompt config reset to defaults' });
-                    } catch {
-                      toast({ title: 'Failed to reset config', variant: 'destructive' });
-                    }
-                  }}
-                >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                  Reset to Defaults
-                </Button>
-              </div>
-              <div className="text-xs text-muted-foreground leading-relaxed">
-                Edit the config JSON to customize prompts and models. Available template variables:{' '}
-                <code className="text-[10px] bg-muted px-1 rounded">{'{{original_name}}'}</code>{' '}
-                <code className="text-[10px] bg-muted px-1 rounded">{'{{file_extension}}'}</code>{' '}
-                <code className="text-[10px] bg-muted px-1 rounded">{'{{file_stem}}'}</code>{' '}
-                <code className="text-[10px] bg-muted px-1 rounded">{'{{mime_type}}'}</code>{' '}
-                <code className="text-[10px] bg-muted px-1 rounded">{'{{file_size}}'}</code>{' '}
-                <code className="text-[10px] bg-muted px-1 rounded">{'{{file_size_human}}'}</code>{' '}
-                <code className="text-[10px] bg-muted px-1 rounded">{'{{is_clipboard}}'}</code>{' '}
-                <code className="text-[10px] bg-muted px-1 rounded">{'{{from_device}}'}</code>{' '}
-                <code className="text-[10px] bg-muted px-1 rounded">{'{{text_preview}}'}</code> (text files only).
-                Changes take effect on the next file transfer.
-              </div>
-            </div>
-
           </>
         )}
       </div>
@@ -555,49 +473,94 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
 
         {diagnosticsOpen && (
           <div className="border-t px-4 py-3 space-y-3">
-            <div className="text-xs text-muted-foreground">
-              Export a snapshot of device info, discovery state, connections, and recent logs for troubleshooting.
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs gap-1.5"
-                disabled={isExporting}
-                onClick={async () => {
-                  setIsExporting(true);
-                  try {
-                    const result = await window.electronAPI?.exportDiagnostics?.();
-                    if (result?.success) {
-                      toast({ title: 'Diagnostics exported', description: result.filePath });
-                    } else if (result?.reason !== 'cancelled') {
-                      toast({ title: 'Export failed', description: result?.reason || 'Unknown error', variant: 'destructive' });
+            {/* Connection Logs */}
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-muted-foreground">Connection Logs</div>
+              <div className="text-xs text-muted-foreground">
+                Device info, discovery state, connections, and recent activity.
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs gap-1.5"
+                  disabled={isExporting}
+                  onClick={async () => {
+                    setIsExporting(true);
+                    try {
+                      const result = await window.electronAPI?.exportDiagnostics?.();
+                      if (result?.success) {
+                        toast({ title: 'Diagnostics exported', description: result.filePath });
+                      } else if (result?.reason !== 'cancelled') {
+                        toast({ title: 'Export failed', description: result?.reason || 'Unknown error', variant: 'destructive' });
+                      }
+                    } catch {
+                      toast({ title: 'Export failed', variant: 'destructive' });
+                    } finally {
+                      setIsExporting(false);
                     }
-                  } catch {
-                    toast({ title: 'Export failed', variant: 'destructive' });
-                  } finally {
-                    setIsExporting(false);
-                  }
-                }}
-              >
-                <Download className="h-3.5 w-3.5" />
-                {isExporting ? 'Exporting...' : 'Export Diagnostics'}
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs gap-1.5"
-                onClick={async () => {
-                  try {
-                    await window.electronAPI?.openLogFile?.();
-                  } catch {
-                    toast({ title: 'Failed to open log file', variant: 'destructive' });
-                  }
-                }}
-              >
-                <ScrollText className="h-3.5 w-3.5" />
-                Open Log File
-              </Button>
+                  }}
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  {isExporting ? 'Exporting...' : 'Export Diagnostics'}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs gap-1.5"
+                  onClick={async () => {
+                    try {
+                      await window.electronAPI?.openLogFile?.();
+                    } catch {
+                      toast({ title: 'Failed to open log file', variant: 'destructive' });
+                    }
+                  }}
+                >
+                  <ScrollText className="h-3.5 w-3.5" />
+                  Open Log File
+                </Button>
+              </div>
+            </div>
+
+            {/* AI Naming Logs */}
+            <div className="border-t pt-3 space-y-2">
+              <div className="text-xs font-medium text-muted-foreground">AI Naming Logs</div>
+              <div className="text-xs text-muted-foreground">
+                Prompts sent to Ollama and the filenames it suggested.
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs gap-1.5"
+                  onClick={async () => {
+                    try {
+                      await window.electronAPI?.openPromptLog();
+                    } catch {
+                      toast({ title: 'Failed to open prompt log', variant: 'destructive' });
+                    }
+                  }}
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Open AI Log
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs gap-1.5"
+                  onClick={async () => {
+                    try {
+                      await window.electronAPI?.clearPromptLog();
+                      toast({ title: 'AI naming log cleared' });
+                    } catch {
+                      toast({ title: 'Failed to clear log', variant: 'destructive' });
+                    }
+                  }}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Clear AI Log
+                </Button>
+              </div>
             </div>
 
             {/* Windows Firewall — only visible on Windows */}
