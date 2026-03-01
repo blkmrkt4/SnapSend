@@ -143,7 +143,7 @@ export function Screenshots() {
                     src={shot.src}
                     alt={shot.title}
                     loading="lazy"
-                    className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform"
+                    className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform"
                   />
                 </div>
                 <div className="p-4">
@@ -195,7 +195,7 @@ export function Screenshots() {
           onClick={() => setLightboxSrc(null)}
         >
           <div
-            className="relative w-full max-w-5xl mx-4"
+            className="relative flex flex-col items-center max-w-5xl mx-4"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -216,7 +216,7 @@ export function Screenshots() {
               <img
                 src={lightboxSrc}
                 alt=""
-                className="w-full rounded-xl shadow-2xl"
+                className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl"
               />
             )}
           </div>
