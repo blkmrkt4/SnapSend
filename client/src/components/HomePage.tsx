@@ -14,7 +14,7 @@ import {
   Shield,
   Wifi,
   Users,
-  Smartphone,
+  Sparkles,
   MousePointerClick,
   Clipboard,
   Camera,
@@ -33,7 +33,7 @@ import {
 } from '@shared/marketing-content';
 
 const iconMap: Record<string, LucideIcon> = {
-  Zap, Shield, Wifi, Users, Smartphone, MousePointerClick,
+  Zap, Shield, Wifi, Users, Sparkles, MousePointerClick,
   Clipboard, Camera, PenLine, LayoutGrid, MonitorSmartphone, Tags,
 };
 

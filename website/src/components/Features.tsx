@@ -1,11 +1,11 @@
 import {
-  Zap, Shield, Wifi, Users, Tags, Smartphone,
+  Zap, Shield, Wifi, Users, Tags, Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 import { features } from '../../../shared/marketing-content';
 
 const iconMap: Record<string, LucideIcon> = {
-  Zap, Shield, Wifi, Users, Tags, Smartphone,
+  Zap, Shield, Wifi, Users, Tags, Sparkles,
 };
 
 export function Features() {

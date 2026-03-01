@@ -12,7 +12,7 @@ export function Download() {
           Available for macOS and Windows. One-time purchase, no subscription.
         </p>
 
-        <div className="grid sm:grid-cols-3 gap-6 max-w-3xl mx-auto">
+        <div className="grid sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
           <a
             href={productInfo.downloadMacArmUrl}
             className="flex flex-col items-center gap-3 bg-gray-900/50 border border-gray-800 hover:border-teal/40 rounded-xl p-6 transition-colors"
@@ -21,17 +21,6 @@ export function Download() {
             <div>
               <p className="font-semibold">Mac (Apple Silicon)</p>
               <p className="text-sm text-gray-500">M1, M2, M3, M4</p>
-            </div>
-          </a>
-
-          <a
-            href={productInfo.downloadMacIntelUrl}
-            className="flex flex-col items-center gap-3 bg-gray-900/50 border border-gray-800 hover:border-teal/40 rounded-xl p-6 transition-colors"
-          >
-            <Apple className="h-10 w-10 text-gray-300" />
-            <div>
-              <p className="font-semibold">Mac (Intel)</p>
-              <p className="text-sm text-gray-500">2015 and later</p>
             </div>
           </a>
 

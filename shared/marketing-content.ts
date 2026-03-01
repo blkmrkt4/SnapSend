@@ -7,7 +7,7 @@ export const productInfo = {
   name: 'Liquid Relay',
   tagline: 'Send Files & Clipboard Instantly',
   description:
-    'Transfer files, clipboard text, and screenshots between devices on your local network. Direct peer-to-peer — no internet required, nothing leaves your LAN.',
+    'Transfer files, clipboard text, and screenshots between devices on your local network. Direct peer-to-peers — no internet required, nothing leaves your network.',
   supportedPlatforms: ['macOS 12+', 'Windows 10+'],
   checkoutUrl: 'https://liquidrelay.lemonsqueezy.com/buy',
   downloadMacArmUrl: '#download',
@@ -54,7 +54,7 @@ export const features: Feature[] = [
     icon: 'Zap',
     title: 'Lightning Fast',
     description:
-      'Direct peer-to-peer transfers over your local network. No cloud relay, no waiting.',
+      'Direct peer-to-peers transfers over your local network. No cloud relay, no waiting.',
   },
   {
     icon: 'Shield',
@@ -81,10 +81,10 @@ export const features: Feature[] = [
       'Tag your files, filter by type or date, search by name. Build a catalog of everything you transfer.',
   },
   {
-    icon: 'Smartphone',
-    title: 'Works Anywhere',
+    icon: 'Sparkles',
+    title: 'AI Smart Naming',
     description:
-      'Mac and Windows. If auto-discovery fails, Client Mode connects through firewalled networks.',
+      'Clipboard pastes and screenshots get descriptive AI-generated filenames automatically. Rename any file on demand with one click.',
   },
 ];
 
@@ -198,13 +198,13 @@ export const howItWorksSteps: HowItWorksStep[] = [
     icon: 'Link',
     title: 'Connect',
     description:
-      'Pair devices with one click. A direct peer-to-peer WebSocket link is established instantly.',
+      'Pair devices with one click. A direct peer-to-peers connection is established instantly.',
   },
   {
     icon: 'Send',
     title: 'Transfer',
     description:
-      'Drag files, paste clipboard, or capture screenshots. Everything moves at full LAN speed.',
+      'Drag files, paste clipboard, or capture screenshots. Everything moves at full network speed.',
   },
 ];
 
