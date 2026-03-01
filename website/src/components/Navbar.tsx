@@ -17,7 +17,7 @@ export function Navbar() {
           {/* Desktop nav */}
           <div className="hidden md:flex items-center space-x-6">
             <a href="#features" className="text-gray-400 hover:text-white transition-colors">Features</a>
-            <a href="#videos" className="text-gray-400 hover:text-white transition-colors">Videos</a>
+            <a href="#screenshots" className="text-gray-400 hover:text-white transition-colors">Screenshots</a>
             <a href="#how-it-works" className="text-gray-400 hover:text-white transition-colors">How It Works</a>
             <a href="#pricing" className="text-gray-400 hover:text-white transition-colors">Pricing</a>
             <a href="#download" className="text-gray-400 hover:text-white transition-colors">Download</a>
@@ -45,7 +45,7 @@ export function Navbar() {
       {menuOpen && (
         <div className="md:hidden border-t border-gray-800 bg-gray-950 px-4 py-4 space-y-3">
           <a href="#features" onClick={() => setMenuOpen(false)} className="block text-gray-400 hover:text-white py-2">Features</a>
-          <a href="#videos" onClick={() => setMenuOpen(false)} className="block text-gray-400 hover:text-white py-2">Videos</a>
+          <a href="#screenshots" onClick={() => setMenuOpen(false)} className="block text-gray-400 hover:text-white py-2">Screenshots</a>
           <a href="#how-it-works" onClick={() => setMenuOpen(false)} className="block text-gray-400 hover:text-white py-2">How It Works</a>
           <a href="#pricing" onClick={() => setMenuOpen(false)} className="block text-gray-400 hover:text-white py-2">Pricing</a>
           <a href="#download" onClick={() => setMenuOpen(false)} className="block text-gray-400 hover:text-white py-2">Download</a>

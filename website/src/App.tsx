@@ -2,7 +2,6 @@ import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
 import { Features } from './components/Features';
 import { Screenshots } from './components/Screenshots';
-import { Videos } from './components/Videos';
 import { HowItWorks } from './components/HowItWorks';
 import { Pricing } from './components/Pricing';
 import { Download } from './components/Download';
@@ -17,7 +16,6 @@ export default function App() {
       <Hero />
       <Features />
       <Screenshots />
-      <Videos />
       <HowItWorks />
       <Pricing />
       <Download />
