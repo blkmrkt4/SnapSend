@@ -39,6 +39,7 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
   const [firewallCheckResult, setFirewallCheckResult] = useState<{ success: boolean; results: Array<{ ip: string; reachable: boolean; error?: string }>; message: string } | null>(null);
   const [platform, setPlatform] = useState('');
   const [licenseOpen, setLicenseOpen] = useState(false);
+  const [showModelInfo, setShowModelInfo] = useState(false);
 
   const isElectronProd = window.electronAPI?.isElectron && !window.electronAPI?.isDev;
 
@@ -341,12 +342,36 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
 
             {ollamaStatus?.running && (
               <div className="border-t px-4 py-3 space-y-3">
-                <div className="text-xs font-medium text-muted-foreground">Vision Model</div>
+                <div className="flex items-center gap-2">
+                  <div className="text-xs font-medium text-muted-foreground">Vision Model</div>
+                  <button
+                    onClick={() => setShowModelInfo(!showModelInfo)}
+                    className="text-[10px] px-2 py-0.5 rounded-full border border-muted-foreground/30 text-muted-foreground hover:text-foreground hover:border-muted-foreground/50 transition-colors"
+                  >
+                    {showModelInfo ? 'Hide Info' : 'More Info'}
+                  </button>
+                </div>
+
+                {showModelInfo && (
+                  <div className="rounded-lg bg-muted/40 border border-muted px-3 py-2.5 space-y-1.5">
+                    <div className="text-xs text-foreground font-medium">How memory works</div>
+                    <div className="text-[11px] text-muted-foreground leading-relaxed">
+                      Models are only loaded into RAM briefly when a file needs naming, then automatically release memory after a few minutes of inactivity. They are <span className="font-medium text-foreground">not</span> a background service consuming memory constantly.
+                    </div>
+                    <div className="text-[11px] text-muted-foreground leading-relaxed">
+                      <span className="font-medium text-foreground">LLaVA</span> needs ~4.7 GB free during inference. Works well on most machines with 8 GB+ RAM.
+                    </div>
+                    <div className="text-[11px] text-muted-foreground leading-relaxed">
+                      <span className="font-medium text-foreground">Moondream</span> uses ~1.7 GB during inference. A good choice if you frequently run memory-intensive apps alongside Liquid Relay.
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex gap-2">
                   {[
-                    { value: 'llava' as const, label: 'LLaVA', desc: 'Better accuracy, ~8GB RAM', minRam: '16GB+ RAM' },
-                    { value: 'moondream' as const, label: 'Moondream', desc: 'Lightweight, ~3GB RAM', minRam: '8GB+ RAM' },
-                  ].map(({ value, label, desc, minRam }) => (
+                    { value: 'llava' as const, label: 'LLaVA', desc: 'Better accuracy' },
+                    { value: 'moondream' as const, label: 'Moondream', desc: 'Lightweight' },
+                  ].map(({ value, label, desc }) => (
                     <button
                       key={value}
                       onClick={async () => {
@@ -366,9 +391,12 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
                     >
                       <div className="text-xs font-semibold text-foreground">{label}</div>
                       <div className="text-[10px] text-muted-foreground mt-0.5">{desc}</div>
-                      <div className="text-[10px] text-amber-600 mt-0.5">Needs {minRam}</div>
                     </button>
                   ))}
+                </div>
+
+                <div className="text-xs text-muted-foreground leading-relaxed">
+                  Requires Ollama. Models are only loaded briefly during file naming and release memory automatically.
                 </div>
 
                 <div className="text-xs font-medium text-muted-foreground mt-3">Model Status</div>
