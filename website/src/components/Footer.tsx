@@ -25,7 +25,7 @@ export function Footer({ onNavigate }: { onNavigate: (page: Page) => void }) {
             rel="noopener noreferrer"
             className="flex flex-col items-center gap-2 text-gray-400 hover:text-gray-200 transition-colors group"
           >
-            <img src="/byzyb-logo.png" alt="byzyb.ai" className="h-12 opacity-60 group-hover:opacity-90 transition-opacity" />
+            <img src="/byzyb-logo.png" alt="byzyb.ai" className="h-36 opacity-60 group-hover:opacity-90 transition-opacity" />
             <span className="text-sm">Built by byzyb.ai</span>
           </a>
           <p className="text-sm text-gray-600">

@@ -24,7 +24,7 @@ const steps = [
 
 export function Hero() {
   return (
-    <section className="py-24 px-4 sm:px-6 lg:px-8">
+    <section className="pt-24 pb-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto text-center">
         <div className="inline-flex items-center gap-2 bg-teal/10 border border-teal/20 rounded-full px-4 py-1.5 mb-8">
           <Droplets className="h-4 w-4 text-teal" />
