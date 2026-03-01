@@ -32,7 +32,7 @@ export function Hero() {
         </div>
 
         <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold mb-6 leading-tight">
-          Send Files & Clipboard{' '}
+          Send Files & Screenshots{' '}
           <span className="bg-gradient-to-r from-teal to-teal-dark bg-clip-text text-transparent">
             Instantly
           </span>
