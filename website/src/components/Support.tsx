@@ -1,6 +1,7 @@
 import { Mail, MessageSquarePlus, Bug, HelpCircle } from 'lucide-react';
+import type { Page } from '../App';
 
-export function Support({ onBack }: { onBack: () => void }) {
+export function Support({ onBack, onNavigate }: { onBack: () => void; onNavigate: (page: Page) => void }) {
   return (
     <div className="max-w-3xl mx-auto py-24 px-4 sm:px-6 lg:px-8">
       <button onClick={onBack} className="text-teal hover:text-teal-dark mb-8 text-sm">&larr; Back to home</button>
@@ -44,16 +45,16 @@ export function Support({ onBack }: { onBack: () => void }) {
           </div>
         </a>
 
-        <a
-          href="#faq"
-          className="flex items-start gap-4 bg-gray-900/50 border border-gray-800 hover:border-teal/40 rounded-xl p-6 transition-colors"
+        <button
+          onClick={() => onNavigate('faq')}
+          className="flex items-start gap-4 bg-gray-900/50 border border-gray-800 hover:border-teal/40 rounded-xl p-6 transition-colors text-left"
         >
           <HelpCircle className="h-6 w-6 text-teal flex-shrink-0 mt-0.5" />
           <div>
             <h3 className="font-semibold mb-1">FAQ</h3>
-            <p className="text-sm text-gray-400">Check the frequently asked questions on our home page for quick answers.</p>
+            <p className="text-sm text-gray-400">Check our frequently asked questions for quick answers.</p>
           </div>
-        </a>
+        </button>
       </div>
     </div>
   );

@@ -13,8 +13,9 @@ import { Privacy } from './components/Privacy';
 import { Terms } from './components/Terms';
 import { Support } from './components/Support';
 import { Contact } from './components/Contact';
+import { FAQ } from './components/FAQ';
 
-export type Page = 'home' | 'privacy' | 'terms' | 'support' | 'contact';
+export type Page = 'home' | 'privacy' | 'terms' | 'support' | 'contact' | 'faq';
 
 export default function App() {
   const [page, setPage] = useState<Page>('home');
@@ -41,8 +42,9 @@ export default function App() {
       )}
       {page === 'privacy' && <Privacy onBack={() => navigate('home')} />}
       {page === 'terms' && <Terms onBack={() => navigate('home')} />}
-      {page === 'support' && <Support onBack={() => navigate('home')} />}
+      {page === 'support' && <Support onBack={() => navigate('home')} onNavigate={navigate} />}
       {page === 'contact' && <Contact onBack={() => navigate('home')} />}
+      {page === 'faq' && <FAQ onBack={() => navigate('home')} />}
       <Footer onNavigate={navigate} />
     </div>
   );
