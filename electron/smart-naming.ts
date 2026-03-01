@@ -464,6 +464,12 @@ export async function generateSmartName(
     console.log(`Smart Naming: raw="${rawName}" → cleaned="${cleaned}${ext}"`);
     if (!cleaned || cleaned.length < 2) return null;
 
+    // Reject refusal / non-answer responses from the model
+    if (looksLikeRefusal(cleaned)) {
+      console.log(`Smart Naming: rejected refusal response "${cleaned}", keeping original name`);
+      return null;
+    }
+
     return { suggestedName: cleaned + ext };
   } catch (err) {
     console.error('Smart naming failed:', err);
@@ -584,6 +590,30 @@ async function generateTextName(
   } catch {
     return null;
   }
+}
+
+/** Detect when the model returns a refusal or meta-response instead of an actual filename. */
+function looksLikeRefusal(cleaned: string): boolean {
+  const refusalPatterns = [
+    'unable-to',
+    'cannot-provide',
+    'cant-provide',
+    'not-able-to',
+    'i-cannot',
+    'i-cant',
+    'im-sorry',
+    'i-apologize',
+    'no-filename',
+    'not-possible',
+    'as-an-ai',
+    'i-am-an-ai',
+    'provide-filename',
+    'generate-filename',
+    'unnamed-file',
+    'unknown-file',
+    'untitled-file',
+  ];
+  return refusalPatterns.some((p) => cleaned.includes(p));
 }
 
 function cleanFilename(raw: string, config: PromptConfig): string {
