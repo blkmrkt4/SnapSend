@@ -740,9 +740,24 @@ export function SettingsPage({ currentDevice, onDeviceNameUpdate }: SettingsPage
           )}
         </div>
       )}
-      {/* Version */}
-      <div className="text-center text-[11px] text-muted-foreground/50 pt-4 pb-2 select-none">
-        Liquid <em>Relay</em> v{__APP_VERSION__}
+      {/* Version + byzyb branding */}
+      <div className="flex flex-col items-center gap-2 pt-4 pb-2 select-none">
+        <a
+          href="https://byzyb.ai"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 text-muted-foreground/40 hover:text-muted-foreground/70 transition-colors"
+          onClick={(e) => {
+            e.preventDefault();
+            window.electronAPI?.openExternal?.('https://byzyb.ai');
+          }}
+        >
+          <img src="/byzyb-bee.png" alt="byzyb.ai" className="h-4 w-4 opacity-50" />
+          <span className="text-[10px]">Built by byzyb.ai</span>
+        </a>
+        <div className="text-[11px] text-muted-foreground/50">
+          Liquid <em>Relay</em> v{__APP_VERSION__}
+        </div>
       </div>
     </div>
   );

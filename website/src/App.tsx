@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
 import { Features } from './components/Features';
@@ -8,20 +9,41 @@ import { Download } from './components/Download';
 import { LicensingFAQ } from './components/LicensingFAQ';
 import { CTA } from './components/CTA';
 import { Footer } from './components/Footer';
+import { Privacy } from './components/Privacy';
+import { Terms } from './components/Terms';
+import { Support } from './components/Support';
+import { Contact } from './components/Contact';
+
+export type Page = 'home' | 'privacy' | 'terms' | 'support' | 'contact';
 
 export default function App() {
+  const [page, setPage] = useState<Page>('home');
+
+  const navigate = (p: Page) => {
+    setPage(p);
+    window.scrollTo(0, 0);
+  };
+
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
-      <Navbar />
-      <Hero />
-      <Features />
-      <Screenshots />
-      <HowItWorks />
-      <Pricing />
-      <Download />
-      <LicensingFAQ />
-      <CTA />
-      <Footer />
+      <Navbar onNavigate={navigate} />
+      {page === 'home' && (
+        <>
+          <Hero />
+          <Features />
+          <Screenshots />
+          <HowItWorks />
+          <Pricing />
+          <Download />
+          <LicensingFAQ />
+          <CTA />
+        </>
+      )}
+      {page === 'privacy' && <Privacy onBack={() => navigate('home')} />}
+      {page === 'terms' && <Terms onBack={() => navigate('home')} />}
+      {page === 'support' && <Support onBack={() => navigate('home')} />}
+      {page === 'contact' && <Contact onBack={() => navigate('home')} />}
+      <Footer onNavigate={navigate} />
     </div>
   );
 }

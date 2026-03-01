@@ -1,26 +1,27 @@
 import { useState } from 'react';
 import { Droplets, Menu, X } from 'lucide-react';
 import { productInfo } from '../../../shared/marketing-content';
+import type { Page } from '../App';
 
-export function Navbar() {
+export function Navbar({ onNavigate }: { onNavigate: (page: Page) => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <nav className="border-b border-gray-800 bg-gray-950/80 backdrop-blur-sm sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          <a href="#" className="flex items-center space-x-2">
+          <button onClick={() => onNavigate('home')} className="flex items-center space-x-2">
             <Droplets className="h-8 w-8 text-teal" />
             <span className="text-xl font-bold">Liquid Relay</span>
-          </a>
+          </button>
 
           {/* Desktop nav */}
           <div className="hidden md:flex items-center space-x-6">
-            <a href="#features" className="text-gray-400 hover:text-white transition-colors">Features</a>
-            <a href="#screenshots" className="text-gray-400 hover:text-white transition-colors">Screenshots</a>
-            <a href="#how-it-works" className="text-gray-400 hover:text-white transition-colors">How It Works</a>
-            <a href="#pricing" className="text-gray-400 hover:text-white transition-colors">Pricing</a>
-            <a href="#download" className="text-gray-400 hover:text-white transition-colors">Download</a>
+            <a href="#features" onClick={() => onNavigate('home')} className="text-gray-400 hover:text-white transition-colors">Features</a>
+            <a href="#screenshots" onClick={() => onNavigate('home')} className="text-gray-400 hover:text-white transition-colors">Screenshots</a>
+            <a href="#how-it-works" onClick={() => onNavigate('home')} className="text-gray-400 hover:text-white transition-colors">How It Works</a>
+            <a href="#pricing" onClick={() => onNavigate('home')} className="text-gray-400 hover:text-white transition-colors">Pricing</a>
+            <a href="#download" onClick={() => onNavigate('home')} className="text-gray-400 hover:text-white transition-colors">Download</a>
             <a
               href={productInfo.checkoutUrl}
               target="_blank"
@@ -44,11 +45,11 @@ export function Navbar() {
       {/* Mobile menu */}
       {menuOpen && (
         <div className="md:hidden border-t border-gray-800 bg-gray-950 px-4 py-4 space-y-3">
-          <a href="#features" onClick={() => setMenuOpen(false)} className="block text-gray-400 hover:text-white py-2">Features</a>
-          <a href="#screenshots" onClick={() => setMenuOpen(false)} className="block text-gray-400 hover:text-white py-2">Screenshots</a>
-          <a href="#how-it-works" onClick={() => setMenuOpen(false)} className="block text-gray-400 hover:text-white py-2">How It Works</a>
-          <a href="#pricing" onClick={() => setMenuOpen(false)} className="block text-gray-400 hover:text-white py-2">Pricing</a>
-          <a href="#download" onClick={() => setMenuOpen(false)} className="block text-gray-400 hover:text-white py-2">Download</a>
+          <a href="#features" onClick={() => { onNavigate('home'); setMenuOpen(false); }} className="block text-gray-400 hover:text-white py-2">Features</a>
+          <a href="#screenshots" onClick={() => { onNavigate('home'); setMenuOpen(false); }} className="block text-gray-400 hover:text-white py-2">Screenshots</a>
+          <a href="#how-it-works" onClick={() => { onNavigate('home'); setMenuOpen(false); }} className="block text-gray-400 hover:text-white py-2">How It Works</a>
+          <a href="#pricing" onClick={() => { onNavigate('home'); setMenuOpen(false); }} className="block text-gray-400 hover:text-white py-2">Pricing</a>
+          <a href="#download" onClick={() => { onNavigate('home'); setMenuOpen(false); }} className="block text-gray-400 hover:text-white py-2">Download</a>
           <a
             href={productInfo.checkoutUrl}
             target="_blank"
