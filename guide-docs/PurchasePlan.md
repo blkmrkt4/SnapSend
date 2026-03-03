@@ -8,13 +8,12 @@ One-time purchase. No subscription. One license key per purchase, shared across 
 
 | Tier | Devices | Price | Activation Limit |
 |---|---|---|---|
-| Personal | 3 | $19 | 3 |
-| Team | 10 | $39 | 10 |
-| Business | 25 | $79 | 25 |
+| Personal | 3 | $24.99 | 3 |
+| Team | 10 | $59.99 | 10 |
 
 ## Lemon Squeezy Configuration
 
-- Single product with three variants (Personal, Team, Business)
+- Two products (Personal, Team)
 - License keys enabled on all variants
 - License length: perpetual (no expiration)
 - Activation limit: set per variant as shown above
@@ -29,4 +28,4 @@ One-time purchase. No subscription. One license key per purchase, shared across 
 - Competing against LocalSend (free, open-source) on experience, not on price
 - The value is in polish: clipboard sync, screenshot capture/crop, drag-and-drop file explorer, zero-config discovery
 - 3-seat minimum avoids the dead-on-arrival problem of selling a single seat for a product that requires two devices to function
-- Team tier priced close to Personal to encourage upsell — $20 more for 7 extra seats is obvious value
+- Team tier priced to encourage upsell — $35 more for 7 extra seats is obvious value

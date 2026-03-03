@@ -5,6 +5,7 @@ import os from 'os';
 
 const LICENSE_FILE = 'license.enc';
 const VALIDATE_INTERVAL_DAYS = 7;
+const DEV_BYPASS_KEY = 'LR-DEV-BYPASS-2026';
 
 export interface LicenseStatus {
   isActivated: boolean;
@@ -79,6 +80,18 @@ async function lemonSqueezyPost(endpoint: string, body: Record<string, string>):
 }
 
 export async function activateLicense(key: string): Promise<{ success: boolean; error?: string; customerName?: string }> {
+  // Dev bypass — skip API entirely
+  if (key === DEV_BYPASS_KEY) {
+    saveLicense({
+      key,
+      instanceId: 'dev-bypass',
+      customerName: 'Developer',
+      expiresAt: null,
+      lastValidated: new Date().toISOString(),
+    });
+    return { success: true, customerName: 'Developer' };
+  }
+
   try {
     const instanceName = os.hostname();
     const result = await lemonSqueezyPost('activate', {
@@ -108,6 +121,11 @@ export async function activateLicense(key: string): Promise<{ success: boolean; 
 export async function validateLicense(): Promise<{ isActivated: boolean; customerName?: string }> {
   const stored = loadLicense();
   if (!stored) return { isActivated: false };
+
+  // Dev bypass — always valid, skip API
+  if (stored.key === DEV_BYPASS_KEY) {
+    return { isActivated: true, customerName: stored.customerName };
+  }
 
   // Check if we need to re-validate
   const lastValidated = new Date(stored.lastValidated);
@@ -142,6 +160,12 @@ export async function validateLicense(): Promise<{ isActivated: boolean; custome
 export async function deactivateLicense(): Promise<void> {
   const stored = loadLicense();
   if (!stored) return;
+
+  // Dev bypass — just delete local file, no API call
+  if (stored.key === DEV_BYPASS_KEY) {
+    deleteLicenseFile();
+    return;
+  }
 
   try {
     await lemonSqueezyPost('deactivate', {

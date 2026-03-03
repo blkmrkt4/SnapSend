@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Smartphone, KeyRound, ExternalLink } from 'lucide-react';
+import { Droplets, KeyRound, ExternalLink } from 'lucide-react';
 
-const CHECKOUT_URL = 'https://snapsend.lemonsqueezy.com/buy';
+const CHECKOUT_URL = 'https://liquid-relay.lemonsqueezy.com/buy';
 
 interface ActivationScreenProps {
   onActivated: () => void;
@@ -44,7 +44,7 @@ export function ActivationScreen({ onActivated }: ActivationScreenProps) {
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <div className="bg-primary/10 p-3 rounded-full">
-              <Smartphone className="h-8 w-8 text-primary" />
+              <Droplets className="h-8 w-8 text-primary" />
             </div>
           </div>
           <CardTitle className="text-2xl">Activate Liquid <em>Relay</em></CardTitle>

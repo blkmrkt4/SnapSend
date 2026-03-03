@@ -11,9 +11,17 @@ function App() {
   const [isActivated, setIsActivated] = useState(false);
 
   useEffect(() => {
-    // License check disabled for testing
-    setIsActivated(true);
-    setLicenseChecked(true);
+    async function checkLicense() {
+      if (window.electronAPI?.validateLicense) {
+        const result = await window.electronAPI.validateLicense();
+        setIsActivated(result.isActivated);
+      } else {
+        // Browser dev mode — skip activation
+        setIsActivated(true);
+      }
+      setLicenseChecked(true);
+    }
+    checkLicense();
   }, []);
 
   if (!licenseChecked) {

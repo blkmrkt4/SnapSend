@@ -22,6 +22,7 @@ export function Navbar({ onNavigate }: { onNavigate: (page: Page) => void }) {
             <a href="#how-it-works" onClick={() => onNavigate('home')} className="text-gray-400 hover:text-white transition-colors">How It Works</a>
             <a href="#pricing" onClick={() => onNavigate('home')} className="text-gray-400 hover:text-white transition-colors">Pricing</a>
             <a href="#download" onClick={() => onNavigate('home')} className="text-gray-400 hover:text-white transition-colors">Download</a>
+            <button onClick={() => onNavigate('demo')} className="text-gray-400 hover:text-white transition-colors">Demo</button>
             <a
               href={productInfo.checkoutUrl}
               target="_blank"
@@ -50,6 +51,7 @@ export function Navbar({ onNavigate }: { onNavigate: (page: Page) => void }) {
           <a href="#how-it-works" onClick={() => { onNavigate('home'); setMenuOpen(false); }} className="block text-gray-400 hover:text-white py-2">How It Works</a>
           <a href="#pricing" onClick={() => { onNavigate('home'); setMenuOpen(false); }} className="block text-gray-400 hover:text-white py-2">Pricing</a>
           <a href="#download" onClick={() => { onNavigate('home'); setMenuOpen(false); }} className="block text-gray-400 hover:text-white py-2">Download</a>
+          <button onClick={() => { onNavigate('demo'); setMenuOpen(false); }} className="block text-gray-400 hover:text-white py-2 w-full text-left">Demo</button>
           <a
             href={productInfo.checkoutUrl}
             target="_blank"

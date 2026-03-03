@@ -14,14 +14,23 @@ import { Terms } from './components/Terms';
 import { Support } from './components/Support';
 import { Contact } from './components/Contact';
 import { FAQ } from './components/FAQ';
+import { Demo } from './components/Demo';
 
-export type Page = 'home' | 'privacy' | 'terms' | 'support' | 'contact' | 'faq';
+export type Page = 'home' | 'privacy' | 'terms' | 'support' | 'contact' | 'faq' | 'demo';
+
+const validPages: Page[] = ['home', 'privacy', 'terms', 'support', 'contact', 'faq', 'demo'];
+
+function getPageFromHash(): Page {
+  const hash = window.location.hash.replace('#', '');
+  return validPages.includes(hash as Page) ? (hash as Page) : 'home';
+}
 
 export default function App() {
-  const [page, setPage] = useState<Page>('home');
+  const [page, setPage] = useState<Page>(getPageFromHash);
 
   const navigate = (p: Page) => {
     setPage(p);
+    window.location.hash = p === 'home' ? '' : p;
     window.scrollTo(0, 0);
   };
 
@@ -45,6 +54,7 @@ export default function App() {
       {page === 'support' && <Support onBack={() => navigate('home')} onNavigate={navigate} />}
       {page === 'contact' && <Contact onBack={() => navigate('home')} />}
       {page === 'faq' && <FAQ onBack={() => navigate('home')} />}
+      {page === 'demo' && <Demo onBack={() => navigate('home')} />}
       <Footer onNavigate={navigate} />
     </div>
   );
