@@ -44,13 +44,13 @@ export function Hero() {
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <a
-            href="#download"
+            href={productInfo.downloadMacArmUrl}
             className="bg-teal-dark hover:bg-teal text-white px-8 py-3 rounded-lg text-lg font-medium transition-colors inline-flex items-center justify-center"
           >
             Download for Mac
           </a>
           <a
-            href="#download"
+            href={productInfo.downloadWindowsUrl}
             className="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white px-8 py-3 rounded-lg text-lg font-medium transition-colors inline-flex items-center justify-center"
           >
             Download for Windows
