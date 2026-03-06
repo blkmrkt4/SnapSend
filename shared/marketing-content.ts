@@ -10,9 +10,9 @@ export const productInfo = {
     'Transfer files, clipboard text, and screenshots between devices on your local network. Direct peer-to-peers — no internet required, nothing leaves your network.',
   supportedPlatforms: ['macOS 12+', 'Windows 10+'],
   checkoutUrl: 'https://liquidrelay.lemonsqueezy.com/buy',
-  downloadMacArmUrl: 'https://github.com/blkmrkt4/SnapSend/releases/download/v3.75.0/LiquidRelay-Mac-arm64-3.75.0.dmg',
+  downloadMacArmUrl: 'https://github.com/blkmrkt4/SnapSend/releases/download/v3.75.1/LiquidRelay-Mac-arm64-3.75.1.dmg',
   downloadMacIntelUrl: '#download',
-  downloadWindowsUrl: '#download',
+  downloadWindowsUrl: 'https://github.com/blkmrkt4/SnapSend/releases/download/v3.75.1/LiquidRelaySetup-3.75.1.exe',
 };
 
 export interface HeroSlide {
