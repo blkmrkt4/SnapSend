@@ -9,6 +9,8 @@ import { LeftSidebar } from '@/components/LeftSidebar';
 import { useConnectionSystem } from '@/hooks/useConnectionSystem';
 import { type File } from '@shared/schema';
 
+const COLLAPSED_SIDEBAR_WIDTH = 380;
+
 export default function Home() {
   const [activeSection, setActiveSection] = useState<'home' | 'connections' | 'files' | 'settings' | 'help'>('files');
   const [previewFile, setPreviewFile] = useState<File | null>(null);
@@ -105,7 +107,7 @@ export default function Home() {
           preGhostWindowSizeRef.current.height
         );
       }
-      // If drawer is closed, window is already at 320 width — leave it
+      // If drawer is closed, window is already at collapsed sidebar width — leave it
       preGhostWindowSizeRef.current = null;
     }
 
@@ -209,7 +211,7 @@ export default function Home() {
             if (!newState) {
               // Collapsing — save size and shrink to sidebar width
               prePanelSizeRef.current = currentSize;
-              await window.electronAPI.setWindowSize(320, currentSize.height);
+              await window.electronAPI.setWindowSize(COLLAPSED_SIDEBAR_WIDTH, currentSize.height);
             } else {
               // Expanding — restore previous size, or default to 1200 if window is narrow
               const targetWidth = prePanelSizeRef.current?.width ?? 1200;
@@ -229,7 +231,11 @@ export default function Home() {
 
       {/* Main Content Area - collapsible, fills remaining width */}
       {showFilesPanel && (
-        <main className="flex-1 flex flex-col overflow-hidden min-h-0">
+        <main className="flex-1 flex flex-col overflow-y-auto min-h-0">
+          <div
+            className="h-8 flex-shrink-0"
+            style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+          />
           <div className="p-6 flex-1 flex flex-col min-h-0">
             {renderMainContent()}
           </div>

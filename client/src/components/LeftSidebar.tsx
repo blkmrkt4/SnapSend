@@ -539,7 +539,7 @@ export function LeftSidebar({
         className="flex items-center justify-between px-3 pb-2 border-b border-primary/20"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 min-w-0">
           <button
             className="flex-shrink-0 cursor-pointer hover:opacity-70 transition-opacity"
             style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
@@ -554,13 +554,13 @@ export function LeftSidebar({
           >
             <LiquidDropletIcon className="text-primary w-5 h-5" />
           </button>
-          <span className="text-sm font-bold text-foreground whitespace-nowrap">
+          <span className="text-sm font-bold text-foreground whitespace-nowrap overflow-hidden text-ellipsis">
             Liquid <em>Relay</em>
           </span>
         </div>
 
         {/* Header icons — right side */}
-        <div className="flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+        <div className="flex items-center gap-0 flex-shrink-0" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
 
         {/* Hamburger menu */}
         <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>

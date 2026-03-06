@@ -318,13 +318,15 @@ let preGhostState: {
   alwaysOnTop: boolean;
 } | null = null;
 
+const COLLAPSED_SIDEBAR_WIDTH = 380;
+
 async function createWindow() {
   const isClientMode = !isDev && getConnectionMode() === 'client';
 
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    minWidth: 320,  // Match sidebar width for collapsed mode
+    minWidth: COLLAPSED_SIDEBAR_WIDTH,
     minHeight: 400,
     title: 'Liquid Relay',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
@@ -661,7 +663,7 @@ ipcMain.handle('set-ghost-mode', (_event, enabled: boolean) => {
     const ghostOpacity = getGhostOpacitySetting();
     mainWindow.setOpacity(ghostOpacity);
     mainWindow.setAlwaysOnTop(true, 'floating');
-    mainWindow.setSize(320, 580);
+    mainWindow.setSize(COLLAPSED_SIDEBAR_WIDTH, 580);
   } else {
     // Restore opacity and always-on-top only — renderer handles window sizing
     mainWindow.setOpacity(1.0);
