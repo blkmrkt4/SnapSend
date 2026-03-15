@@ -1,6 +1,7 @@
 import { Apple, Monitor } from 'lucide-react';
 import { productInfo } from '../../../shared/marketing-content';
 
+
 export function Download() {
   return (
     <section id="download" className="py-24 px-4 sm:px-6 lg:px-8 bg-gray-900/30">
@@ -37,7 +38,7 @@ export function Download() {
         </div>
 
         <p className="text-sm text-gray-500 mt-8">
-          Need a license? <a href={productInfo.checkoutUrl} target="_blank" rel="noopener noreferrer" className="text-teal hover:text-teal-dark underline">Buy here</a> — then download and activate.
+          Need a license? <a href="#pricing" className="text-teal hover:text-teal-dark underline">See pricing</a> — then download and activate.
         </p>
       </div>
     </section>

@@ -1,5 +1,5 @@
 import { Check, Monitor } from 'lucide-react';
-import { pricingPlans, productInfo } from '../../../shared/marketing-content';
+import { pricingPlans } from '../../../shared/marketing-content';
 
 export function Pricing() {
   return (
@@ -55,7 +55,7 @@ export function Pricing() {
               </ul>
 
               <a
-                href={productInfo.checkoutUrl}
+                href={plan.checkoutUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={`block w-full text-center py-3 rounded-lg font-medium transition-colors ${

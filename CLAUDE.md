@@ -1,3 +1,4 @@
+
 # CLAUDE.md — SnapSend Project Guide
 
 ## Product Requirements
@@ -94,16 +95,6 @@ B → A: { type: "file-received-ack", data: { filename } }
 
 Server-side `routes.ts` distinguishes peer connections (start with `peer-handshake`) from local renderer clients (start with `device-setup`).
 
-## Test Environment
-
-File transfers and P2P connections have been **successfully tested between all three machines** on the local network:
-
-- **Mac Mini** (macOS, arm64) — uses native `dns-sd` for mDNS discovery
-- **Windows PC** — uses `bonjour-service` fallback for mDNS discovery
-- **Windows Laptop** — uses `bonjour-service` fallback for mDNS discovery
-
-All three machines connect and transfer files over port 53000. **There are no firewall issues blocking port 53000 on any of these machines.** Do not suggest firewalls as a cause when troubleshooting connectivity problems between them.
-
 ## Important Constraints
 
 - **No cloud anything.** No external database, no external API calls, no analytics, no telemetry. All data on local disk.
@@ -145,4 +136,3 @@ npm run check            # TypeScript type check
 - mDNS discovery is in `electron/discovery.ts`
 - Client type declarations for `window.electronAPI` are in `client/src/types/electron.d.ts`
 - The `GuideDocs/` folder documents the ORIGINAL architecture. It is reference material for understanding the codebase history but does not reflect the current state.
-- When you create a new build in a .dmg file iterate the version number. If the last version was 1 then the next version should be 2. The format should be in kebab style SS-Mac-Arm-1.dmg   then the next one would be SS-Mac-Arm-2.dmg assuming the build was for the ARM version.

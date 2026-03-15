@@ -9,7 +9,9 @@ export const productInfo = {
   description:
     'Transfer files, clipboard text, and screenshots between devices on your local network. Direct peer-to-peers — no internet required, nothing leaves your network.',
   supportedPlatforms: ['macOS 12+', 'Windows 10+'],
-  checkoutUrl: 'https://liquidrelay.lemonsqueezy.com/buy',
+  checkoutPersonalUrl: 'https://store.liquid-relay.com/checkout/buy/a4ae54ef-1ff6-43cd-9262-4a57685ffc80',
+  checkoutTeamUrl: 'https://store.liquid-relay.com/checkout/buy/57c61884-aca7-46b7-b514-d7a165a16b9c',
+  storeUrl: 'https://store.liquid-relay.com',
   downloadMacArmUrl: 'https://github.com/blkmrkt4/SnapSend/releases/download/v3.75.1/LiquidRelay-Mac-arm64-3.75.1.dmg',
   downloadMacIntelUrl: '#download',
   downloadWindowsUrl: 'https://github.com/blkmrkt4/SnapSend/releases/download/v3.75.1/LiquidRelaySetup-3.75.1.exe',
@@ -147,6 +149,7 @@ export interface PricingPlan {
   machineLimit: string;
   features: string[];
   popular: boolean;
+  checkoutUrl: string;
 }
 
 export const pricingPlans: PricingPlan[] = [
@@ -162,6 +165,7 @@ export const pricingPlans: PricingPlan[] = [
       'Clipboard & screenshot sharing',
       'Free updates',
     ],
+    checkoutUrl: productInfo.checkoutPersonalUrl,
     popular: true,
   },
   {
@@ -177,6 +181,7 @@ export const pricingPlans: PricingPlan[] = [
       'Free updates',
       'Priority support',
     ],
+    checkoutUrl: productInfo.checkoutTeamUrl,
     popular: false,
   },
 ];

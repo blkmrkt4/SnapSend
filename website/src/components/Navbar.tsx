@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Droplets, Menu, X } from 'lucide-react';
-import { productInfo } from '../../../shared/marketing-content';
 import type { Page } from '../App';
 
 export function Navbar({ onNavigate }: { onNavigate: (page: Page) => void }) {
@@ -24,9 +23,8 @@ export function Navbar({ onNavigate }: { onNavigate: (page: Page) => void }) {
             <a href="#download" onClick={() => onNavigate('home')} className="text-gray-400 hover:text-white transition-colors">Download</a>
             <button onClick={() => onNavigate('demo')} className="text-gray-400 hover:text-white transition-colors">Demo</button>
             <a
-              href={productInfo.checkoutUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+              href="#pricing"
+              onClick={() => onNavigate('home')}
               className="bg-teal-dark hover:bg-teal text-white px-5 py-2 rounded-lg font-medium transition-colors"
             >
               Buy License
@@ -53,9 +51,8 @@ export function Navbar({ onNavigate }: { onNavigate: (page: Page) => void }) {
           <a href="#download" onClick={() => { onNavigate('home'); setMenuOpen(false); }} className="block text-gray-400 hover:text-white py-2">Download</a>
           <button onClick={() => { onNavigate('demo'); setMenuOpen(false); }} className="block text-gray-400 hover:text-white py-2 w-full text-left">Demo</button>
           <a
-            href={productInfo.checkoutUrl}
-            target="_blank"
-            rel="noopener noreferrer"
+            href="#pricing"
+            onClick={() => { onNavigate('home'); setMenuOpen(false); }}
             className="block bg-teal-dark hover:bg-teal text-white text-center px-5 py-2 rounded-lg font-medium transition-colors"
           >
             Buy License

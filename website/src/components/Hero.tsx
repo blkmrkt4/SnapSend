@@ -56,12 +56,20 @@ export function Hero() {
             Download for Windows
           </a>
           <a
-            href={productInfo.checkoutUrl}
+            href={productInfo.checkoutPersonalUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="border border-teal text-teal hover:bg-teal/10 px-8 py-3 rounded-lg text-lg font-medium transition-colors inline-flex items-center justify-center"
           >
-            Buy License
+            Buy Personal
+          </a>
+          <a
+            href={productInfo.checkoutTeamUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="border border-gray-600 text-gray-300 hover:bg-gray-800 px-8 py-3 rounded-lg text-lg font-medium transition-colors inline-flex items-center justify-center"
+          >
+            Buy Team
           </a>
         </div>
 
