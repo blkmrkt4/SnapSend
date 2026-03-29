@@ -1222,8 +1222,32 @@ export async function registerRoutes(app: Express, options?: RouteOptions): Prom
         return res.status(400).json({ error: 'Missing required fields' });
       }
 
+      // Write file content to disk so it can be downloaded/opened later
+      const savedFilename = filename || `${Date.now()}_${originalName}`;
+      if (content && !isClipboard) {
+        const uploadsDir = process.env.SNAPSEND_UPLOADS_DIR || path.join(process.cwd(), 'uploads');
+        if (!fs.existsSync(uploadsDir)) {
+          fs.mkdirSync(uploadsDir, { recursive: true });
+        }
+        const filePath = path.join(uploadsDir, savedFilename);
+        try {
+          if (content.startsWith('data:')) {
+            const base64Data = content.split(',')[1];
+            const buffer = Buffer.from(base64Data, 'base64');
+            fs.writeFileSync(filePath, buffer);
+          } else if (mimeType?.startsWith('text/')) {
+            fs.writeFileSync(filePath, content, 'utf8');
+          } else {
+            const buffer = Buffer.from(content, 'base64');
+            fs.writeFileSync(filePath, buffer);
+          }
+        } catch (err) {
+          console.error('Error writing received file to disk:', err);
+        }
+      }
+
       const savedFile = await storage.createFile({
-        filename: filename || `${Date.now()}_${originalName}`,
+        filename: savedFilename,
         originalName,
         mimeType,
         size: size || 0,
