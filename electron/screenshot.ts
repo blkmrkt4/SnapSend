@@ -1,5 +1,5 @@
-import { app, BrowserWindow, desktopCapturer, ipcMain, nativeImage, screen } from 'electron';
-import { spawn } from 'child_process';
+import { app, BrowserWindow, desktopCapturer, ipcMain, nativeImage, screen, shell, systemPreferences } from 'electron';
+import { exec, spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
@@ -81,6 +81,62 @@ function showWindow(win: BrowserWindow): void {
   }
 }
 
+// --- macOS: screen recording permission ---
+
+export type ScreenRecordingStatus = 'granted' | 'denied' | 'restricted' | 'not-determined' | 'unknown';
+
+export function getScreenRecordingStatus(): ScreenRecordingStatus {
+  if (process.platform !== 'darwin') return 'granted';
+  return systemPreferences.getMediaAccessStatus('screen') as ScreenRecordingStatus;
+}
+
+// Trigger the macOS TCC prompt through Electron's desktopCapturer — the
+// Apple-blessed path that registers the grant cleanly against the app bundle.
+// The returned thumbnails are discarded; we only call this for the side effect.
+let promptInFlight: Promise<void> | null = null;
+async function triggerScreenRecordingPrompt(): Promise<void> {
+  if (process.platform !== 'darwin') return;
+  if (promptInFlight) return promptInFlight;
+  promptInFlight = (async () => {
+    try {
+      await desktopCapturer.getSources({
+        types: ['screen'],
+        thumbnailSize: { width: 1, height: 1 },
+      });
+    } catch {
+      // Ignore — we just need the TCC side effect
+    }
+  })();
+  try {
+    await promptInFlight;
+  } finally {
+    promptInFlight = null;
+  }
+}
+
+export function openScreenRecordingSettings(): void {
+  if (process.platform === 'darwin') {
+    shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture');
+  }
+}
+
+export function resetScreenRecordingPermission(): Promise<{ success: boolean; error?: string }> {
+  return new Promise((resolve) => {
+    if (process.platform !== 'darwin') {
+      resolve({ success: false, error: 'Only supported on macOS' });
+      return;
+    }
+    // Any user can reset TCC for their own apps; no sudo needed.
+    exec('tccutil reset ScreenCapture com.liquidrelay.app', (err, _stdout, stderr) => {
+      if (err) {
+        resolve({ success: false, error: stderr?.trim() || err.message });
+      } else {
+        resolve({ success: true });
+      }
+    });
+  });
+}
+
 // --- macOS: screencapture CLI ---
 
 function runScreencapture(mainWindow: BrowserWindow, args: string[]): Promise<ScreenshotResult> {
@@ -115,17 +171,37 @@ function runScreencapture(mainWindow: BrowserWindow, args: string[]): Promise<Sc
   });
 }
 
-function captureSelectAreaMac(mainWindow: BrowserWindow): Promise<ScreenshotResult> {
+// Guard a mac capture call: trigger TCC prompt if undetermined, bail out
+// with a permission error if denied/restricted, otherwise proceed.
+async function ensureMacPermission(): Promise<ScreenshotResult | null> {
+  const status = getScreenRecordingStatus();
+  if (status === 'granted') return null;
+  if (status === 'not-determined' || status === 'unknown') {
+    await triggerScreenRecordingPrompt();
+    const after = getScreenRecordingStatus();
+    if (after === 'granted') return null;
+    return { error: 'permission' };
+  }
+  return { error: 'permission' };
+}
+
+async function captureSelectAreaMac(mainWindow: BrowserWindow): Promise<ScreenshotResult> {
+  const denied = await ensureMacPermission();
+  if (denied) return denied;
   // -i: interactive, -x: no sound
   return runScreencapture(mainWindow, ['-i', '-x']);
 }
 
-function captureWindowMac(mainWindow: BrowserWindow): Promise<ScreenshotResult> {
+async function captureWindowMac(mainWindow: BrowserWindow): Promise<ScreenshotResult> {
+  const denied = await ensureMacPermission();
+  if (denied) return denied;
   // -i: interactive, -w: window mode, -x: no sound
   return runScreencapture(mainWindow, ['-i', '-w', '-x']);
 }
 
-function captureFullscreenMac(mainWindow: BrowserWindow, displayIndex?: number): Promise<ScreenshotResult> {
+async function captureFullscreenMac(mainWindow: BrowserWindow, displayIndex?: number): Promise<ScreenshotResult> {
+  const denied = await ensureMacPermission();
+  if (denied) return denied;
   const args: string[] = [];
   if (displayIndex !== undefined) {
     args.push('-D', String(displayIndex));

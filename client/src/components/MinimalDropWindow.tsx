@@ -42,6 +42,7 @@ function LiquidDropletIcon({ className }: { className?: string }) {
 }
 import { useFileTransfer } from '@/hooks/useFileTransfer';
 import { useScreenshot } from '@/hooks/useScreenshot';
+import { ScreenshotPermissionDialog } from './ScreenshotPermissionDialog';
 import { MistAnimation } from './MistAnimation';
 import { ScreenshotCropper } from './ScreenshotCropper';
 import { type File, type Device } from '@shared/schema';
@@ -90,6 +91,7 @@ export function MinimalDropWindow({
   const {
     showScreenshotPicker, setShowScreenshotPicker,
     screenshotData, windowSources, displayInfo, isMultiMonitor,
+    permissionDialogOpen, setPermissionDialogOpen, isMac,
     handleScreenshotSelectArea, handleScreenshotWindow, handleScreenshotFullScreen,
     handleScreenshotCrop, handleScreenshotCancel, handleWindowSourceSelect,
   } = useScreenshot({ onSendFile, onShowMist: () => setShowMist(true) });
@@ -614,6 +616,12 @@ export function MinimalDropWindow({
           onCancel={handleScreenshotCancel}
         />
       )}
+
+      <ScreenshotPermissionDialog
+        open={permissionDialogOpen}
+        onOpenChange={setPermissionDialogOpen}
+        isMac={isMac}
+      />
     </div>
   );
 }

@@ -78,6 +78,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('screenshot-window-by-id', sourceId, fullResDataURL, width, height),
   screenshotFullscreen: (displayId?: number | string) => ipcRenderer.invoke('screenshot-fullscreen', displayId),
   getDisplayInfo: () => ipcRenderer.invoke('get-display-info'),
+  screenshotGetPermissionStatus: () => ipcRenderer.invoke('screenshot-get-permission-status'),
+  screenshotOpenSettings: () => ipcRenderer.invoke('screenshot-open-settings'),
+  screenshotResetPermission: () => ipcRenderer.invoke('screenshot-reset-permission'),
 
   // Clipboard
   readClipboardImage: () => ipcRenderer.invoke('read-clipboard-image'),

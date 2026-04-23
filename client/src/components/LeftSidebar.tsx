@@ -3,6 +3,7 @@ import { ArrowDown, Clipboard, Camera, FileImage, Monitor, Maximize, Crop, Wifi,
 import { HamburgerMenu } from './HamburgerMenu';
 import { useFileTransfer } from '@/hooks/useFileTransfer';
 import { useScreenshot } from '@/hooks/useScreenshot';
+import { ScreenshotPermissionDialog } from './ScreenshotPermissionDialog';
 import { MistAnimation } from './MistAnimation';
 import { ScreenshotCropper } from './ScreenshotCropper';
 import { type File, type Device } from '@shared/schema';
@@ -166,6 +167,7 @@ export function LeftSidebar({
   const {
     showScreenshotPicker, setShowScreenshotPicker,
     screenshotData, windowSources, displayInfo, isMultiMonitor,
+    permissionDialogOpen, setPermissionDialogOpen, isMac,
     handleScreenshotSelectArea, handleScreenshotWindow, handleScreenshotFullScreen,
     handleScreenshotCrop, handleScreenshotCancel, handleWindowSourceSelect,
   } = useScreenshot({ onSendFile, onShowMist: () => setShowMist(true) });
@@ -981,6 +983,12 @@ export function LeftSidebar({
           onCancel={handleScreenshotCancel}
         />
       )}
+
+      <ScreenshotPermissionDialog
+        open={permissionDialogOpen}
+        onOpenChange={setPermissionDialogOpen}
+        isMac={isMac}
+      />
     </aside>
   );
 }

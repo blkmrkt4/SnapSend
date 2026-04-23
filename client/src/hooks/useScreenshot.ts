@@ -1,5 +1,4 @@
 import { useState, useCallback, useEffect } from 'react';
-import { toast } from '@/hooks/use-toast';
 import type { ScreenshotResult, WindowSource, DisplayInfo } from '@/types/electron';
 
 interface ScreenshotData {
@@ -18,9 +17,16 @@ export function useScreenshot({ onSendFile, onShowMist }: UseScreenshotOptions) 
   const [screenshotData, setScreenshotData] = useState<ScreenshotData | null>(null);
   const [windowSources, setWindowSources] = useState<WindowSource[] | null>(null);
   const [displayInfo, setDisplayInfo] = useState<DisplayInfo[] | null>(null);
+  const [permissionDialogOpen, setPermissionDialogOpen] = useState(false);
+  const [platform, setPlatform] = useState<string>('');
 
   const isElectron = !!window.electronAPI?.isElectron;
   const isMultiMonitor = (displayInfo?.length ?? 0) > 1;
+  const isMac = platform === 'darwin';
+
+  useEffect(() => {
+    window.electronAPI?.getPlatform?.().then(setPlatform).catch(() => {});
+  }, []);
 
   // Load display info on mount (Electron only)
   const loadDisplayInfo = useCallback(async () => {
@@ -56,11 +62,7 @@ export function useScreenshot({ onSendFile, onShowMist }: UseScreenshotOptions) 
     if (!result) return; // Cancelled or failed
 
     if ('error' in result && result.error === 'permission') {
-      toast({
-        title: 'Screen Recording Permission Required',
-        description: 'Open System Settings → Privacy & Security → Screen Recording and enable Liquid Relay.',
-        variant: 'destructive',
-      });
+      setPermissionDialogOpen(true);
       return;
     }
 
@@ -191,6 +193,9 @@ export function useScreenshot({ onSendFile, onShowMist }: UseScreenshotOptions) 
     windowSources,
     displayInfo,
     isMultiMonitor,
+    permissionDialogOpen,
+    setPermissionDialogOpen,
+    isMac,
     handleScreenshotSelectArea,
     handleScreenshotWindow,
     handleScreenshotFullScreen,

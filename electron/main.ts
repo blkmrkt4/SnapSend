@@ -15,6 +15,9 @@ import {
   captureFullscreen,
   getDisplayInfo,
   cleanupScreenshotTemp,
+  openScreenRecordingSettings,
+  resetScreenRecordingPermission,
+  getScreenRecordingStatus,
 } from './screenshot';
 import {
   getSmartNamingSetting,
@@ -767,6 +770,10 @@ ipcMain.handle('screenshot-fullscreen', async (_e, displayId?: number | string) 
 });
 
 ipcMain.handle('get-display-info', () => getDisplayInfo());
+
+ipcMain.handle('screenshot-get-permission-status', () => getScreenRecordingStatus());
+ipcMain.handle('screenshot-open-settings', () => openScreenRecordingSettings());
+ipcMain.handle('screenshot-reset-permission', () => resetScreenRecordingPermission());
 
 // License IPC handlers
 ipcMain.handle('activate-license', (_event, key: string) => activateLicense(key));

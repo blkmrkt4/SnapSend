@@ -50,6 +50,9 @@ export interface ElectronAPI {
   screenshotWindowById: (sourceId: string, fullResDataURL: string, width: number, height: number) => Promise<ScreenshotResult | null>;
   screenshotFullscreen: (displayId?: number | string) => Promise<ScreenshotResult | null>;
   getDisplayInfo: () => Promise<DisplayInfo[]>;
+  screenshotGetPermissionStatus?: () => Promise<'granted' | 'denied' | 'restricted' | 'not-determined' | 'unknown'>;
+  screenshotOpenSettings?: () => Promise<void>;
+  screenshotResetPermission?: () => Promise<{ success: boolean; error?: string }>;
 
   // Clipboard
   readClipboardImage: () => Promise<{ dataURL: string; width: number; height: number } | null>;
