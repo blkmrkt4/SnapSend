@@ -12,9 +12,11 @@ export const productInfo = {
   checkoutPersonalUrl: 'https://store.liquid-relay.com/checkout/buy/a4ae54ef-1ff6-43cd-9262-4a57685ffc80',
   checkoutTeamUrl: 'https://store.liquid-relay.com/checkout/buy/57c61884-aca7-46b7-b514-d7a165a16b9c',
   storeUrl: 'https://store.liquid-relay.com',
-  downloadMacArmUrl: 'https://github.com/blkmrkt4/SnapSend/releases/download/v3.75.1/LiquidRelay-Mac-arm64-3.75.1.dmg',
+  // These resolve to the asset of the latest published GitHub Release with the
+  // matching filename. Stable across versions — no edits needed when shipping.
+  downloadMacArmUrl: 'https://github.com/blkmrkt4/SnapSend/releases/latest/download/LiquidRelay-Mac-arm64.dmg',
   downloadMacIntelUrl: '#download',
-  downloadWindowsUrl: 'https://github.com/blkmrkt4/SnapSend/releases/download/v3.75.1/LiquidRelaySetup-3.75.1.exe',
+  downloadWindowsUrl: 'https://github.com/blkmrkt4/SnapSend/releases/latest/download/LiquidRelaySetup.exe',
 };
 
 export interface HeroSlide {

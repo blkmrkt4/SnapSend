@@ -26,6 +26,8 @@ export interface ElectronAPI {
   onRelayDevicesUpdated?: (callback: (devices: { id: string; name: string }[]) => void) => void;
   sendRelayFile?: (targetClientId: string, fileData: any) => Promise<boolean>;
   restartDiscovery?: () => Promise<void>;
+  forceReconnect?: () => Promise<{ ok: boolean }>;
+  getNetworkInfo?: () => Promise<{ ssid: string | null; interfaceName: string; ipv4: string }>;
 
   // Chunked file transfer
   sendChunkedFile?: (peerId: string, fileData: {

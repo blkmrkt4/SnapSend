@@ -57,6 +57,7 @@ export default function Home() {
     deleteTag,
     refreshDiscovery,
     toggleDeviceEnabled,
+    networkInfo,
   } = useConnectionSystem();
 
   // Listen for AI smart-rename events: rename via API, then refresh file list
@@ -140,6 +141,7 @@ export default function Home() {
             onlineDevices={onlineDevices}
             connections={connections}
             knownDevices={knownDevices}
+            networkInfo={networkInfo}
             onPairWithDevice={pairWithDevice}
             onTerminateConnection={terminateConnection}
             onToggleDeviceEnabled={toggleDeviceEnabled}

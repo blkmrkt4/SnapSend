@@ -31,7 +31,11 @@
     }
   },
   "dmg": {
-    "artifactName": "LiquidRelay-Mac-${arch}-${version}.${ext}",
+    // Version-less filename so the website can link to GitHub's
+    // `releases/latest/download/<file>` redirector and never need updating.
+    // The version is still visible inside the .dmg (Info.plist) and on the
+    // release page itself.
+    "artifactName": "LiquidRelay-Mac-${arch}.${ext}",
     "contents": [
       { "x": 130, "y": 220 },
       { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
@@ -44,7 +48,7 @@
     "icon": "assets/icon.png"
   },
   "nsis": {
-    "artifactName": "LiquidRelaySetup-${version}.${ext}",
+    "artifactName": "LiquidRelaySetup.${ext}",
     "oneClick": false,
     "perMachine": true,
     "deleteAppDataOnUninstall": true,

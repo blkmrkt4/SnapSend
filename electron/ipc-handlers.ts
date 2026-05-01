@@ -9,12 +9,14 @@ const CHUNK_THRESHOLD = 70 * 1024 * 1024; // 70MB
 let peerManager: PeerConnectionManager | null = null;
 let reconnectInterval: ReturnType<typeof setInterval> | null = null;
 
-// Reconnect backoff state
+// Reconnect backoff state. Backoff grows exponentially up to MAX_DELAY_MS,
+// then keeps trying forever at that interval. We never permanently abandon
+// a peer — a LAN device that's offline now may come back any time, and
+// silently giving up makes the app look broken to the user.
 const peerRetryCount: Map<string, number> = new Map();
 const peerLastAttempt: Map<string, number> = new Map();
-const MAX_RETRIES = 10;
 const BASE_DELAY_MS = 5000; // 5s base
-const MAX_DELAY_MS = 5 * 60 * 1000; // 5 min cap
+const MAX_DELAY_MS = 60 * 1000; // 1 min cap (was 5 min — too slow for LAN reality)
 
 export function resetPeerRetries(): void {
   peerRetryCount.clear();
@@ -48,20 +50,15 @@ export function registerDiscoveryIPC(
       const hasValidAddress = peer.host && peer.port > 0;
       if (!hasValidAddress || peerManager.isConnected(peer.id) || !isDeviceEnabled(peer.id)) continue;
 
-      // Check retry backoff
+      // Backoff: exponential up to MAX_DELAY_MS, then steady at that interval.
       const retries = peerRetryCount.get(peer.id) || 0;
-      if (retries >= MAX_RETRIES) {
-        // Maxed out — skip until fresh discovery or wake resets counters
-        continue;
-      }
-
       const lastAttempt = peerLastAttempt.get(peer.id) || 0;
       const delay = Math.min(BASE_DELAY_MS * Math.pow(2, retries), MAX_DELAY_MS);
       if (now - lastAttempt < delay) {
         continue; // Too soon — backoff not elapsed
       }
 
-      console.log(`[IPC] Reconnecting to peer: ${peer.name} at ${peer.host}:${peer.port} (retry ${retries + 1}/${MAX_RETRIES})`);
+      console.log(`[IPC] Reconnecting to peer: ${peer.name} at ${peer.host}:${peer.port} (attempt ${retries + 1})`);
       peerRetryCount.set(peer.id, retries + 1);
       peerLastAttempt.set(peer.id, now);
       peerManager.connectToPeer(peer);

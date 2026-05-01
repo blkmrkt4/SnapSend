@@ -118,6 +118,30 @@ export class PeerConnectionManager {
       return;
     }
 
+    // Deterministic tiebreak: when both peers discover each other simultaneously,
+    // both would race to open outbound WebSockets. The side with the lexicographically
+    // higher localId defers by 2.5s — long enough for the lower-id side's incoming
+    // connection to land. If it does, the early-return at the top of this function
+    // takes the deferred call's no-op path. If it doesn't, the deferred call goes
+    // ahead. Net: avoids most cross-connection races without losing connectivity.
+    if (this.localId > peer.id && !this.handshaked.has(peer.id)) {
+      this.connectingPeers.add(peer.id);
+      this.connectingStartTimes.set(peer.id, Date.now());
+      setTimeout(() => {
+        this.connectingPeers.delete(peer.id);
+        this.connectingStartTimes.delete(peer.id);
+        // Re-check state — the peer may have connected to us in the interim.
+        const cur = this.connections.get(peer.id);
+        if (cur && cur.readyState === WebSocket.OPEN) {
+          console.log(`[P2P] Deferred connect to ${peer.name} not needed (incoming arrived)`);
+          return;
+        }
+        this.connectToPeer(peer);
+      }, 2500);
+      console.log(`[P2P] Deferring outbound connect to ${peer.name} (tiebreak — waiting for incoming)`);
+      return;
+    }
+
     // In-flight protection: skip if already connecting (unless stale >20s)
     if (this.connectingPeers.has(peer.id)) {
       const startTime = this.connectingStartTimes.get(peer.id) || 0;

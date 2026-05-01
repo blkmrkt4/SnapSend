@@ -1,5 +1,6 @@
 import './logger'; // Must be first — patches console to capture all output
 import { app, BrowserWindow, ipcMain, shell, clipboard, powerMonitor, dialog } from 'electron';
+import { execFile } from 'child_process';
 import os from 'os';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
@@ -41,6 +42,91 @@ let serverPort: number = 5000;
 let discovery: DiscoveryManager | null = null;
 let serverInstance: any = null;
 let reconnectDisconnectedPeers: (() => void) | null = null;
+let lastWakeRecovery = 0;
+let wakeReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let networkPollTimer: ReturnType<typeof setInterval> | null = null;
+let lastNetworkSignature = '';
+
+function getNetworkSignature(): string {
+  // A stable string that changes when local IPv4 addresses change.
+  const nets = os.networkInterfaces();
+  const addrs: string[] = [];
+  for (const name of Object.keys(nets).sort()) {
+    for (const net of nets[name] || []) {
+      if (net.family === 'IPv4' && !net.internal) {
+        addrs.push(`${name}=${net.address}`);
+      }
+    }
+  }
+  return addrs.join('|');
+}
+
+function handleWakeRecovery(source: string, opts?: { force?: boolean }) {
+  const now = Date.now();
+  if (!opts?.force && now - lastWakeRecovery < 10000) {
+    console.log(`[Recovery] ${source} — skipping (debounced, last recovery ${Math.round((now - lastWakeRecovery) / 1000)}s ago)`);
+    return;
+  }
+  lastWakeRecovery = now;
+  console.log(`[Recovery] ${source} — cleaning up dead connections and restarting discovery`);
+
+  const pm = getPeerManager();
+  if (pm) pm.disconnectAll();
+  resetPeerRetries();
+  if (discovery) discovery.restart();
+
+  if (wakeReconnectTimer) clearTimeout(wakeReconnectTimer);
+  wakeReconnectTimer = setTimeout(() => {
+    wakeReconnectTimer = null;
+    if (reconnectDisconnectedPeers) {
+      console.log(`[Recovery] Attempting peer reconnection after ${source}`);
+      reconnectDisconnectedPeers();
+    }
+    setTimeout(() => {
+      if (reconnectDisconnectedPeers) {
+        console.log('[Recovery] Second reconnection wave');
+        reconnectDisconnectedPeers();
+      }
+    }, 10000);
+  }, 10000);
+}
+
+// Detect SSID via platform-specific CLI. Returns null when SSID can't be read
+// (no Wi-Fi interface, ethernet only, or platform permission denied).
+function detectSSID(): Promise<string | null> {
+  return new Promise((resolve) => {
+    const done = (val: string | null) => resolve(val);
+    if (process.platform === 'darwin') {
+      // Try common Wi-Fi interface names. networksetup reads from system config
+      // and works without Location Services permission on macOS Sequoia.
+      const tryIface = (idx: number) => {
+        const ifaces = ['en0', 'en1'];
+        if (idx >= ifaces.length) return done(null);
+        execFile('/usr/sbin/networksetup', ['-getairportnetwork', ifaces[idx]], { timeout: 2000 }, (err, stdout) => {
+          if (err || !stdout) return tryIface(idx + 1);
+          const m = stdout.match(/Current Wi-Fi Network:\s*(.+?)\s*$/m);
+          if (m && m[1] && !/not associated/i.test(m[1])) return done(m[1].trim());
+          tryIface(idx + 1);
+        });
+      };
+      tryIface(0);
+    } else if (process.platform === 'win32') {
+      execFile('netsh', ['wlan', 'show', 'interfaces'], { timeout: 2000 }, (err, stdout) => {
+        if (err || !stdout) return done(null);
+        // Match "  SSID                   : MyNetwork" but NOT "BSSID"
+        const m = stdout.match(/^\s*SSID\s+:\s*(.+?)\s*$/m);
+        if (m && m[1]) return done(m[1].trim());
+        done(null);
+      });
+    } else {
+      execFile('iwgetid', ['-r'], { timeout: 2000 }, (err, stdout) => {
+        if (err || !stdout) return done(null);
+        const v = stdout.trim();
+        done(v || null);
+      });
+    }
+  });
+}
 
 const isDev = !app.isPackaged;
 
@@ -379,9 +465,17 @@ async function startApp() {
     // Sync smart naming setting to env for server process
     process.env.SNAPSEND_SMART_NAMING = getSmartNamingSetting() ? 'true' : 'false';
 
-    const connectionMode = isDev ? 'server' : getConnectionMode();
-    const isClientMode = connectionMode === 'client' && !isDev;
-    const remoteUrl = isClientMode ? getRemoteServerUrl() : '';
+    // Force server mode on every launch. Client mode is a runtime-only switch;
+    // a stale "client" setting from a previous session must never block discovery
+    // and the embedded server from starting.
+    if (!isDev && getConnectionMode() !== 'server') {
+      saveConnectionMode('server');
+      console.log('[Startup] Reset connection mode to "server" (was "client")');
+    }
+
+    const connectionMode = 'server';
+    const isClientMode = false;
+    const remoteUrl = '';
 
     // Expose client mode to preload via env
     process.env.SNAPSEND_CLIENT_MODE = (isClientMode && remoteUrl) ? 'true' : 'false';
@@ -488,55 +582,21 @@ async function startApp() {
         registerP2PIPC(mainWindow, discovery, deviceId, deviceName, serverPort, uploadsDir);
       }
 
-      // Wake/unlock recovery: clean up dead connections, restart discovery, reconnect.
-      // Debounced: resume + unlock-screen often fire within seconds of each other.
-      let lastWakeRecovery = 0;
-      let wakeReconnectTimer: ReturnType<typeof setTimeout> | null = null;
-
-      const handleWakeRecovery = (source: string) => {
-        const now = Date.now();
-        if (now - lastWakeRecovery < 10000) {
-          console.log(`[Power] ${source} — skipping (debounced, last recovery ${Math.round((now - lastWakeRecovery) / 1000)}s ago)`);
-          return;
-        }
-        lastWakeRecovery = now;
-        console.log(`[Power] ${source} — cleaning up dead connections and restarting discovery`);
-
-        // 1. Close all dead WebSocket connections + notify renderer
-        const pm = getPeerManager();
-        if (pm) {
-          pm.disconnectAll();
-        }
-
-        // 2. Reset retry backoff for fresh start
-        resetPeerRetries();
-
-        // 3. Restart mDNS discovery (peers preserved for immediate reconnect)
-        if (discovery) {
-          discovery.restart();
-        }
-
-        // 4. Delay reconnect to let network come back and discovery re-confirm peers.
-        //    Cancel any pending timer from a previous event.
-        if (wakeReconnectTimer) clearTimeout(wakeReconnectTimer);
-        wakeReconnectTimer = setTimeout(() => {
-          wakeReconnectTimer = null;
-          if (reconnectDisconnectedPeers) {
-            console.log(`[Power] Attempting peer reconnection after ${source}`);
-            reconnectDisconnectedPeers();
-          }
-          // Second wave at 20s — network may still be settling
-          setTimeout(() => {
-            if (reconnectDisconnectedPeers) {
-              console.log('[Power] Second reconnection wave');
-              reconnectDisconnectedPeers();
-            }
-          }, 10000);
-        }, 10000);
-      };
-
       powerMonitor.on('resume', () => handleWakeRecovery('System resumed from sleep'));
       powerMonitor.on('unlock-screen', () => handleWakeRecovery('Screen unlocked'));
+
+      // Detect network changes (Wi-Fi reconnect, DHCP renewal, AP hop). When the
+      // local IPv4 set changes, run the same recovery flow as wake-from-sleep.
+      lastNetworkSignature = getNetworkSignature();
+      if (networkPollTimer) clearInterval(networkPollTimer);
+      networkPollTimer = setInterval(() => {
+        const sig = getNetworkSignature();
+        if (sig !== lastNetworkSignature) {
+          console.log(`[Network] Interface change detected: "${lastNetworkSignature}" → "${sig}"`);
+          lastNetworkSignature = sig;
+          handleWakeRecovery('Network interfaces changed');
+        }
+      }, 8000);
 
       console.log(`Liquid Relay ready: device="${deviceName}" id=${deviceId} port=${serverPort}`);
     } else {
@@ -558,6 +618,16 @@ function gracefulShutdown() {
 
   // Stop Ollama if we started it
   stopOllama();
+
+  // Stop network change polling
+  if (networkPollTimer) {
+    clearInterval(networkPollTimer);
+    networkPollTimer = null;
+  }
+  if (wakeReconnectTimer) {
+    clearTimeout(wakeReconnectTimer);
+    wakeReconnectTimer = null;
+  }
 
   // Stop P2P connections
   const peerMgr = getPeerManager();
@@ -728,6 +798,43 @@ ipcMain.handle('set-device-enabled', (_event, deviceUUID: string, enabled: boole
 });
 ipcMain.handle('get-all-enabled-devices', () => {
   return Object.fromEntries(enabledDevicesCache);
+});
+
+// Manual recovery: same flow as wake-from-sleep. Used by the "Refresh
+// connections" button in the UI to recover from stale state.
+ipcMain.handle('force-reconnect', async () => {
+  handleWakeRecovery('User requested refresh', { force: true });
+  return { ok: true };
+});
+
+// Active network info: SSID + interface + LAN IP. Lets the UI show which
+// network this machine is on so the user can verify both peers match.
+ipcMain.handle('get-network-info', async () => {
+  const nets = os.networkInterfaces();
+  let activeIface = '';
+  let ipv4 = '';
+  // Prefer non-virtual real adapters in the same priority order as discovery.
+  const candidates: { iface: string; address: string; score: number }[] = [];
+  for (const [name, addrs] of Object.entries(nets)) {
+    for (const net of addrs || []) {
+      if (net.family !== 'IPv4' || net.internal) continue;
+      let score = 0;
+      const lo = name.toLowerCase();
+      if (/vethernet|vmnet|docker|vbox|hyper-v|wsl|virtualbox|vmware/i.test(lo)) score -= 10;
+      if (/vpn|tun|tap|tailscale|zt|wireguard/i.test(lo)) score -= 10;
+      if (/^(ethernet|wi-fi|en\d|eth\d|wlan\d)/i.test(lo)) score += 5;
+      if (net.address.startsWith('192.168.')) score += 3;
+      if (net.address.startsWith('10.')) score += 1;
+      candidates.push({ iface: name, address: net.address, score });
+    }
+  }
+  candidates.sort((a, b) => b.score - a.score);
+  if (candidates[0]) {
+    activeIface = candidates[0].iface;
+    ipv4 = candidates[0].address;
+  }
+  const ssid = await detectSSID();
+  return { ssid, interfaceName: activeIface, ipv4 };
 });
 
 // LAN address discovery

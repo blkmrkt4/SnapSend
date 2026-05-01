@@ -92,6 +92,12 @@ export interface KnownDevice {
   enabled: boolean; // whether to auto-connect and allow file transfers
 }
 
+export interface NetworkInfo {
+  ssid: string | null;
+  interfaceName: string;
+  ipv4: string;
+}
+
 export interface ConnectionSystemState {
   isSetup: boolean;
   isConnecting: boolean;
@@ -106,6 +112,7 @@ export interface ConnectionSystemState {
   knownDevices: KnownDevice[];
   allTags: string[];
   chunkedTransfers: ChunkedTransferProgress[];
+  networkInfo: NetworkInfo | null;
 }
 
 function loadKnownDevices(): KnownDevice[] {
@@ -207,6 +214,7 @@ export function useConnectionSystem() {
     knownDevices: loadKnownDevices(),
     allTags: [],
     chunkedTransfers: [],
+    networkInfo: null,
   });
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -1565,8 +1573,15 @@ export function useConnectionSystem() {
 
   const refreshDiscovery = useCallback(() => {
     if (isElectron) {
-      // Restart mDNS discovery
-      window.electronAPI!.restartDiscovery?.();
+      // Force-reconnect: disconnect dead WSes, reset retry backoff, restart mDNS,
+      // and re-attempt all peer connections. Same flow as wake-from-sleep.
+      // Falls back to the old behavior on older Electron builds.
+      const api = window.electronAPI!;
+      if (api.forceReconnect) {
+        api.forceReconnect();
+      } else {
+        api.restartDiscovery?.();
+      }
     } else {
       // In browser mode, reconnect WebSocket
       if (wsRef.current) {
@@ -1575,6 +1590,31 @@ export function useConnectionSystem() {
       connect();
     }
   }, [isElectron, connect]);
+
+  // Periodically refresh network info so UI shows the current SSID + IP.
+  // Updates immediately on mount and again every 15s so SSID changes are visible.
+  useEffect(() => {
+    if (!isElectron) return;
+    const api = window.electronAPI;
+    if (!api?.getNetworkInfo) return;
+    let cancelled = false;
+    const fetchNetwork = () => {
+      api.getNetworkInfo!().then((info) => {
+        if (cancelled) return;
+        setState(prev => {
+          // Avoid unnecessary state churn when the info hasn't changed.
+          const prevInfo = prev.networkInfo;
+          if (prevInfo && prevInfo.ssid === info.ssid && prevInfo.interfaceName === info.interfaceName && prevInfo.ipv4 === info.ipv4) {
+            return prev;
+          }
+          return { ...prev, networkInfo: info };
+        });
+      }).catch(() => {});
+    };
+    fetchNetwork();
+    const id = setInterval(fetchNetwork, 15000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [isElectron]);
 
   // Toggle device enabled state (controls auto-connect and file transfers)
   const toggleDeviceEnabled = useCallback((deviceId: string, enabled: boolean) => {

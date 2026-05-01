@@ -43,6 +43,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   sendRelayFile: (targetClientId: string, fileData: any) => ipcRenderer.invoke('send-relay-file', targetClientId, fileData),
   restartDiscovery: () => ipcRenderer.invoke('restart-discovery'),
+  forceReconnect: () => ipcRenderer.invoke('force-reconnect'),
+  getNetworkInfo: () => ipcRenderer.invoke('get-network-info'),
 
   // Chunked file transfer
   sendChunkedFile: (peerId: string, fileData: any) => ipcRenderer.invoke('send-chunked-file-to-peer', peerId, fileData),

@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Users, Monitor, Pencil, Check, RefreshCw } from 'lucide-react';
+import { Users, Monitor, Pencil, Check, RefreshCw, Wifi } from 'lucide-react';
 import { type Device } from '@shared/schema';
-import { type KnownDevice } from '@/hooks/useConnectionSystem';
+import { type KnownDevice, type NetworkInfo } from '@/hooks/useConnectionSystem';
 
 interface ConnectionManagerProps {
   currentDevice: Device | null;
   onlineDevices: Device[];
   connections: any[];
   knownDevices: KnownDevice[];
+  networkInfo?: NetworkInfo | null;
   onPairWithDevice: (targetDeviceId: number | string) => void;
   onTerminateConnection: (connectionId: number | string) => void;
   onToggleDeviceEnabled: (deviceId: string, enabled: boolean) => void;
@@ -22,6 +23,7 @@ export function ConnectionManager({
   onlineDevices,
   connections,
   knownDevices,
+  networkInfo,
   onPairWithDevice,
   onTerminateConnection,
   onToggleDeviceEnabled,
@@ -30,6 +32,16 @@ export function ConnectionManager({
 }: ConnectionManagerProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = () => {
+    if (!onRefreshDiscovery) return;
+    onRefreshDiscovery();
+    setIsRefreshing(true);
+    // Spinner runs for the duration of the recovery flow (~20s) so the user
+    // gets clear feedback that something is happening.
+    setTimeout(() => setIsRefreshing(false), 20000);
+  };
 
   // Filter out current device from the online list and deduplicate by name
   const otherDevicesRaw = onlineDevices.filter(d => {
@@ -101,8 +113,44 @@ export function ConnectionManager({
   const enabledCount = otherDevices.filter(d => isEnabled(d)).length;
   const connectedCount = connections.length;
 
+  // Build a human-friendly network description.
+  const networkLabel = (() => {
+    if (!networkInfo) return null;
+    if (networkInfo.ssid) return networkInfo.ssid;
+    if (networkInfo.ipv4) return `Wired (${networkInfo.ipv4})`;
+    return null;
+  })();
+
   return (
     <div className="space-y-4">
+      {/* Network status bar — shows which network this device is on so users
+          can spot when two peers are on different networks. */}
+      {networkInfo && (
+        <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg border bg-muted/30">
+          <Wifi className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <div className="flex items-center gap-2 flex-1 min-w-0 text-xs">
+            <span className="text-muted-foreground">On network:</span>
+            <span className="font-semibold text-foreground truncate">
+              {networkLabel || 'Unknown'}
+            </span>
+            {networkInfo.ipv4 && networkInfo.ssid && (
+              <span className="text-muted-foreground tabular-nums">· {networkInfo.ipv4}</span>
+            )}
+          </div>
+          {onRefreshDiscovery && (
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border bg-background hover:bg-muted transition-colors disabled:opacity-60 disabled:cursor-wait"
+              title="Reset connections and rediscover all devices on this network"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+              {isRefreshing ? 'Refreshing…' : 'Refresh connections'}
+            </button>
+          )}
+        </div>
+      )}
+
       {/* This Device — compact single row */}
       <div className="flex items-center gap-3 px-4 py-3 rounded-lg border bg-card shadow-sm">
         <Monitor className="h-5 w-5 text-primary flex-shrink-0" />
@@ -163,15 +211,6 @@ export function ConnectionManager({
           <Badge variant="secondary" className="ml-auto tabular-nums">
             {connectedCount}/{otherDevices.length} connected
           </Badge>
-          {onRefreshDiscovery && (
-            <button
-              onClick={onRefreshDiscovery}
-              className="p-1 rounded hover:bg-muted transition-colors"
-              title="Refresh device discovery"
-            >
-              <RefreshCw className="h-3.5 w-3.5 text-muted-foreground" />
-            </button>
-          )}
         </div>
 
         <div className="divide-y">
