@@ -1215,23 +1215,93 @@ ipcMain.handle('check-firewall', async () => {
   return { success: allReachable, results: probeResults, message };
 });
 
-app.whenReady().then(startApp);
+// Single-instance lock: prevents two Liquid Relay launches at once. With this in
+// place, if any other Liquid Relay process exists at startup, it's a zombie from a
+// prior crash — safe to kill. Without it, we can't distinguish "user launched twice
+// on purpose" from "previous run crashed and orphaned its server on port 53000."
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
+  // Windows: kill any orphaned Liquid Relay processes from a prior crash.
+  // The single-instance lock above guarantees we are the only legitimate instance,
+  // so any other process matching our image name is a zombie holding port 53000.
+  function killOrphanedWindowsInstances(): Promise<void> {
+    if (process.platform !== 'win32') return Promise.resolve();
+    const myPid = process.pid;
+    return new Promise((resolve) => {
+      const { exec } = require('child_process') as typeof import('child_process');
+      exec('tasklist /FI "IMAGENAME eq Liquid Relay.exe" /FO CSV /NH', { timeout: 5000 }, (err, stdout) => {
+        if (err || !stdout) return resolve();
+        const pidsToKill: number[] = [];
+        for (const line of stdout.trim().split('\n')) {
+          const match = line.match(/"Liquid Relay\.exe","(\d+)"/);
+          if (match) {
+            const pid = parseInt(match[1], 10);
+            if (pid !== myPid) pidsToKill.push(pid);
+          }
+        }
+        if (pidsToKill.length === 0) return resolve();
+        console.log(`[Startup] Killing ${pidsToKill.length} orphaned Liquid Relay process(es): ${pidsToKill.join(', ')}`);
+        const killCmd = `taskkill /F ${pidsToKill.map(p => `/PID ${p}`).join(' ')}`;
+        exec(killCmd, { timeout: 5000 }, () => {
+          // Brief wait for the OS to release the port socket
+          setTimeout(resolve, 500);
+        });
+      });
+    });
   }
-});
 
-app.on('activate', () => {
-  if (mainWindow === null) {
-    createWindow();
-  }
-});
+  app.whenReady().then(async () => {
+    await killOrphanedWindowsInstances();
+    return startApp();
+  });
 
-app.on('before-quit', () => {
-  gracefulShutdown();
-});
+  // Crash diagnostics: when a renderer or GPU process dies abruptly, log details
+  // and ensure gracefulShutdown runs so the server socket is released.
+  app.on('render-process-gone', (_event, webContents, details) => {
+    console.error(`[Crash] render-process-gone reason=${details.reason} exitCode=${details.exitCode} url=${webContents.getURL()}`);
+    if (details.reason !== 'clean-exit') {
+      gracefulShutdown();
+      app.exit(1);
+    }
+  });
+
+  app.on('child-process-gone', (_event, details) => {
+    if (details.reason !== 'clean-exit' && details.reason !== 'killed') {
+      console.error(`[Crash] child-process-gone type=${details.type} reason=${details.reason} exitCode=${details.exitCode} name=${details.name}`);
+    }
+  });
+
+  process.on('uncaughtException', (err) => {
+    console.error('[Crash] uncaughtException:', err);
+    gracefulShutdown();
+    app.exit(1);
+  });
+
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') {
+      app.quit();
+    }
+  });
+
+  app.on('activate', () => {
+    if (mainWindow === null) {
+      createWindow();
+    }
+  });
+
+  app.on('before-quit', () => {
+    gracefulShutdown();
+  });
+}
 
 // Export for use by ipc-handlers
 export { isDeviceEnabled };

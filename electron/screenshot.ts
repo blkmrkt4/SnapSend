@@ -223,91 +223,136 @@ function captureFullscreenAllDisplaysWin(mainWindow: BrowserWindow): Promise<Scr
 }
 
 async function captureWithOverlay(mainWindow: BrowserWindow, mode: 'area' | 'fullscreen'): Promise<ScreenshotResult> {
-  // Capture all screens
-  const sources = await desktopCapturer.getSources({
-    types: ['screen'],
-    thumbnailSize: { width: 3840, height: 2160 },
-  });
+  try {
+    // Get display bounds first so we can size thumbnails to actual screen size,
+    // not a hardcoded 4K — overcapturing on multi-monitor 4K setups was a likely
+    // contributor to the GPU memory pressure that crashed the app.
+    const allDisplays = screen.getAllDisplays();
+    const maxScaleFactor = Math.max(...allDisplays.map(d => d.scaleFactor));
+    const totalNativeWidth = Math.max(...allDisplays.map(d => (d.bounds.x + d.bounds.width) * maxScaleFactor));
+    const totalNativeHeight = Math.max(...allDisplays.map(d => (d.bounds.y + d.bounds.height) * maxScaleFactor));
 
-  if (sources.length === 0) return null;
+    // Cap thumbnail at 1920x1080 — area-select doesn't need pixel-perfect preview;
+    // the actual region is captured separately. Smaller thumbnails dramatically
+    // reduce GPU memory pressure on multi-monitor 4K systems.
+    const thumbWidth = Math.min(1920, totalNativeWidth);
+    const thumbHeight = Math.min(1080, totalNativeHeight);
 
-  // Get display bounds for compositing
-  const allDisplays = screen.getAllDisplays();
-  const minX = Math.min(...allDisplays.map(d => d.bounds.x));
-  const minY = Math.min(...allDisplays.map(d => d.bounds.y));
-  const maxX = Math.max(...allDisplays.map(d => d.bounds.x + d.bounds.width));
-  const maxY = Math.max(...allDisplays.map(d => d.bounds.y + d.bounds.height));
-
-  // Prepare per-display screenshot data for the overlay canvas
-  const displayData = allDisplays.map((display, i) => {
-    const source = sources.find(s => s.display_id === String(display.id)) || sources[i];
-    return {
-      x: display.bounds.x - minX,
-      y: display.bounds.y - minY,
-      width: display.bounds.width,
-      height: display.bounds.height,
-      dataURL: source ? source.thumbnail.toDataURL() : '',
-    };
-  });
-
-  await hideWindow(mainWindow);
-
-  // Create unique IPC channel for this overlay session
-  const resultChannel = `screenshot-overlay-result-${uuidv4()}`;
-
-  return new Promise((resolve) => {
-    const overlayWindow = new BrowserWindow({
-      x: minX,
-      y: minY,
-      width: maxX - minX,
-      height: maxY - minY,
-      transparent: true,
-      frame: false,
-      alwaysOnTop: true,
-      skipTaskbar: true,
-      resizable: false,
-      hasShadow: false,
-      webPreferences: {
-        preload: path.join(__dirname, 'screenshot-overlay-preload.js'),
-        contextIsolation: true,
-        nodeIntegration: false,
-      },
+    const sources = await desktopCapturer.getSources({
+      types: ['screen'],
+      thumbnailSize: { width: thumbWidth, height: thumbHeight },
     });
 
-    activeOverlay = overlayWindow;
+    if (sources.length === 0) return null;
 
-    overlayWindow.loadFile(path.join(__dirname, 'screenshot-overlay.html'));
+    const minX = Math.min(...allDisplays.map(d => d.bounds.x));
+    const minY = Math.min(...allDisplays.map(d => d.bounds.y));
+    const maxX = Math.max(...allDisplays.map(d => d.bounds.x + d.bounds.width));
+    const maxY = Math.max(...allDisplays.map(d => d.bounds.y + d.bounds.height));
 
-    overlayWindow.webContents.on('did-finish-load', () => {
-      overlayWindow.webContents.send('set-screenshot', {
-        displays: displayData,
-        mode,
-        resultChannel,
-      });
+    // Defensive: if any dimension is non-positive, abort rather than create an
+    // invalid window that may crash the renderer or transparent-window backend.
+    const overlayWidth = maxX - minX;
+    const overlayHeight = maxY - minY;
+    if (overlayWidth <= 0 || overlayHeight <= 0) {
+      console.error(`[Screenshot] Invalid overlay dimensions ${overlayWidth}x${overlayHeight} — aborting`);
+      return null;
+    }
+
+    const displayData = allDisplays.map((display, i) => {
+      const source = sources.find(s => s.display_id === String(display.id)) || sources[i];
+      return {
+        x: display.bounds.x - minX,
+        y: display.bounds.y - minY,
+        width: display.bounds.width,
+        height: display.bounds.height,
+        dataURL: source ? source.thumbnail.toDataURL() : '',
+      };
     });
 
-    let resolved = false;
+    await hideWindow(mainWindow);
 
-    ipcMain.handle(resultChannel, (_event, result: ScreenshotResult) => {
-      if (resolved) return;
-      resolved = true;
-      ipcMain.removeHandler(resultChannel);
-      if (!overlayWindow.isDestroyed()) overlayWindow.close();
-      activeOverlay = null;
-      showWindow(mainWindow);
-      resolve(result);
-    });
+    const resultChannel = `screenshot-overlay-result-${uuidv4()}`;
 
-    overlayWindow.on('closed', () => {
-      activeOverlay = null;
-      if (!resolved) {
-        resolved = true;
-        ipcMain.removeHandler(resultChannel);
+    return await new Promise((resolve) => {
+      let overlayWindow: BrowserWindow;
+      try {
+        overlayWindow = new BrowserWindow({
+          x: minX,
+          y: minY,
+          width: overlayWidth,
+          height: overlayHeight,
+          transparent: true,
+          frame: false,
+          alwaysOnTop: true,
+          skipTaskbar: true,
+          resizable: false,
+          hasShadow: false,
+          webPreferences: {
+            preload: path.join(__dirname, 'screenshot-overlay-preload.js'),
+            contextIsolation: true,
+            nodeIntegration: false,
+            backgroundThrottling: false,
+          },
+        });
+      } catch (err) {
+        console.error('[Screenshot] Failed to create overlay window:', err);
         showWindow(mainWindow);
         resolve(null);
+        return;
       }
+
+      activeOverlay = overlayWindow;
+      overlayWindow.loadFile(path.join(__dirname, 'screenshot-overlay.html'));
+
+      overlayWindow.webContents.on('did-finish-load', () => {
+        try {
+          overlayWindow.webContents.send('set-screenshot', { displays: displayData, mode, resultChannel });
+        } catch (err) {
+          console.error('[Screenshot] Failed to send set-screenshot:', err);
+        }
+      });
+
+      let resolved = false;
+
+      ipcMain.handle(resultChannel, (_event, result: ScreenshotResult) => {
+        if (resolved) return;
+        resolved = true;
+        ipcMain.removeHandler(resultChannel);
+        if (!overlayWindow.isDestroyed()) overlayWindow.close();
+        activeOverlay = null;
+        showWindow(mainWindow);
+        resolve(result);
+      });
+
+      overlayWindow.webContents.on('render-process-gone', (_e, details) => {
+        console.error(`[Screenshot] Overlay render-process-gone reason=${details.reason} exitCode=${details.exitCode}`);
+        if (resolved) return;
+        resolved = true;
+        ipcMain.removeHandler(resultChannel);
+        if (!overlayWindow.isDestroyed()) {
+          try { overlayWindow.destroy(); } catch {}
+        }
+        activeOverlay = null;
+        showWindow(mainWindow);
+        resolve(null);
+      });
+
+      overlayWindow.on('closed', () => {
+        activeOverlay = null;
+        if (!resolved) {
+          resolved = true;
+          ipcMain.removeHandler(resultChannel);
+          showWindow(mainWindow);
+          resolve(null);
+        }
+      });
     });
-  });
+  } catch (err) {
+    console.error('[Screenshot] captureWithOverlay failed:', err);
+    showWindow(mainWindow);
+    return null;
+  }
 }
 
 async function listWindowSourcesWin(): Promise<WindowSource[]> {
