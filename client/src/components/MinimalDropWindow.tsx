@@ -187,7 +187,7 @@ export function MinimalDropWindow({
 
         if (file.type.startsWith('text/')) {
           content = await readFileAsText(file);
-        } else if (file.type.startsWith('image/') || file.size < 5 * 1024 * 1024) { // Under 5MB
+        } else {
           content = await readFileAsDataURL(file);
         }
 
@@ -224,7 +224,7 @@ export function MinimalDropWindow({
         
         if (file.type.startsWith('text/')) {
           content = await readFileAsText(file);
-        } else if (file.type.startsWith('image/') || file.size < 5 * 1024 * 1024) { // Under 5MB
+        } else {
           content = await readFileAsDataURL(file);
         }
 

@@ -320,7 +320,7 @@ export function LeftSidebar({
 
         if (file.type.startsWith('text/')) {
           content = await readFileAsText(file);
-        } else if (file.type.startsWith('image/') || file.size < 5 * 1024 * 1024) {
+        } else {
           content = await readFileAsDataURL(file);
         }
 
@@ -356,7 +356,7 @@ export function LeftSidebar({
 
         if (file.type.startsWith('text/')) {
           content = await readFileAsText(file);
-        } else if (file.type.startsWith('image/') || file.size < 5 * 1024 * 1024) {
+        } else {
           content = await readFileAsDataURL(file);
         }
 
