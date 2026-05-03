@@ -1230,33 +1230,85 @@ if (!gotLock) {
     }
   });
 
-  // Windows: kill any orphaned Liquid Relay processes from a prior crash.
-  // The single-instance lock above guarantees we are the only legitimate instance,
-  // so any other process matching our image name is a zombie holding port 53000.
+  // Windows: kill anything holding port 53000 plus any orphaned Liquid Relay
+  // processes from a prior crash. The single-instance lock above guarantees we
+  // are the only legitimate instance, so any other process matching our image
+  // name is a zombie. Port-based detection is the primary mechanism — if a
+  // child Electron process (renderer, GPU, utility) survived the parent's
+  // death, it may not match our image-name filter cleanly but it WILL be the
+  // one holding the port.
   function killOrphanedWindowsInstances(): Promise<void> {
     if (process.platform !== 'win32') return Promise.resolve();
     const myPid = process.pid;
-    return new Promise((resolve) => {
-      const { exec } = require('child_process') as typeof import('child_process');
-      exec('tasklist /FI "IMAGENAME eq Liquid Relay.exe" /FO CSV /NH', { timeout: 5000 }, (err, stdout) => {
-        if (err || !stdout) return resolve();
-        const pidsToKill: number[] = [];
-        for (const line of stdout.trim().split('\n')) {
-          const match = line.match(/"Liquid Relay\.exe","(\d+)"/);
-          if (match) {
-            const pid = parseInt(match[1], 10);
-            if (pid !== myPid) pidsToKill.push(pid);
-          }
-        }
-        if (pidsToKill.length === 0) return resolve();
-        console.log(`[Startup] Killing ${pidsToKill.length} orphaned Liquid Relay process(es): ${pidsToKill.join(', ')}`);
-        const killCmd = `taskkill /F ${pidsToKill.map(p => `/PID ${p}`).join(' ')}`;
-        exec(killCmd, { timeout: 5000 }, () => {
-          // Brief wait for the OS to release the port socket
-          setTimeout(resolve, 500);
-        });
+    const port = 53000;
+    const { exec } = require('child_process') as typeof import('child_process');
+
+    const execAsync = (cmd: string, timeout = 5000): Promise<{ stdout: string; stderr: string; err: any }> =>
+      new Promise((res) => {
+        exec(cmd, { timeout }, (err, stdout, stderr) => res({ stdout, stderr, err }));
       });
-    });
+
+    const findPidsOnPort = async (): Promise<number[]> => {
+      const { stdout } = await execAsync(`netstat -ano -p tcp`);
+      const pids = new Set<number>();
+      for (const line of stdout.split('\n')) {
+        // netstat tcp lines: "  TCP    0.0.0.0:53000          0.0.0.0:0              LISTENING       12345"
+        const m = line.match(/\s(?:0\.0\.0\.0|::|127\.0\.0\.1|\[::\])[:.]?(\d+)\s+\S+\s+(?:LISTENING|ESTABLISHED)\s+(\d+)/i);
+        if (m && parseInt(m[1], 10) === port) {
+          const pid = parseInt(m[2], 10);
+          if (pid !== myPid && pid > 0) pids.add(pid);
+        }
+      }
+      return Array.from(pids);
+    };
+
+    const findPidsByName = async (): Promise<number[]> => {
+      const { stdout } = await execAsync('tasklist /FI "IMAGENAME eq Liquid Relay.exe" /FO CSV /NH');
+      const pids: number[] = [];
+      for (const line of stdout.trim().split('\n')) {
+        const m = line.match(/"Liquid Relay\.exe","(\d+)"/);
+        if (m) {
+          const pid = parseInt(m[1], 10);
+          if (pid !== myPid) pids.push(pid);
+        }
+      }
+      return pids;
+    };
+
+    const killPids = async (pids: number[], label: string): Promise<void> => {
+      if (pids.length === 0) return;
+      console.log(`[Startup] Killing ${pids.length} ${label} process(es): ${pids.join(', ')}`);
+      // Kill each PID individually so a single failure doesn't abort the others.
+      // /T also kills the entire child tree, in case the orphan spawned helpers.
+      for (const pid of pids) {
+        const { err, stderr } = await execAsync(`taskkill /F /T /PID ${pid}`);
+        if (err) {
+          console.warn(`[Startup] taskkill PID ${pid} failed: ${stderr?.trim() || err.message}`);
+        }
+      }
+    };
+
+    const portIsFree = async (): Promise<boolean> => {
+      const pids = await findPidsOnPort();
+      return pids.length === 0;
+    };
+
+    return (async () => {
+      // Combine port- and name-based detection. Port matters most — that's the
+      // actual blocker for the new launch.
+      const portPids = await findPidsOnPort();
+      const namePids = await findPidsByName();
+      const allPids = Array.from(new Set([...portPids, ...namePids]));
+      await killPids(allPids, 'orphan');
+
+      // Poll up to ~3s for the OS to release the port socket. Without this, the
+      // immediate server.listen() can still race the kill and fail with EADDRINUSE.
+      for (let i = 0; i < 12; i++) {
+        if (await portIsFree()) return;
+        await new Promise(r => setTimeout(r, 250));
+      }
+      console.warn('[Startup] Port still busy after 3s of polling — the new server.listen may fail');
+    })();
   }
 
   app.whenReady().then(async () => {

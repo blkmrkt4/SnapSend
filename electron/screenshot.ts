@@ -1,4 +1,4 @@
-import { app, BrowserWindow, desktopCapturer, ipcMain, nativeImage, screen, shell, systemPreferences } from 'electron';
+import { app, BrowserWindow, clipboard, desktopCapturer, ipcMain, nativeImage, screen, shell, systemPreferences } from 'electron';
 import { exec, spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
@@ -210,12 +210,71 @@ async function captureFullscreenMac(mainWindow: BrowserWindow, displayIndex?: nu
   return runScreencapture(mainWindow, args);
 }
 
-// --- Windows: desktopCapturer + overlay ---
+// --- Windows: Snipping Tool (out-of-process) + desktopCapturer + overlay ---
 
 let activeOverlay: BrowserWindow | null = null;
 
-function captureSelectAreaWin(mainWindow: BrowserWindow): Promise<ScreenshotResult> {
-  return captureWithOverlay(mainWindow, 'area');
+/**
+ * Use the Windows Snipping Tool's snip URI handler to capture an area.
+ * Runs entirely out-of-process — a crash there cannot take down Liquid Relay.
+ * The captured image lands in the clipboard; we poll for it to change vs the
+ * pre-snip snapshot, then forward it through the same pipeline as macOS uses.
+ *
+ * Requires Windows 10 1809+ (October 2018) or Windows 11. Older Windows
+ * versions will see ms-screenclip: do nothing and the call will time out.
+ */
+async function captureSelectAreaWin(mainWindow: BrowserWindow): Promise<ScreenshotResult> {
+  // Snapshot clipboard image bytes so we can detect when the user completes the snip
+  const beforeImage = clipboard.readImage();
+  const beforeBytes = beforeImage.isEmpty() ? null : beforeImage.toPNG();
+
+  await hideWindow(mainWindow);
+
+  // Trigger the system snip UI. shell.openExternal is the standard Electron way
+  // to invoke a URI protocol handler — equivalent to typing `start ms-screenclip:`.
+  try {
+    await shell.openExternal('ms-screenclip:');
+  } catch (err) {
+    console.error('[Screenshot] Failed to launch Snipping Tool:', err);
+    showWindow(mainWindow);
+    return null;
+  }
+
+  return new Promise((resolve) => {
+    const POLL_INTERVAL_MS = 250;
+    const TIMEOUT_MS = 60000; // user has 60s to complete the snip
+    let resolved = false;
+    let pollTimer: NodeJS.Timeout | null = null;
+    let timeoutTimer: NodeJS.Timeout | null = null;
+
+    const finish = (result: ScreenshotResult) => {
+      if (resolved) return;
+      resolved = true;
+      if (pollTimer) clearInterval(pollTimer);
+      if (timeoutTimer) clearTimeout(timeoutTimer);
+      showWindow(mainWindow);
+      resolve(result);
+    };
+
+    pollTimer = setInterval(() => {
+      const current = clipboard.readImage();
+      if (current.isEmpty()) return;
+      const currentBytes = current.toPNG();
+      const changed = !beforeBytes || !currentBytes.equals(beforeBytes);
+      if (!changed) return;
+      const size = current.getSize();
+      finish({
+        dataURL: current.toDataURL(),
+        width: size.width,
+        height: size.height,
+      });
+    }, POLL_INTERVAL_MS);
+
+    timeoutTimer = setTimeout(() => {
+      // Treat timeout as a cancel — no error toast, just restore the main window.
+      finish(null);
+    }, TIMEOUT_MS);
+  });
 }
 
 function captureFullscreenAllDisplaysWin(mainWindow: BrowserWindow): Promise<ScreenshotResult> {
