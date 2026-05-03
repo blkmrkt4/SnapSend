@@ -110,7 +110,7 @@ export class PeerConnectionManager {
     });
   }
 
-  connectToPeer(peer: PeerInfo): void {
+  connectToPeer(peer: PeerInfo, opts: { skipTiebreak?: boolean } = {}): void {
     // Skip if we already have a healthy (OPEN) connection
     const existing = this.connections.get(peer.id);
     if (existing && existing.readyState === WebSocket.OPEN) {
@@ -118,13 +118,26 @@ export class PeerConnectionManager {
       return;
     }
 
+    // In-flight protection: must run BEFORE the tiebreak. Discovery events fire
+    // many times per second; without this check each event queues a fresh defer
+    // timer and the log fills with thousands of "Deferring" entries.
+    if (this.connectingPeers.has(peer.id)) {
+      const startTime = this.connectingStartTimes.get(peer.id) || 0;
+      if (Date.now() - startTime < 20000) {
+        return; // Silent — logging here would spam during discovery storms.
+      }
+      console.log(`[P2P] Stale in-flight connection to ${peer.name} (>20s), retrying`);
+      this.connectingPeers.delete(peer.id);
+      this.connectingStartTimes.delete(peer.id);
+    }
+
     // Deterministic tiebreak: when both peers discover each other simultaneously,
     // both would race to open outbound WebSockets. The side with the lexicographically
     // higher localId defers by 2.5s — long enough for the lower-id side's incoming
-    // connection to land. If it does, the early-return at the top of this function
-    // takes the deferred call's no-op path. If it doesn't, the deferred call goes
-    // ahead. Net: avoids most cross-connection races without losing connectivity.
-    if (this.localId > peer.id && !this.handshaked.has(peer.id)) {
+    // connection to land. If no incoming arrives, the deferred call retries with
+    // skipTiebreak=true so it actually attempts the outbound connect instead of
+    // deferring forever.
+    if (!opts.skipTiebreak && this.localId > peer.id && !this.handshaked.has(peer.id)) {
       this.connectingPeers.add(peer.id);
       this.connectingStartTimes.set(peer.id, Date.now());
       setTimeout(() => {
@@ -136,20 +149,11 @@ export class PeerConnectionManager {
           console.log(`[P2P] Deferred connect to ${peer.name} not needed (incoming arrived)`);
           return;
         }
-        this.connectToPeer(peer);
+        console.log(`[P2P] Defer expired for ${peer.name} — initiating outbound connect`);
+        this.connectToPeer(peer, { skipTiebreak: true });
       }, 2500);
       console.log(`[P2P] Deferring outbound connect to ${peer.name} (tiebreak — waiting for incoming)`);
       return;
-    }
-
-    // In-flight protection: skip if already connecting (unless stale >20s)
-    if (this.connectingPeers.has(peer.id)) {
-      const startTime = this.connectingStartTimes.get(peer.id) || 0;
-      if (Date.now() - startTime < 20000) {
-        console.log(`[P2P] Already connecting to ${peer.name} (in-flight), skipping`);
-        return;
-      }
-      console.log(`[P2P] Stale in-flight connection to ${peer.name} (>20s), retrying`);
     }
 
     // If there's a stale/connecting WS, remove it so we can reconnect
