@@ -460,32 +460,37 @@ async function waitForServerReady(port: number, timeoutMs: number): Promise<bool
   return false;
 }
 
-// Reload the window's URL if the initial navigation fails. The first-launch-after-install
-// blank-screen bug shows up here: navigation completes with a failure code (commonly
-// ERR_CONNECTION_REFUSED or ERR_FAILED while Windows SmartScreen scans the freshly
-// installed asar) and Electron leaves the window blank with the menu intact.
-function attachLoadFailureRetry(window: BrowserWindow, url: string) {
-  let retries = 0;
-  const MAX_RETRIES = 5;
-  window.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
-    // Sub-frame failures (e.g. an iframe in the page) shouldn't trigger a full reload.
-    if (!isMainFrame) return;
-    // -3 (ERR_ABORTED) fires on a normal user-triggered navigation and is not a real failure.
-    if (errorCode === -3) return;
+// Load a URL into the window, retrying with exponential backoff if it fails.
+// The first-launch-after-install blank-screen bug shows up because loadURL()
+// rejects with ERR_FAILED — typically when Windows SmartScreen briefly stalls
+// the freshly installed asar archive, or when there's a renderer-startup race.
+// We hook the retry off the Promise rejection (rather than did-fail-load)
+// because did-fail-load isn't fired in every failure case but the Promise
+// rejection is reliable: see the 3.76.5 user log where loadURL rejected with
+// ERR_FAILED but no did-fail-load event arrived.
+function loadWithRetry(window: BrowserWindow, url: string, retries: number = 0): void {
+  const MAX_RETRIES = 8;
+  if (window.isDestroyed()) return;
+
+  window.loadURL(url).then(() => {
+    if (retries > 0) {
+      console.log(`[Window] Load succeeded after ${retries} retries`);
+    }
+  }).catch((err: any) => {
+    if (window.isDestroyed()) return;
+
+    // ERR_ABORTED (-3) means another navigation took over — normal, not a failure.
+    const msg = String(err?.message ?? err ?? '');
+    if (/ERR_ABORTED|\(-3\)/.test(msg)) return;
+
     if (retries >= MAX_RETRIES) {
-      console.error(`[Window] Load failed ${MAX_RETRIES}x for ${validatedURL} (code ${errorCode}: ${errorDescription}) — giving up`);
+      console.error(`[Window] Load failed ${MAX_RETRIES + 1}x for ${url}: ${msg} — giving up`);
       return;
     }
-    retries++;
-    const delay = Math.min(250 * Math.pow(2, retries - 1), 2000);
-    console.warn(`[Window] Load failed (code ${errorCode}: ${errorDescription}) — retry ${retries}/${MAX_RETRIES} in ${delay}ms`);
-    setTimeout(() => {
-      if (!window.isDestroyed()) {
-        window.loadURL(url).catch((err) => {
-          console.warn(`[Window] Retry loadURL rejected: ${err.message ?? err}`);
-        });
-      }
-    }, delay);
+
+    const delay = Math.min(250 * Math.pow(2, retries), 2000);
+    console.warn(`[Window] Load failed (${msg}) — retry ${retries + 1}/${MAX_RETRIES} in ${delay}ms`);
+    setTimeout(() => loadWithRetry(window, url, retries + 1), delay);
   });
 }
 
@@ -515,20 +520,23 @@ async function createWindow() {
     saveGhostModeSetting(false);
   }
 
-  // Resolve the URL the renderer should load.
+  // Resolve the URL the renderer should load. Local URLs use 127.0.0.1 rather
+  // than "localhost": on Windows, "localhost" resolves to ::1 (IPv6) first, and
+  // our Express server binds 0.0.0.0 (IPv4 only). Chromium's IPv6→IPv4 fallback
+  // can take long enough on a fresh-install renderer to surface as ERR_FAILED.
   let targetUrl: string;
   if (isDev) {
-    targetUrl = `http://localhost:${serverPort}`;
+    targetUrl = `http://127.0.0.1:${serverPort}`;
   } else if (isClientMode) {
     const remoteUrl = getRemoteServerUrl();
     if (remoteUrl) {
       targetUrl = remoteUrl.startsWith('http') ? remoteUrl : `http://${remoteUrl}`;
     } else {
       console.warn('Client mode enabled but no remote server URL configured, falling back to server mode');
-      targetUrl = `http://localhost:${serverPort}`;
+      targetUrl = `http://127.0.0.1:${serverPort}`;
     }
   } else {
-    targetUrl = `http://localhost:${serverPort}`;
+    targetUrl = `http://127.0.0.1:${serverPort}`;
   }
 
   // For local server mode, double-check the server is actually accepting connections
@@ -536,19 +544,15 @@ async function createWindow() {
   // on a fresh install Windows can briefly hold the first request while it scans
   // the new exe — without this probe the renderer hits the navigation during that
   // window and Electron leaves it blank.
-  const isLocalUrl = targetUrl.startsWith(`http://localhost:`) || targetUrl.startsWith(`http://127.0.0.1:`);
+  const isLocalUrl = targetUrl.startsWith(`http://127.0.0.1:`);
   if (isLocalUrl && !isDev) {
     const ready = await waitForServerReady(serverPort, 5000);
     if (!ready) {
-      console.warn(`[Window] Server not responding on port ${serverPort} after 5s — loading anyway, did-fail-load retry will catch it`);
+      console.warn(`[Window] Server not responding on port ${serverPort} after 5s — loading anyway, retry handler will catch it`);
     }
   }
 
-  attachLoadFailureRetry(mainWindow, targetUrl);
-
-  mainWindow.loadURL(targetUrl).catch((err) => {
-    console.warn(`[Window] Initial loadURL rejected: ${err.message ?? err}`);
-  });
+  loadWithRetry(mainWindow, targetUrl);
 
   if (isDev) {
     mainWindow.webContents.openDevTools();
