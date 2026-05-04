@@ -317,6 +317,36 @@ function saveServerPortSetting(port: number) {
   }
 }
 
+// Tracks the app version that the Windows firewall rules were last applied for.
+// When this differs from app.getVersion() on a Windows launch, we offer to
+// re-apply the rules so a fresh install picks up new ports/programs/profiles.
+function getFirewallAppliedVersion(): string | null {
+  const fs = require('fs') as typeof import('fs');
+  const configDir = app.getPath('userData');
+  const file = path.join(configDir, 'firewall-applied-version');
+
+  try {
+    if (fs.existsSync(file)) {
+      const v = fs.readFileSync(file, 'utf-8').trim();
+      return v || null;
+    }
+  } catch {}
+  return null;
+}
+
+function saveFirewallAppliedVersion(version: string) {
+  const fs = require('fs') as typeof import('fs');
+  const configDir = app.getPath('userData');
+  const file = path.join(configDir, 'firewall-applied-version');
+
+  try {
+    fs.mkdirSync(configDir, { recursive: true });
+    fs.writeFileSync(file, version, 'utf-8');
+  } catch (err) {
+    console.error('Failed to save firewall applied version:', err);
+  }
+}
+
 function getAlwaysOnTopSetting(): boolean {
   const fs = require('fs') as typeof import('fs');
   const configDir = app.getPath('userData');
@@ -409,6 +439,56 @@ let preGhostState: {
 
 const COLLAPSED_SIDEBAR_WIDTH = 380;
 
+// Probe localhost:port/health until we get a response or hit timeoutMs.
+// startServer() already awaits listen(), so this is mostly insurance against
+// edge cases on Windows (SmartScreen first-run scan, brief TCP-stack races).
+async function waitForServerReady(port: number, timeoutMs: number): Promise<boolean> {
+  const http = require('http') as typeof import('http');
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const ok = await new Promise<boolean>((resolve) => {
+      const req = http.get(`http://127.0.0.1:${port}/health`, { timeout: 500 }, (res) => {
+        res.resume();
+        resolve(true);
+      });
+      req.on('error', () => resolve(false));
+      req.on('timeout', () => { req.destroy(); resolve(false); });
+    });
+    if (ok) return true;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  return false;
+}
+
+// Reload the window's URL if the initial navigation fails. The first-launch-after-install
+// blank-screen bug shows up here: navigation completes with a failure code (commonly
+// ERR_CONNECTION_REFUSED or ERR_FAILED while Windows SmartScreen scans the freshly
+// installed asar) and Electron leaves the window blank with the menu intact.
+function attachLoadFailureRetry(window: BrowserWindow, url: string) {
+  let retries = 0;
+  const MAX_RETRIES = 5;
+  window.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+    // Sub-frame failures (e.g. an iframe in the page) shouldn't trigger a full reload.
+    if (!isMainFrame) return;
+    // -3 (ERR_ABORTED) fires on a normal user-triggered navigation and is not a real failure.
+    if (errorCode === -3) return;
+    if (retries >= MAX_RETRIES) {
+      console.error(`[Window] Load failed ${MAX_RETRIES}x for ${validatedURL} (code ${errorCode}: ${errorDescription}) — giving up`);
+      return;
+    }
+    retries++;
+    const delay = Math.min(250 * Math.pow(2, retries - 1), 2000);
+    console.warn(`[Window] Load failed (code ${errorCode}: ${errorDescription}) — retry ${retries}/${MAX_RETRIES} in ${delay}ms`);
+    setTimeout(() => {
+      if (!window.isDestroyed()) {
+        window.loadURL(url).catch((err) => {
+          console.warn(`[Window] Retry loadURL rejected: ${err.message ?? err}`);
+        });
+      }
+    }, delay);
+  });
+}
+
 async function createWindow() {
   const isClientMode = !isDev && getConnectionMode() === 'client';
 
@@ -435,21 +515,43 @@ async function createWindow() {
     saveGhostModeSetting(false);
   }
 
+  // Resolve the URL the renderer should load.
+  let targetUrl: string;
   if (isDev) {
-    mainWindow.loadURL(`http://localhost:${serverPort}`);
-    mainWindow.webContents.openDevTools();
+    targetUrl = `http://localhost:${serverPort}`;
   } else if (isClientMode) {
     const remoteUrl = getRemoteServerUrl();
     if (remoteUrl) {
-      const url = remoteUrl.startsWith('http') ? remoteUrl : `http://${remoteUrl}`;
-      mainWindow.loadURL(url);
+      targetUrl = remoteUrl.startsWith('http') ? remoteUrl : `http://${remoteUrl}`;
     } else {
-      // No remote URL configured — fall back to local server
       console.warn('Client mode enabled but no remote server URL configured, falling back to server mode');
-      mainWindow.loadURL(`http://localhost:${serverPort}`);
+      targetUrl = `http://localhost:${serverPort}`;
     }
   } else {
-    mainWindow.loadURL(`http://localhost:${serverPort}`);
+    targetUrl = `http://localhost:${serverPort}`;
+  }
+
+  // For local server mode, double-check the server is actually accepting connections
+  // before we navigate. startServer awaits listen() so this is normally instant, but
+  // on a fresh install Windows can briefly hold the first request while it scans
+  // the new exe — without this probe the renderer hits the navigation during that
+  // window and Electron leaves it blank.
+  const isLocalUrl = targetUrl.startsWith(`http://localhost:`) || targetUrl.startsWith(`http://127.0.0.1:`);
+  if (isLocalUrl && !isDev) {
+    const ready = await waitForServerReady(serverPort, 5000);
+    if (!ready) {
+      console.warn(`[Window] Server not responding on port ${serverPort} after 5s — loading anyway, did-fail-load retry will catch it`);
+    }
+  }
+
+  attachLoadFailureRetry(mainWindow, targetUrl);
+
+  mainWindow.loadURL(targetUrl).catch((err) => {
+    console.warn(`[Window] Initial loadURL rejected: ${err.message ?? err}`);
+  });
+
+  if (isDev) {
+    mainWindow.webContents.openDevTools();
   }
 
   mainWindow.on('closed', () => {
@@ -605,6 +707,17 @@ async function startApp() {
     // Auto-launch Ollama if smart naming is enabled (non-blocking)
     if (getSmartNamingSetting()) {
       ensureOllamaRunning().catch(() => {});
+    }
+
+    // Windows: on first launch or after a version change, offer to (re)apply
+    // firewall rules. Delayed so the renderer can paint first — a UAC prompt
+    // appearing over a blank window feels broken.
+    if (process.platform === 'win32' && app.isPackaged) {
+      setTimeout(() => {
+        maybeAutoApplyFirewallRules().catch((err) => {
+          console.warn('[Firewall] Auto-apply check failed:', err);
+        });
+      }, 2500);
     }
   } catch (error) {
     console.error('Failed to start Liquid Relay:', error);
@@ -1123,24 +1236,28 @@ ipcMain.handle('open-log-file', async () => {
   return shell.openPath(logFile);
 });
 
-// Windows Firewall fix IPC handler
-ipcMain.handle('fix-windows-firewall', async () => {
+// Apply Windows Firewall rules with UAC elevation. Adds:
+//   - inbound TCP on the configured server port (peer-to-peer file transfer)
+//   - inbound UDP 5353 (mDNS, so this machine can RECEIVE peer announcements)
+// Both rules use profile=any so a Windows network-classification flip from
+// Private → Public (which happens silently after Wi-Fi reconnects, DHCP renewal,
+// or sleep/wake on Windows 11) doesn't make peers stop working overnight.
+async function applyWindowsFirewallRules(): Promise<{ success: boolean; reason?: string }> {
   if (process.platform !== 'win32') {
     return { success: false, reason: 'Not Windows' };
   }
   try {
     const exePath = app.getPath('exe');
     const port = serverPort;
-    const ruleName = 'Liquid Relay';
+    const tcpRuleName = 'Liquid Relay';
+    const mdnsRuleName = 'Liquid Relay (mDNS)';
 
-    // Build a script that:
-    // 1. Removes any stale rules with our name (idempotent, ignores errors)
-    // 2. Removes old "electron" rules that may be blocking
-    // 3. Adds fresh inbound TCP allow rule for our exe
     const script = [
-      `netsh advfirewall firewall delete rule name="${ruleName}" >nul 2>&1`,
+      `netsh advfirewall firewall delete rule name="${tcpRuleName}" >nul 2>&1`,
+      `netsh advfirewall firewall delete rule name="${mdnsRuleName}" >nul 2>&1`,
       `netsh advfirewall firewall delete rule name="electron" program="${exePath}" >nul 2>&1`,
-      `netsh advfirewall firewall add rule name="${ruleName}" dir=in action=allow program="${exePath}" protocol=TCP localport=${port} enable=yes profile=private,domain`,
+      `netsh advfirewall firewall add rule name="${tcpRuleName}" dir=in action=allow program="${exePath}" protocol=TCP localport=${port} enable=yes profile=any`,
+      `netsh advfirewall firewall add rule name="${mdnsRuleName}" dir=in action=allow program="${exePath}" protocol=UDP localport=5353 enable=yes profile=any`,
     ].join(' & ');
 
     // Use PowerShell Start-Process -Verb RunAs to trigger UAC elevation
@@ -1150,7 +1267,7 @@ ipcMain.handle('fix-windows-firewall', async () => {
     return new Promise((resolve) => {
       exec(`powershell -Command "${psCommand.replace(/"/g, '\\"')}"`, { timeout: 30000 }, (err) => {
         if (err) {
-          console.error('[Firewall] Fix failed:', err.message);
+          console.error('[Firewall] Apply failed:', err.message);
           if (err.message.includes('canceled') || err.message.includes('cancelled') || (err as any).code === 1) {
             resolve({ success: false, reason: 'UAC prompt was cancelled' });
           } else {
@@ -1163,9 +1280,123 @@ ipcMain.handle('fix-windows-firewall', async () => {
       });
     });
   } catch (err: any) {
-    console.error('[Firewall] Fix error:', err);
+    console.error('[Firewall] Apply error:', err);
     return { success: false, reason: err.message };
   }
+}
+
+// Probes our own server on every LAN interface to see whether inbound
+// connections are actually getting through the firewall. Used as a gate
+// before showing a UAC prompt: if rules are already working (e.g. installed
+// by the NSIS installer or by a prior runtime apply), there's no reason to
+// bother the user.
+async function selfProbeFirewallReachable(): Promise<{ ok: boolean; tested: number }> {
+  const http = require('http') as typeof import('http');
+  const nets = os.networkInterfaces();
+  const lanIPs: string[] = [];
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name] || []) {
+      if (net.family === 'IPv4' && !net.internal) {
+        lanIPs.push(net.address);
+      }
+    }
+  }
+  // No LAN interfaces — can't determine firewall state, treat as "ok" so we
+  // don't nag the user. Next launch on a real network will re-evaluate.
+  if (lanIPs.length === 0) return { ok: true, tested: 0 };
+
+  const results = await Promise.all(
+    lanIPs.map(
+      (ip) =>
+        new Promise<boolean>((resolve) => {
+          let done = false;
+          const finish = (val: boolean) => {
+            if (done) return;
+            done = true;
+            req.destroy();
+            resolve(val);
+          };
+          const req = http.get(`http://${ip}:${serverPort}/health`, { timeout: 2500 }, (res) => {
+            res.resume();
+            finish(true);
+          });
+          req.on('timeout', () => finish(false));
+          req.on('error', () => finish(false));
+        })
+    )
+  );
+  return { ok: results.every(Boolean), tested: lanIPs.length };
+}
+
+// On Windows, when the app version differs from the version we last applied
+// firewall rules for, check whether rules are already working — and only
+// prompt the user if they aren't. This means:
+//   - Fresh install (NSIS added rules) → probe passes → silent stamp, no UAC
+//   - Upgrade where new exe path needs new rules → probe may fail → prompt
+//   - Dev / sideload installs where NSIS didn't run → probe fails → prompt
+//   - Rules deleted manually or somehow lost → probe fails → prompt
+async function maybeAutoApplyFirewallRules() {
+  if (process.platform !== 'win32') return;
+  if (!app.isPackaged) return;
+
+  const currentVersion = app.getVersion();
+  const appliedVersion = getFirewallAppliedVersion();
+  if (appliedVersion === currentVersion) return;
+
+  const probe = await selfProbeFirewallReachable();
+  if (probe.ok) {
+    console.log(`[Firewall] Self-probe passed (${probe.tested} interface(s)) — rules already working, stamping ${currentVersion}`);
+    saveFirewallAppliedVersion(currentVersion);
+    return;
+  }
+
+  console.log(`[Firewall] Self-probe failed (${probe.tested} interface(s)) — version (${appliedVersion ?? 'none'} → ${currentVersion}), prompting to apply rules`);
+
+  const isFirstInstall = appliedVersion === null;
+  const message = isFirstInstall
+    ? 'Allow Liquid Relay through Windows Firewall?'
+    : `Liquid Relay was updated to ${currentVersion}. Refresh Windows Firewall rules?`;
+  const detail = isFirstInstall
+    ? 'Other devices on your network need permission to connect to this PC. A "User Account Control" prompt will appear asking for administrator permission.'
+    : 'A "User Account Control" prompt will appear asking for administrator permission. You can skip this and apply later from Settings.';
+
+  const dialogOpts: Electron.MessageBoxOptions = {
+    type: 'question',
+    title: 'Liquid Relay — Network Access',
+    message,
+    detail,
+    buttons: ['Allow', 'Skip'],
+    defaultId: 0,
+    cancelId: 1,
+  };
+
+  const result = mainWindow && !mainWindow.isDestroyed()
+    ? await dialog.showMessageBox(mainWindow, dialogOpts)
+    : await dialog.showMessageBox(dialogOpts);
+
+  if (result.response !== 0) {
+    console.log('[Firewall] User skipped firewall auto-apply');
+    // Save the version anyway so we don't keep nagging on every launch.
+    // The user can re-trigger from Settings → Fix Windows Firewall.
+    saveFirewallAppliedVersion(currentVersion);
+    return;
+  }
+
+  const applyResult = await applyWindowsFirewallRules();
+  if (applyResult.success) {
+    saveFirewallAppliedVersion(currentVersion);
+  } else {
+    console.warn(`[Firewall] Auto-apply failed: ${applyResult.reason}`);
+  }
+}
+
+// Windows Firewall fix IPC handler
+ipcMain.handle('fix-windows-firewall', async () => {
+  const result = await applyWindowsFirewallRules();
+  if (result.success) {
+    saveFirewallAppliedVersion(app.getVersion());
+  }
+  return result;
 });
 
 // Check Firewall — self-probe from each LAN IP

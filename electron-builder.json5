@@ -53,7 +53,13 @@
     "perMachine": true,
     "deleteAppDataOnUninstall": true,
     "createDesktopShortcut": true,
-    "createStartMenuShortcut": true
+    "createStartMenuShortcut": true,
+    // Install-time firewall registration — adds rules under the elevation
+    // Windows already requested for the installer. Means the user never sees
+    // a separate UAC prompt at runtime, even on locked-down corporate PCs
+    // where the IT admin enters credentials once at install.
+    // Path is resolved relative to buildResourcesDir (default: ./build/).
+    "include": "installer.nsh"
   },
   "linux": {
     "target": ["AppImage"],
