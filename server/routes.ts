@@ -208,92 +208,20 @@ export async function registerRoutes(app: Express, options?: RouteOptions): Prom
             }
             return;
           }
-          if (isPeerConnection && (message.type === 'peer-pong' || message.type === 'file-received-ack' || message.type === 'peer-handshake-ack')) {
+          if (isPeerConnection && (
+            message.type === 'peer-pong' ||
+            message.type === 'file-received-ack' ||
+            message.type === 'peer-handshake-ack' ||
+            message.type === 'file-transfer' ||
+            message.type === 'chunk-start' ||
+            message.type === 'chunk-data' ||
+            message.type === 'chunk-end' ||
+            message.type === 'chunk-ack' ||
+            message.type === 'chunk-error'
+          )) {
             // Handled by PeerConnectionManager via its own message listener
-            return;
-          }
-
-          // ─── P2P File Transfer from remote peer ───
-          if (isPeerConnection && message.type === 'file-transfer') {
-            const fileData = message.data;
-            console.log(`P2P file received from ${fileData.fromName}: ${fileData.originalName}`);
-
-            let filename = fileData.filename || `${Date.now()}_${fileData.originalName}`;
-
-            // Save file to disk (including clipboard items, needed for smart naming)
-            if (fileData.content) {
-              try {
-                const uploadsDir = process.env.SNAPSEND_UPLOADS_DIR || path.join(process.cwd(), 'uploads');
-                if (!fs.existsSync(uploadsDir)) {
-                  fs.mkdirSync(uploadsDir, { recursive: true });
-                }
-
-                const filePath = path.join(uploadsDir, filename);
-                if (fileData.content.startsWith('data:')) {
-                  const base64Data = fileData.content.split(',')[1];
-                  const buffer = Buffer.from(base64Data, 'base64');
-                  fs.writeFileSync(filePath, buffer);
-                } else if (fileData.mimeType?.startsWith('text/')) {
-                  fs.writeFileSync(filePath, fileData.content, 'utf8');
-                } else {
-                  fs.writeFileSync(filePath, fileData.content);
-                }
-              } catch (error) {
-                console.error('Error saving P2P file to disk:', error);
-              }
-            }
-
-            // Save to DB (omit large content for non-clipboard files — it's already on disk)
-            const savedFile = await storage.createFile({
-              filename,
-              originalName: fileData.originalName,
-              mimeType: fileData.mimeType,
-              size: fileData.size,
-              content: fileData.isClipboard ? fileData.content : null,
-              fromDeviceId: null,
-              toDeviceId: null,
-              connectionId: null,
-              isClipboard: fileData.isClipboard ? 1 : 0,
-              fromDeviceName: fileData.fromName || 'Unknown',
-              toDeviceName: 'local',
-            });
-            notifyFileSaved(savedFile);
-
-            // Forward to local renderer
-            connectedClients.forEach((client) => {
-              if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({
-                  type: 'file-received',
-                  data: { file: savedFile, fromDevice: fileData.fromName || 'Unknown' }
-                }));
-
-                if (fileData.isClipboard) {
-                  client.send(JSON.stringify({
-                    type: 'clipboard-sync',
-                    data: { content: fileData.content, fromDevice: fileData.fromName, file: savedFile }
-                  }));
-                }
-              }
-            });
-
-            // Notify Electron renderer via IPC callback (connectedClients may be empty in P2P mode)
-            if (options?.onP2PFileReceived) {
-              options.onP2PFileReceived({
-                file: savedFile,
-                fromDevice: fileData.fromName || 'Unknown',
-                isClipboard: !!fileData.isClipboard,
-                clipboardContent: fileData.isClipboard ? fileData.content : undefined,
-              });
-            }
-
-            // Send ack back to peer
-            if (ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({
-                type: 'file-received-ack',
-                data: { filename }
-              }));
-            }
-
+            // (attached in handleIncomingHandshake). Processing here would
+            // create duplicate file records on the receiver.
             return;
           }
 
